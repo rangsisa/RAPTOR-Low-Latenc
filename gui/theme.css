@@ -1,0 +1,24 @@
+:root{
+  --raptor-bg:#edf1f4;
+  --raptor-surface:#ffffff;
+  --raptor-surface-soft:#f7f9fb;
+  --raptor-border:#aeb9c4;
+  --raptor-border-soft:#c8d0d7;
+  --raptor-text:#18202a;
+  --raptor-muted:#66727d;
+  --raptor-active:#e86f17;
+  --raptor-active-hover:#d9610e;
+  --raptor-active-soft:#fff0e3;
+  --raptor-active-border:#d96510;
+  --raptor-radius:7px;
+}
+
+/* RAPTOR global interaction language: anything selected/checked/active is orange. */
+input[type="checkbox"],input[type="radio"]{accent-color:var(--raptor-active)}
+button.is-active,
+[role="button"].is-active,
+[aria-pressed="true"],
+[aria-selected="true"],
+[aria-current="page"]{
+  border-color:var(--raptor-active-border);
+}
