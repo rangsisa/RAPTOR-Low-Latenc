@@ -11,6 +11,8 @@ const duplicateButton=document.getElementById('pipelineDuplicate');
 const deleteButton=document.getElementById('pipelineDelete');
 const doneButton=document.getElementById('pipelineDone');
 
+deleteButton.textContent='Delete Pipeline';
+
 let pipelineSequence=0;
 let lineIdSequence=0;
 let editingCard=null;
@@ -66,9 +68,10 @@ function createPipelineCard(name=defaultLineName()){
   title.textContent=name;
 
   const load=document.createElement('button');
-  load.className='pipeline-card-action';
+  load.className='pipeline-card-action pipeline-load';
   load.type='button';
   load.textContent='Load';
+  load.setAttribute('aria-pressed','false');
   load.addEventListener('click',()=>window.RaptorPipeline?.load?.(card));
 
   const edit=document.createElement('button');
