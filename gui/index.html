@@ -6,25 +6,20 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css" />
   <link rel="stylesheet" href="./workspace.css" />
+  <link rel="stylesheet" href="./matching/matching.css" />
 </head>
 <body>
   <main class="workspace-shell">
     <header class="topbar">
       <div class="brand" aria-label="RAPTOR FIR home">
         <span class="brand-mark">R</span>
-        <div class="brand-copy">
-          <strong>RAPTOR</strong>
-          <span>FIR WORKSPACE</span>
-        </div>
+        <div class="brand-copy"><strong>RAPTOR</strong><span>FIR WORKSPACE</span></div>
       </div>
 
       <nav class="primary-nav" aria-label="RAPTOR workspace">
         <button class="nav-item" type="button" data-page="welcome">Welcome</button>
         <button class="nav-item" type="button" data-page="target-editor">Target Editor</button>
-        <button class="nav-item nav-item--pipeline is-active" type="button" data-page="pipeline" aria-current="page">
-          <span class="pipeline-dot"></span>
-          Pipeline
-        </button>
+        <button class="nav-item nav-item--pipeline is-active" type="button" data-page="pipeline" aria-current="page"><span class="pipeline-dot"></span>Pipeline</button>
         <button class="nav-item" type="button" data-page="matching">Matching</button>
         <button class="nav-item" type="button" data-page="store">Store</button>
       </nav>
@@ -32,8 +27,36 @@
       <div class="topbar-end" aria-hidden="true"></div>
     </header>
 
-    <section class="workspace-canvas" id="workspaceCanvas" data-page="pipeline" aria-live="polite"></section>
+    <section class="workspace-canvas" id="workspaceCanvas" data-page="pipeline" aria-live="polite">
+      <section class="page-view is-page-active" data-view="pipeline"></section>
+      <section class="page-view" data-view="welcome" hidden></section>
+      <section class="page-view" data-view="target-editor" hidden></section>
+
+      <section class="page-view page-view--matching" data-view="matching" hidden>
+        <section class="matching-page">
+          <main class="matching-app"><section class="matching-left">
+            <header class="matching-toolbar"><div class="matching-tt">GRAPH DISPLAY</div><div class="matching-sep"></div><div class="matching-checks">
+              <label class="matching-check"><input id="tp" type="checkbox" checked>Show phase</label>
+              <label class="matching-check"><input id="tm" type="checkbox" checked>Show magnitude</label>
+              <label class="matching-check"><input id="tw" type="checkbox" checked>Phase wrap lines</label>
+              <label class="matching-check"><input id="ts" type="checkbox" checked>Sync cursor</label>
+            </div>
+            <div class="matching-actions"><span class="matching-hint">Wheel: zoom · Shift+drag: pan · Alt+drag: band · Double-click: fit</span><button class="matching-btn" id="cb">CLEAR BAND</button><button class="matching-btn" id="fit">FIT 20–20k</button></div></header>
+
+            <section class="matching-graphs">
+              <article class="matching-card"><header class="matching-head"><div class="matching-title"><span class="matching-dot"></span>Phase</div><div class="matching-readout" id="pr">— Hz · —°</div><span class="matching-unit">deg</span></header><div class="matching-plot" id="pw"><canvas id="phase"></canvas><div class="matching-badge" id="pb"></div><div class="matching-pill" id="pp"></div></div></article>
+              <article class="matching-card"><header class="matching-head"><div class="matching-title"><span class="matching-dot"></span>Magnitude</div><div class="matching-readout" id="mr">— Hz · — dB</div><span class="matching-unit">dB</span></header><div class="matching-plot" id="mw"><canvas id="mag"></canvas><div class="matching-badge" id="mb"></div><div class="matching-pill" id="mp"></div></div></article>
+            </section>
+          </section><aside class="matching-tools"><header class="matching-tools-head">MATCHING TOOLS</header><div class="matching-tools-body"></div></aside></main>
+        </section>
+      </section>
+
+      <section class="page-view" data-view="store" hidden></section>
+    </section>
   </main>
+
   <script src="./workspace.js"></script>
+  <script src="./matching/matching-dom.js"></script>
+  <script src="./matching/matching.js"></script>
 </body>
 </html>
