@@ -1,12 +1,14 @@
-.measurement-node{max-width:min(540px,calc(100vw - 96px));overflow:visible}
-.measurement-node-head{cursor:grab;touch-action:none;user-select:none}
+.measurement-node{max-width:min(540px,calc(100vw - 96px));max-height:none;overflow:visible;border-radius:8px;background:#fff;box-shadow:0 4px 14px rgba(24,32,42,.10)}
+.measurement-node-head{cursor:grab;touch-action:none;user-select:none;border-radius:7px 7px 0 0}
 .measurement-node.is-dragging{z-index:12;box-shadow:0 8px 24px rgba(24,32,42,.16)}
 .measurement-node.is-dragging .measurement-node-head{cursor:grabbing}
 .measurement-import{cursor:pointer;touch-action:manipulation;user-select:none}
-.measurement-list{overflow-x:hidden!important;overflow-y:auto!important}
-.measurement-file{width:max-content;max-width:none;grid-template-columns:auto auto minmax(100px,max-content) auto}
+.measurement-list{overflow:visible!important}
+.measurement-file{width:max-content;max-width:none;grid-template-columns:auto auto minmax(100px,max-content) auto;padding-right:8px}
 .measurement-file-info{max-width:420px}
 .measurement-file-name,.measurement-file-meta{max-width:420px}
+.measurement-node-foot{border-radius:0 0 7px 7px}
+.measurement-output{right:-22px}
 .measurement-preview{border-color:#75aa87;background:#edf9f1;box-shadow:0 12px 30px rgba(42,92,60,.22),0 0 0 2px rgba(117,170,135,.18)}
 .measurement-preview-head{border-bottom-color:#9bc8aa;background:#dff3e6}
 .measurement-preview-head strong{color:#244d31}
