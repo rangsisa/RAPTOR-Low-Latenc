@@ -21,3 +21,15 @@
 .measurement-preview-meta dt{color:#64806c}
 .measurement-preview-meta dd{color:#2e5639}
 .measurement-preview-button.is-open{border-color:#75aa87;background:#e3f5e9;box-shadow:0 0 0 2px rgba(117,170,135,.16)}
+
+@media(max-width:700px){
+  .measurement-node{width:max-content;min-width:214px;max-width:calc(100vw - 72px)}
+  .measurement-list{width:100%;max-width:100%;overflow:visible!important}
+  .measurement-file{box-sizing:border-box;width:100%;min-width:0;max-width:100%;grid-template-columns:auto auto minmax(0,1fr) auto;padding-right:8px}
+  .measurement-file-check{grid-column:1}
+  .measurement-color{grid-column:2}
+  .measurement-file-info{grid-column:3;min-width:0;width:100%;max-width:none;overflow:hidden}
+  .measurement-preview-button{grid-column:4}
+  .measurement-file-name,.measurement-file-meta{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .measurement-output{right:-22px}
+}
