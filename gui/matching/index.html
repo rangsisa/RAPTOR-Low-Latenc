@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RAPTOR FIR — Matching v0.6</title>
+<link rel="stylesheet" href="./matching.css" />
+</head>
+<body>
+<main class="app"><section class="left">
+<header class="toolbar"><div class="tt">GRAPH DISPLAY</div><div class="sep"></div><div class="checks">
+<label class="check"><input id="tp" type="checkbox" checked>Show phase</label><label class="check"><input id="tm" type="checkbox" checked>Show magnitude</label><label class="check"><input id="tw" type="checkbox" checked>Phase wrap lines</label><label class="check"><input id="ts" type="checkbox" checked>Sync cursor</label></div>
+<div class="actions"><span class="hint">Wheel: zoom · Shift+drag: pan · Alt+drag: band · Double-click: fit</span><button class="btn" id="cb">CLEAR BAND</button><button class="btn" id="fit">FIT 20–20k</button></div></header>
+<section class="graphs">
+<article class="card"><header class="head"><div class="title"><span class="dot"></span>Phase</div><div class="readout" id="pr">— Hz · —°</div><span class="unit">deg</span></header><div class="plot" id="pw"><canvas id="phase"></canvas><div class="badge" id="pb"></div><div class="pill" id="pp"></div></div></article>
+<article class="card"><header class="head"><div class="title"><span class="dot"></span>Magnitude</div><div class="readout" id="mr">— Hz · — dB</div><span class="unit">dB</span></header><div class="plot" id="mw"><canvas id="mag"></canvas><div class="badge" id="mb"></div><div class="pill" id="mp"></div></div></article>
+</section></section><aside class="tools"><header class="tools-head">MATCHING TOOLS</header><div class="tools-body"></div></aside></main>
+<script src="./matching.js"></script>
+</body></html>
