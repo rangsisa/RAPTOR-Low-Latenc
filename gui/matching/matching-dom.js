@@ -1,0 +1,14 @@
+window.phase=document.getElementById('phase');
+window.mag=document.getElementById('mag');
+window.pb=document.getElementById('pb');
+window.pp=document.getElementById('pp');
+window.pr=document.getElementById('pr');
+window.mb=document.getElementById('mb');
+window.mp=document.getElementById('mp');
+window.mr=document.getElementById('mr');
+window.tp=document.getElementById('tp');
+window.tm=document.getElementById('tm');
+window.tw=document.getElementById('tw');
+window.ts=document.getElementById('ts');
+window.fit=document.getElementById('fit');
+window.cb=document.getElementById('cb');
