@@ -28,7 +28,16 @@
     </header>
 
     <section class="workspace-canvas" id="workspaceCanvas" data-page="pipeline" aria-live="polite">
-      <section class="page-view is-page-active" data-view="pipeline"></section>
+      <section class="page-view page-view--pipeline is-page-active" data-view="pipeline">
+        <div class="pipeline-toolbar" role="toolbar" aria-label="Pipeline tools">
+          <span class="pipeline-toolbar-title">PIPELINE</span>
+          <button class="pipeline-add" id="addPipeline" type="button"><span class="pipeline-add-symbol" aria-hidden="true">+</span>Add Pipeline</button>
+        </div>
+        <div class="pipeline-scroll">
+          <div class="pipeline-row" id="pipelineRow" aria-live="polite"></div>
+        </div>
+      </section>
+
       <section class="page-view" data-view="welcome" hidden></section>
       <section class="page-view" data-view="target-editor" hidden></section>
 
