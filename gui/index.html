@@ -106,6 +106,25 @@
     <button class="file-color-choice" type="button" data-color="#5b6770" style="--swatch:#5b6770" aria-label="Slate"></button>
   </div>
 
+  <aside class="measurement-preview" id="measurementPreview" hidden aria-label="Measurement preview">
+    <header class="measurement-preview-head">
+      <span class="measurement-preview-file-dot" id="measurementPreviewDot"></span>
+      <strong id="measurementPreviewTitle">Measurement</strong>
+      <button class="measurement-preview-close" id="measurementPreviewClose" type="button" aria-label="Close preview">×</button>
+    </header>
+    <div class="measurement-preview-graph">
+      <canvas id="measurementPreviewCanvas"></canvas>
+      <div class="measurement-preview-legend"><span class="preview-phase-key"></span>Phase <span class="preview-mag-key"></span>Magnitude</div>
+    </div>
+    <dl class="measurement-preview-meta">
+      <div><dt>Sample rate</dt><dd id="measurementPreviewRate">—</dd></div>
+      <div><dt>FFT</dt><dd id="measurementPreviewFft">—</dd></div>
+      <div><dt>Points</dt><dd id="measurementPreviewPoints">—</dd></div>
+      <div><dt>Bin</dt><dd id="measurementPreviewBin">—</dd></div>
+      <div class="measurement-preview-wide"><dt>Range</dt><dd id="measurementPreviewRange">—</dd></div>
+    </dl>
+  </aside>
+
   <div class="pipeline-modal-backdrop" id="pipelineEditModal" hidden>
     <section class="pipeline-modal" role="dialog" aria-modal="true" aria-labelledby="pipelineEditTitle">
       <header class="pipeline-modal-head">
