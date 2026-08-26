@@ -6,6 +6,7 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css" />
   <link rel="stylesheet" href="./workspace.css" />
+  <link rel="stylesheet" href="./pipeline.css" />
   <link rel="stylesheet" href="./matching/matching.css" />
 </head>
 <body>
@@ -33,8 +34,38 @@
           <span class="pipeline-toolbar-title">PIPELINE</span>
           <button class="pipeline-add" id="addPipeline" type="button"><span class="pipeline-add-symbol" aria-hidden="true">+</span>Add Pipeline</button>
         </div>
+
         <div class="pipeline-scroll">
           <div class="pipeline-row" id="pipelineRow" aria-live="polite"></div>
+        </div>
+
+        <div class="pipeline-node-canvas" id="pipelineNodeCanvas" aria-label="RAPTOR Line node workspace">
+          <div class="pipeline-node-empty" id="pipelineNodeEmpty">Load a RAPTOR Line to open its preset nodes.</div>
+          <svg class="pipeline-wire-layer" aria-hidden="true"><path class="pipeline-wire-preview" id="pipelineWirePreview"></path></svg>
+
+          <section class="measurement-node" id="measurementNode" hidden>
+            <header class="measurement-node-head">
+              <div class="measurement-node-title">
+                <strong>Measurement</strong>
+                <span id="measurementLineLabel">RAPTOR Line</span>
+              </div>
+              <label class="measurement-import">
+                + Import Measurement
+                <input id="measurementFileInput" type="file" multiple accept=".txt,.frd,.csv,.dat,text/plain,text/csv" />
+              </label>
+            </header>
+
+            <div class="measurement-summary" id="measurementSummary"><strong>0</strong> measurements</div>
+            <div class="measurement-list" id="measurementList">
+              <div class="measurement-empty">No measurement files imported</div>
+            </div>
+
+            <footer class="measurement-node-foot">
+              <button class="measurement-select" id="measurementSelect" type="button" aria-pressed="false">Select</button>
+              <span class="measurement-count" id="measurementCount">0 files</span>
+              <button class="measurement-delete" id="measurementDelete" type="button" hidden>Delete</button>
+            </footer>
+          </section>
         </div>
       </section>
 
@@ -64,6 +95,17 @@
     </section>
   </main>
 
+  <div class="file-color-menu" id="fileColorMenu" hidden aria-label="Measurement file color">
+    <button class="file-color-choice" type="button" data-color="#2f6f9f" style="--swatch:#2f6f9f" aria-label="Blue"></button>
+    <button class="file-color-choice" type="button" data-color="#e86f17" style="--swatch:#e86f17" aria-label="Orange"></button>
+    <button class="file-color-choice" type="button" data-color="#2e8b57" style="--swatch:#2e8b57" aria-label="Green"></button>
+    <button class="file-color-choice" type="button" data-color="#8b5cf6" style="--swatch:#8b5cf6" aria-label="Purple"></button>
+    <button class="file-color-choice" type="button" data-color="#d14b4b" style="--swatch:#d14b4b" aria-label="Red"></button>
+    <button class="file-color-choice" type="button" data-color="#0f8b8d" style="--swatch:#0f8b8d" aria-label="Teal"></button>
+    <button class="file-color-choice" type="button" data-color="#b7791f" style="--swatch:#b7791f" aria-label="Amber"></button>
+    <button class="file-color-choice" type="button" data-color="#5b6770" style="--swatch:#5b6770" aria-label="Slate"></button>
+  </div>
+
   <div class="pipeline-modal-backdrop" id="pipelineEditModal" hidden>
     <section class="pipeline-modal" role="dialog" aria-modal="true" aria-labelledby="pipelineEditTitle">
       <header class="pipeline-modal-head">
@@ -83,6 +125,7 @@
   </div>
 
   <script src="./workspace.js"></script>
+  <script src="./pipeline.js"></script>
   <script src="./matching/matching-dom.js"></script>
   <script src="./matching/matching.js"></script>
 </body>
