@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RAPTOR FIR</title>
+  <link rel="stylesheet" href="./theme.css" />
+  <link rel="stylesheet" href="./workspace.css" />
+</head>
+<body>
+  <main class="workspace-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="RAPTOR FIR home">
+        <span class="brand-mark">R</span>
+        <div class="brand-copy">
+          <strong>RAPTOR</strong>
+          <span>FIR WORKSPACE</span>
+        </div>
+      </div>
+
+      <nav class="primary-nav" aria-label="RAPTOR workspace">
+        <button class="nav-item" type="button" data-page="welcome">Welcome</button>
+        <button class="nav-item" type="button" data-page="target-editor">Target Editor</button>
+        <button class="nav-item nav-item--pipeline is-active" type="button" data-page="pipeline" aria-current="page">
+          <span class="pipeline-dot"></span>
+          Pipeline
+        </button>
+        <button class="nav-item" type="button" data-page="matching">Matching</button>
+        <button class="nav-item" type="button" data-page="store">Store</button>
+      </nav>
+
+      <div class="topbar-end" aria-hidden="true"></div>
+    </header>
+
+    <section class="workspace-canvas" id="workspaceCanvas" data-page="pipeline" aria-live="polite"></section>
+  </main>
+  <script src="./workspace.js"></script>
+</body>
+</html>
