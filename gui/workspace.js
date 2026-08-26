@@ -3,7 +3,17 @@ const canvas=document.getElementById('workspaceCanvas');
 const pageViews=[...document.querySelectorAll('.page-view')];
 const addPipelineButton=document.getElementById('addPipeline');
 const pipelineRow=document.getElementById('pipelineRow');
-let pipelineCount=0;
+
+const editModal=document.getElementById('pipelineEditModal');
+const editClose=document.getElementById('pipelineEditClose');
+const nameInput=document.getElementById('pipelineNameInput');
+const duplicateButton=document.getElementById('pipelineDuplicate');
+const deleteButton=document.getElementById('pipelineDelete');
+const doneButton=document.getElementById('pipelineDone');
+
+let pipelineSequence=0;
+let lineIdSequence=0;
+let editingCard=null;
 
 function activate(page){
   if(canvas.dataset.page===page) return;
@@ -24,13 +34,31 @@ function activate(page){
   canvas.dataset.page=page;
 }
 
-function addPipeline(){
-  const index=pipelineCount++;
-  const name=index===0?'RAPTOR Line':`RAPTOR Line ${index}`;
+function defaultLineName(){
+  const index=pipelineSequence++;
+  return index===0?'RAPTOR Line':`RAPTOR Line ${index}`;
+}
 
+function allLineNames(exceptCard=null){
+  return [...pipelineRow.querySelectorAll('.pipeline-card')]
+    .filter(card=>card!==exceptCard)
+    .map(card=>card.dataset.lineName || '');
+}
+
+function uniqueCopyName(sourceName){
+  const names=new Set(allLineNames());
+  const base=`${sourceName} Copy`;
+  if(!names.has(base)) return base;
+  let n=2;
+  while(names.has(`${base} ${n}`)) n++;
+  return `${base} ${n}`;
+}
+
+function createPipelineCard(name=defaultLineName()){
   const card=document.createElement('article');
   card.className='pipeline-card';
-  card.dataset.pipelineIndex=String(index);
+  card.dataset.lineId=String(lineIdSequence++);
+  card.dataset.lineName=name;
 
   const title=document.createElement('div');
   title.className='pipeline-card-name';
@@ -45,14 +73,88 @@ function addPipeline(){
   edit.className='pipeline-card-action';
   edit.type='button';
   edit.textContent='Edit';
+  edit.addEventListener('click',()=>openEdit(card));
 
   card.append(title,load,edit);
   pipelineRow.appendChild(card);
+  return card;
+}
+
+function addPipeline(){
+  const card=createPipelineCard();
   card.scrollIntoView({behavior:'auto',block:'nearest',inline:'end'});
+}
+
+function openEdit(card){
+  if(editingCard && editingCard!==card) editingCard.classList.remove('is-editing');
+  editingCard=card;
+  editingCard.classList.add('is-editing');
+  nameInput.value=card.dataset.lineName || '';
+  editModal.hidden=false;
+  requestAnimationFrame(()=>{
+    nameInput.focus({preventScroll:true});
+    nameInput.select();
+  });
+}
+
+function closeEdit(){
+  if(editingCard) editingCard.classList.remove('is-editing');
+  editingCard=null;
+  editModal.hidden=true;
+}
+
+function applyRename(){
+  if(!editingCard) return;
+  const next=nameInput.value.trim();
+  if(!next){
+    nameInput.value=editingCard.dataset.lineName || '';
+    return;
+  }
+  editingCard.dataset.lineName=next;
+  editingCard.querySelector('.pipeline-card-name').textContent=next;
+}
+
+function duplicateCurrent(){
+  if(!editingCard) return;
+  applyRename();
+  const sourceName=editingCard.dataset.lineName || 'RAPTOR Line';
+  const clone=createPipelineCard(uniqueCopyName(sourceName));
+  clone.scrollIntoView({behavior:'auto',block:'nearest',inline:'end'});
+}
+
+function deleteCurrent(){
+  if(!editingCard) return;
+  const card=editingCard;
+  closeEdit();
+  card.remove();
 }
 
 navItems.forEach(button=>button.addEventListener('click',()=>activate(button.dataset.page)));
 addPipelineButton.addEventListener('click',addPipeline);
+editClose.addEventListener('click',closeEdit);
+doneButton.addEventListener('click',()=>{applyRename();closeEdit()});
+duplicateButton.addEventListener('click',duplicateCurrent);
+deleteButton.addEventListener('click',deleteCurrent);
+
+nameInput.addEventListener('keydown',event=>{
+  if(event.key==='Enter'){
+    event.preventDefault();
+    applyRename();
+    closeEdit();
+  }
+  if(event.key==='Escape'){
+    event.preventDefault();
+    closeEdit();
+  }
+});
+
+editModal.addEventListener('pointerdown',event=>{
+  if(event.target===editModal) closeEdit();
+});
+
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape' && !editModal.hidden) closeEdit();
+});
 
 // Pipeline is the initial workspace page. No transition is used between views.
 canvas.dataset.page='';
