@@ -14,6 +14,13 @@ const deleteButton=document.getElementById('measurementDelete');
 const countLabel=document.getElementById('measurementCount');
 const colorMenu=document.getElementById('fileColorMenu');
 const wirePath=document.getElementById('pipelineWirePreview');
+const wireLayer=wirePath.closest('svg');
+const wireEnd=document.createElementNS('http://www.w3.org/2000/svg','circle');
+wireEnd.setAttribute('class','pipeline-wire-end');
+wireEnd.setAttribute('r','4');
+wireEnd.hidden=true;
+wireLayer.appendChild(wireEnd);
+const inputRegistry=new Map();
 const preview=document.getElementById('measurementPreview');
 const previewCanvas=document.getElementById('measurementPreviewCanvas');
 const previewTitle=document.getElementById('measurementPreviewTitle');
@@ -77,8 +84,10 @@ function clearLoaded(){
   selectionMode=false;
   selectedIds.clear();
   measurementNode.hidden=true;
+  measurementNode.classList.remove('is-wiring');
   emptyState.hidden=false;
   wirePath.removeAttribute('d');
+  wireEnd.hidden=true;
   closeColorMenu();
   closePreview();
 }
@@ -89,6 +98,15 @@ function onRename(card){
 
 function onDelete(card){
   if(card===activeCard) clearLoaded();
+}
+
+function registerInput(id,element,options={}){
+  if(!id||!element) return;
+  inputRegistry.set(id,{id,element,...options});
+}
+
+function unregisterInput(id){
+  inputRegistry.delete(id);
 }
 
 function hexTint(hex,alpha=.09){
@@ -449,12 +467,19 @@ function startWire(event,entry,handle){
   if(handle.disabled) return;
   event.preventDefault();
   closePreview();
+  closeColorMenu();
   const pointerId=event.pointerId;
+  const row=handle.closest('.measurement-file');
   const canvasRect=nodeCanvas.getBoundingClientRect();
   const handleRect=handle.getBoundingClientRect();
   const startX=handleRect.left+handleRect.width/2-canvasRect.left+nodeCanvas.scrollLeft;
   const startY=handleRect.top+handleRect.height/2-canvasRect.top+nodeCanvas.scrollTop;
   wirePath.setAttribute('stroke',entry.color);
+  wireEnd.setAttribute('fill',entry.color);
+  measurementNode.classList.add('is-wiring');
+  row?.classList.add('is-wiring');
+  handle.classList.add('is-wiring');
+  wireEnd.hidden=false;
   try{handle.setPointerCapture(pointerId)}catch{}
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
@@ -462,10 +487,16 @@ function startWire(event,entry,handle){
     const endY=moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop;
     const bend=Math.max(48,Math.abs(endX-startX)*.38);
     wirePath.setAttribute('d',`M ${startX} ${startY} C ${startX+bend} ${startY}, ${endX-bend} ${endY}, ${endX} ${endY}`);
+    wireEnd.setAttribute('cx',endX);
+    wireEnd.setAttribute('cy',endY);
   };
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
     wirePath.removeAttribute('d');
+    wireEnd.hidden=true;
+    measurementNode.classList.remove('is-wiring');
+    row?.classList.remove('is-wiring');
+    handle.classList.remove('is-wiring');
     window.removeEventListener('pointermove',move);
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
@@ -516,5 +547,5 @@ window.addEventListener('resize',()=>{
   if(!preview.hidden&&previewEntry) closePreview();
 });
 
-window.RaptorPipeline={createState,cloneState,load,onRename,onDelete,refresh:renderFiles};
+window.RaptorPipeline={createState,cloneState,load,onRename,onDelete,refresh:renderFiles,registerInput,unregisterInput};
 })();
