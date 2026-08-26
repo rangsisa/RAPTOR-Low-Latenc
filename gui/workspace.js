@@ -1,19 +1,6 @@
 const navItems=[...document.querySelectorAll('.nav-item')];
 const canvas=document.getElementById('workspaceCanvas');
-
-function renderPage(page){
-  canvas.replaceChildren();
-  canvas.dataset.page=page;
-
-  if(page==='matching'){
-    const frame=document.createElement('iframe');
-    frame.className='workspace-frame';
-    frame.src='./matching/index.html';
-    frame.title='RAPTOR Matching';
-    frame.setAttribute('loading','eager');
-    canvas.appendChild(frame);
-  }
-}
+const pageViews=[...document.querySelectorAll('.page-view')];
 
 function activate(page){
   navItems.forEach(button=>{
@@ -22,7 +9,14 @@ function activate(page){
     if(active) button.setAttribute('aria-current','page');
     else button.removeAttribute('aria-current');
   });
-  renderPage(page);
+
+  pageViews.forEach(view=>{
+    const active=view.dataset.view===page;
+    view.hidden=!active;
+    view.classList.toggle('is-page-active',active);
+  });
+
+  canvas.dataset.page=page;
 }
 
 navItems.forEach(button=>button.addEventListener('click',()=>activate(button.dataset.page)));
