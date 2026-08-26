@@ -5,6 +5,7 @@ const FFT_SIZES=Array.from({length:13},(_,i)=>2**(8+i));
 const nodeCanvas=document.getElementById('pipelineNodeCanvas');
 const emptyState=document.getElementById('pipelineNodeEmpty');
 const measurementNode=document.getElementById('measurementNode');
+const measurementHead=measurementNode.querySelector('.measurement-node-head');
 const activeLineLabel=document.getElementById('measurementLineLabel');
 const fileInput=document.getElementById('measurementFileInput');
 const fileList=document.getElementById('measurementList');
@@ -36,26 +37,32 @@ let selectionMode=false;
 let selectedIds=new Set();
 let colorTarget=null;
 let previewEntry=null;
+let previewAnchor=null;
 let fileIdSequence=0;
 
 function createState(){
-  return {version:1,nodes:{measurement:{files:[]}}};
+  return {version:1,nodes:{measurement:{files:[],position:null}}};
 }
 
 function cloneState(state){
   const source=state||createState();
-  const files=(source.nodes?.measurement?.files||[]).map(file=>({
+  const measurement=source.nodes?.measurement||{};
+  const files=(measurement.files||[]).map(file=>({
     ...file,
     sourceBuffer:file.sourceBuffer instanceof ArrayBuffer?file.sourceBuffer.slice(0):file.sourceBuffer,
     buffer:file.buffer instanceof ArrayBuffer?file.buffer.slice(0):file.buffer
   }));
-  return {version:source.version||1,nodes:{measurement:{files}}};
+  const position=measurement.position?{...measurement.position}:null;
+  return {version:source.version||1,nodes:{measurement:{files,position}}};
 }
 
 function ensureState(card){
   if(!card._raptorLineState) card._raptorLineState=createState();
   if(!card._raptorLineState.nodes) card._raptorLineState.nodes={};
-  if(!card._raptorLineState.nodes.measurement) card._raptorLineState.nodes.measurement={files:[]};
+  if(!card._raptorLineState.nodes.measurement) card._raptorLineState.nodes.measurement={files:[],position:null};
+  const measurement=card._raptorLineState.nodes.measurement;
+  if(!Array.isArray(measurement.files)) measurement.files=[];
+  if(measurement.position===undefined) measurement.position=null;
   return card._raptorLineState;
 }
 
@@ -63,10 +70,31 @@ function activeFiles(){
   return activeCard?ensureState(activeCard).nodes.measurement.files:[];
 }
 
+function setLoadState(card,active){
+  if(!card) return;
+  card.classList.toggle('is-loaded',active);
+  const button=card.querySelector('.pipeline-load')||card.querySelector('.pipeline-card-action');
+  if(button) button.setAttribute('aria-pressed',String(active));
+}
+
+function applyMeasurementPosition(){
+  if(!activeCard||measurementNode.hidden) return;
+  const measurement=ensureState(activeCard).nodes.measurement;
+  let x=24;
+  let y=Math.max(12,(nodeCanvas.clientHeight-measurementNode.offsetHeight)/2);
+  if(measurement.position&&Number.isFinite(measurement.position.x)&&Number.isFinite(measurement.position.y)){
+    x=measurement.position.x;
+    y=measurement.position.y;
+  }
+  measurementNode.style.transform='none';
+  measurementNode.style.left=`${Math.max(8,x)}px`;
+  measurementNode.style.top=`${Math.max(8,y)}px`;
+}
+
 function load(card){
-  if(activeCard) activeCard.classList.remove('is-loaded');
+  if(activeCard&&activeCard!==card) setLoadState(activeCard,false);
   activeCard=card;
-  activeCard.classList.add('is-loaded');
+  setLoadState(activeCard,true);
   ensureState(card);
   selectionMode=false;
   selectedIds.clear();
@@ -76,15 +104,16 @@ function load(card){
   measurementNode.hidden=false;
   activeLineLabel.textContent=card.dataset.lineName||'RAPTOR Line';
   renderFiles();
+  requestAnimationFrame(applyMeasurementPosition);
 }
 
 function clearLoaded(){
-  if(activeCard) activeCard.classList.remove('is-loaded');
+  if(activeCard) setLoadState(activeCard,false);
   activeCard=null;
   selectionMode=false;
   selectedIds.clear();
   measurementNode.hidden=true;
-  measurementNode.classList.remove('is-wiring');
+  measurementNode.classList.remove('is-wiring','is-dragging');
   emptyState.hidden=false;
   wirePath.removeAttribute('d');
   wireEnd.hidden=true;
@@ -243,6 +272,7 @@ function renderFiles(){
     empty.className='measurement-empty';
     empty.textContent='No measurement files imported';
     fileList.appendChild(empty);
+    requestAnimationFrame(applyMeasurementPosition);
     return;
   }
   for(const entry of files){
@@ -286,6 +316,7 @@ function renderFiles(){
     previewButton.textContent='📈';
     previewButton.title='Preview measurement';
     previewButton.setAttribute('aria-label',`Preview ${entry.name}`);
+    previewButton.setAttribute('aria-pressed','false');
     previewButton.disabled=selectionMode||entry.status!=='ready';
     previewButton.addEventListener('click',()=>openPreview(previewButton,entry));
 
@@ -300,6 +331,7 @@ function renderFiles(){
     row.append(checkbox,color,info,previewButton,output);
     fileList.appendChild(row);
   }
+  requestAnimationFrame(applyMeasurementPosition);
 }
 
 function openColorMenu(button,entry){
@@ -345,7 +377,7 @@ function drawPreview(entry){
   canvas.height=Math.round(h*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
-  ctx.fillStyle='#fbfcfd';
+  ctx.fillStyle='#f7fcf8';
   ctx.fillRect(0,0,w,h);
   if(!(entry.buffer instanceof ArrayBuffer)||!entry.points||entry.columns<2) return;
 
@@ -375,24 +407,24 @@ function drawPreview(entry){
   ctx.lineWidth=1;
   for(let i=0;i<=4;i++){
     const y=T+(B-T)*i/4;
-    ctx.strokeStyle=i===2?'#b8c2cb':'#d9dfe4';
+    ctx.strokeStyle=i===2?'#a9c6b1':'#d7e7db';
     ctx.beginPath();ctx.moveTo(L,y+.5);ctx.lineTo(R,y+.5);ctx.stroke();
   }
   const decades=[20,50,100,200,500,1000,2000,5000,10000,20000,50000];
   ctx.font='7px Arial,sans-serif';
-  ctx.fillStyle='#7a8791';
+  ctx.fillStyle='#5f7769';
   ctx.textAlign='center';
   ctx.textBaseline='top';
   for(const f of decades){
     if(f<f0||f>f1) continue;
     const x=xOf(f);
-    ctx.strokeStyle='#d7dde2';
+    ctx.strokeStyle='#d7e7db';
     ctx.beginPath();ctx.moveTo(x+.5,T);ctx.lineTo(x+.5,B);ctx.stroke();
     if([20,100,1000,10000,20000].includes(f)) ctx.fillText(f>=1000?`${f/1000}k`:`${f}`,x,B+4);
   }
-  ctx.strokeStyle='#9eabb5';
+  ctx.strokeStyle='#8eae98';
   ctx.strokeRect(L+.5,T+.5,R-L-1,B-T-1);
-  ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#687580';
+  ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#5f7769';
   ctx.fillText(`${magMax.toFixed(1)}`,L-4,T-2);
   ctx.textBaseline='bottom';ctx.fillText(`${magMin.toFixed(1)}`,L-4,B+1);
   ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('180°',R+4,T-2);
@@ -435,8 +467,16 @@ function drawPreview(entry){
 
 function openPreview(anchor,entry){
   if(entry.status!=='ready') return;
+  if(!preview.hidden&&previewEntry?.id===entry.id){
+    closePreview();
+    return;
+  }
+  closePreview();
   closeColorMenu();
   previewEntry=entry;
+  previewAnchor=anchor;
+  previewAnchor.classList.add('is-preview-open');
+  previewAnchor.setAttribute('aria-pressed','true');
   previewTitle.textContent=entry.name;
   previewDot.style.background=entry.color;
   previewRate.textContent=formatRate(entry.sampleRate);
@@ -459,6 +499,11 @@ function openPreview(anchor,entry){
 }
 
 function closePreview(){
+  if(previewAnchor){
+    previewAnchor.classList.remove('is-preview-open');
+    previewAnchor.setAttribute('aria-pressed','false');
+  }
+  previewAnchor=null;
   previewEntry=null;
   preview.hidden=true;
 }
@@ -508,6 +553,43 @@ function startWire(event,entry,handle){
   window.addEventListener('pointercancel',end);
 }
 
+function startNodeDrag(event){
+  if(!activeCard||measurementNode.hidden) return;
+  if(event.button!==undefined&&event.button!==0) return;
+  if(event.target.closest('.measurement-import')) return;
+  event.preventDefault();
+  closePreview();
+  closeColorMenu();
+  const pointerId=event.pointerId;
+  const canvasRect=nodeCanvas.getBoundingClientRect();
+  const nodeRect=measurementNode.getBoundingClientRect();
+  const grabX=event.clientX-nodeRect.left;
+  const grabY=event.clientY-nodeRect.top;
+  measurementNode.style.transform='none';
+  measurementNode.classList.add('is-dragging');
+  try{measurementHead.setPointerCapture(pointerId)}catch{}
+
+  const move=moveEvent=>{
+    if(moveEvent.pointerId!==pointerId) return;
+    const x=Math.max(8,moveEvent.clientX-canvasRect.left+nodeCanvas.scrollLeft-grabX);
+    const y=Math.max(8,moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop-grabY);
+    measurementNode.style.left=`${x}px`;
+    measurementNode.style.top=`${y}px`;
+    ensureState(activeCard).nodes.measurement.position={x,y};
+  };
+  const end=endEvent=>{
+    if(endEvent.pointerId!==pointerId) return;
+    measurementNode.classList.remove('is-dragging');
+    window.removeEventListener('pointermove',move);
+    window.removeEventListener('pointerup',end);
+    window.removeEventListener('pointercancel',end);
+    try{if(measurementHead.hasPointerCapture(pointerId)) measurementHead.releasePointerCapture(pointerId)}catch{}
+  };
+  window.addEventListener('pointermove',move,{passive:true});
+  window.addEventListener('pointerup',end);
+  window.addEventListener('pointercancel',end);
+}
+
 fileInput.addEventListener('change',async()=>{
   const files=[...fileInput.files];
   fileInput.value='';
@@ -532,6 +614,8 @@ deleteButton.addEventListener('click',()=>{
   renderFiles();
 });
 
+measurementHead.addEventListener('pointerdown',startNodeDrag);
+
 colorMenu.querySelectorAll('.file-color-choice').forEach(button=>{
   button.addEventListener('click',()=>chooseColor(button.dataset.color));
 });
@@ -545,6 +629,7 @@ document.addEventListener('pointerdown',event=>{
 
 window.addEventListener('resize',()=>{
   if(!preview.hidden&&previewEntry) closePreview();
+  if(activeCard&&ensureState(activeCard).nodes.measurement.position===null) requestAnimationFrame(applyMeasurementPosition);
 });
 
 window.RaptorPipeline={createState,cloneState,load,onRename,onDelete,refresh:renderFiles,registerInput,unregisterInput};
