@@ -158,7 +158,7 @@ function renderFiles(){
   const files=activeFiles();
   measurementNode.classList.toggle('is-selecting',selectionMode);
   selectButton.setAttribute('aria-pressed',String(selectionMode));
-  fileSummary.innerHTML=`<strong>${files.length}</strong> measurement${files.length===1?'':'s'} · imported files are converted on load`;
+  fileSummary.innerHTML=`<strong>${files.length}</strong> measurement${files.length===1?'':'s'} · converted immediately on import`;
   countLabel.textContent=selectionMode?`${selectedIds.size} selected`:`${files.length} files`;
   deleteButton.hidden=!selectionMode||selectedIds.size===0;
   deleteButton.textContent=selectedIds.size?`Delete ${selectedIds.size}`:'Delete';
