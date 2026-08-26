@@ -215,7 +215,7 @@ function renderFiles(){
   const files=activeFiles();
   measurementNode.classList.toggle('is-selecting',selectionMode);
   selectButton.setAttribute('aria-pressed',String(selectionMode));
-  fileSummary.innerHTML=`<strong>${files.length}</strong> measurement${files.length===1?'':'s'} · converted immediately on import`;
+  fileSummary.innerHTML=`<strong>${files.length}</strong> measurement${files.length===1?'':'s'} · converted`;
   countLabel.textContent=selectionMode?`${selectedIds.size} selected`:`${files.length} files`;
   deleteButton.hidden=!selectionMode||selectedIds.size===0;
   deleteButton.textContent=selectedIds.size?`Delete ${selectedIds.size}`:'Delete';
@@ -262,15 +262,24 @@ function renderFiles(){
     else meta.textContent=`Converted · ${entry.points} pts · ${entry.columns} cols`;
     info.append(name,meta);
 
+    const previewButton=document.createElement('button');
+    previewButton.className='measurement-preview-button';
+    previewButton.type='button';
+    previewButton.textContent='📈';
+    previewButton.title='Preview measurement';
+    previewButton.setAttribute('aria-label',`Preview ${entry.name}`);
+    previewButton.disabled=selectionMode||entry.status!=='ready';
+    previewButton.addEventListener('click',()=>openPreview(previewButton,entry));
+
     const output=document.createElement('button');
     output.className='measurement-output';
     output.type='button';
-    output.title='Tap to preview · drag to connect';
-    output.setAttribute('aria-label',`Preview or connect ${entry.name}`);
+    output.title='Drag to connect';
+    output.setAttribute('aria-label',`Connect ${entry.name}`);
     output.disabled=selectionMode||entry.status!=='ready';
-    output.addEventListener('pointerdown',event=>handleOutputPointerDown(event,entry,output));
+    output.addEventListener('pointerdown',event=>startWire(event,entry,output));
 
-    row.append(checkbox,color,info,output);
+    row.append(checkbox,color,info,previewButton,output);
     fileList.appendChild(row);
   }
 }
@@ -406,7 +415,7 @@ function drawPreview(entry){
   }
 }
 
-function openPreview(handle,entry){
+function openPreview(anchor,entry){
   if(entry.status!=='ready') return;
   closeColorMenu();
   previewEntry=entry;
@@ -418,7 +427,7 @@ function openPreview(handle,entry){
   previewBin.textContent=formatFrequency(entry.binHz);
   previewRange.textContent=`${formatFrequency(entry.fMin)} – ${formatFrequency(entry.fMax)}`;
   preview.hidden=false;
-  const rect=handle.getBoundingClientRect();
+  const rect=anchor.getBoundingClientRect();
   const width=preview.offsetWidth||286;
   const height=preview.offsetHeight||230;
   let left=rect.right+10;
@@ -436,50 +445,33 @@ function closePreview(){
   preview.hidden=true;
 }
 
-function wireGeometry(entry,handle){
-  const canvasRect=nodeCanvas.getBoundingClientRect();
-  const handleRect=handle.getBoundingClientRect();
-  return {
-    canvasRect,
-    startX:handleRect.left+handleRect.width/2-canvasRect.left+nodeCanvas.scrollLeft,
-    startY:handleRect.top+handleRect.height/2-canvasRect.top+nodeCanvas.scrollTop,
-    color:entry.color
-  };
-}
-
-function drawWireTo(geometry,event){
-  const endX=event.clientX-geometry.canvasRect.left+nodeCanvas.scrollLeft;
-  const endY=event.clientY-geometry.canvasRect.top+nodeCanvas.scrollTop;
-  const bend=Math.max(48,Math.abs(endX-geometry.startX)*.38);
-  wirePath.setAttribute('stroke',geometry.color);
-  wirePath.setAttribute('d',`M ${geometry.startX} ${geometry.startY} C ${geometry.startX+bend} ${geometry.startY}, ${endX-bend} ${endY}, ${endX} ${endY}`);
-}
-
-function handleOutputPointerDown(event,entry,handle){
+function startWire(event,entry,handle){
   if(handle.disabled) return;
   event.preventDefault();
-  const pointerId=event.pointerId;
-  const originX=event.clientX,originY=event.clientY;
-  const geometry=wireGeometry(entry,handle);
-  let dragging=false;
   closePreview();
+  const pointerId=event.pointerId;
+  const canvasRect=nodeCanvas.getBoundingClientRect();
+  const handleRect=handle.getBoundingClientRect();
+  const startX=handleRect.left+handleRect.width/2-canvasRect.left+nodeCanvas.scrollLeft;
+  const startY=handleRect.top+handleRect.height/2-canvasRect.top+nodeCanvas.scrollTop;
+  wirePath.setAttribute('stroke',entry.color);
   try{handle.setPointerCapture(pointerId)}catch{}
-
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
-    const distance=Math.hypot(moveEvent.clientX-originX,moveEvent.clientY-originY);
-    if(!dragging&&distance>=7) dragging=true;
-    if(dragging) drawWireTo(geometry,moveEvent);
+    const endX=moveEvent.clientX-canvasRect.left+nodeCanvas.scrollLeft;
+    const endY=moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop;
+    const bend=Math.max(48,Math.abs(endX-startX)*.38);
+    wirePath.setAttribute('d',`M ${startX} ${startY} C ${startX+bend} ${startY}, ${endX-bend} ${endY}, ${endX} ${endY}`);
   };
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
+    wirePath.removeAttribute('d');
     window.removeEventListener('pointermove',move);
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
     try{if(handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId)}catch{}
-    if(dragging) wirePath.removeAttribute('d');
-    else openPreview(handle,entry);
   };
+  move(event);
   window.addEventListener('pointermove',move,{passive:true});
   window.addEventListener('pointerup',end);
   window.addEventListener('pointercancel',end);
@@ -517,7 +509,7 @@ previewClose.addEventListener('click',closePreview);
 
 document.addEventListener('pointerdown',event=>{
   if(!colorMenu.hidden&&!colorMenu.contains(event.target)&&!event.target.closest('.measurement-color')) closeColorMenu();
-  if(!preview.hidden&&!preview.contains(event.target)&&!event.target.closest('.measurement-output')) closePreview();
+  if(!preview.hidden&&!preview.contains(event.target)&&!event.target.closest('.measurement-preview-button')) closePreview();
 });
 
 window.addEventListener('resize',()=>{
