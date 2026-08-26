@@ -64,6 +64,24 @@
     </section>
   </main>
 
+  <div class="pipeline-modal-backdrop" id="pipelineEditModal" hidden>
+    <section class="pipeline-modal" role="dialog" aria-modal="true" aria-labelledby="pipelineEditTitle">
+      <header class="pipeline-modal-head">
+        <strong id="pipelineEditTitle">Edit RAPTOR Line</strong>
+        <button class="pipeline-modal-close" id="pipelineEditClose" type="button" aria-label="Close">×</button>
+      </header>
+      <div class="pipeline-modal-body">
+        <label class="pipeline-name-label" for="pipelineNameInput">Name</label>
+        <input class="pipeline-name-input" id="pipelineNameInput" type="text" maxlength="64" autocomplete="off" />
+        <button class="pipeline-modal-action" id="pipelineDuplicate" type="button">Duplicate</button>
+      </div>
+      <footer class="pipeline-modal-foot">
+        <button class="pipeline-delete" id="pipelineDelete" type="button">Delete</button>
+        <button class="pipeline-done" id="pipelineDone" type="button">Done</button>
+      </footer>
+    </section>
+  </div>
+
   <script src="./workspace.js"></script>
   <script src="./matching/matching-dom.js"></script>
   <script src="./matching/matching.js"></script>
