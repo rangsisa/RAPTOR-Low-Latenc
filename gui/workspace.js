@@ -59,6 +59,7 @@ function createPipelineCard(name=defaultLineName()){
   card.className='pipeline-card';
   card.dataset.lineId=String(lineIdSequence++);
   card.dataset.lineName=name;
+  card._raptorLineState=window.RaptorPipeline?.createState?.() || null;
 
   const title=document.createElement('div');
   title.className='pipeline-card-name';
@@ -68,6 +69,7 @@ function createPipelineCard(name=defaultLineName()){
   load.className='pipeline-card-action';
   load.type='button';
   load.textContent='Load';
+  load.addEventListener('click',()=>window.RaptorPipeline?.load?.(card));
 
   const edit=document.createElement('button');
   edit.className='pipeline-card-action';
@@ -112,19 +114,23 @@ function applyRename(){
   }
   editingCard.dataset.lineName=next;
   editingCard.querySelector('.pipeline-card-name').textContent=next;
+  window.RaptorPipeline?.onRename?.(editingCard);
 }
 
 function duplicateCurrent(){
   if(!editingCard) return;
   applyRename();
-  const sourceName=editingCard.dataset.lineName || 'RAPTOR Line';
+  const sourceCard=editingCard;
+  const sourceName=sourceCard.dataset.lineName || 'RAPTOR Line';
   const clone=createPipelineCard(uniqueCopyName(sourceName));
+  clone._raptorLineState=window.RaptorPipeline?.cloneState?.(sourceCard._raptorLineState) || clone._raptorLineState;
   clone.scrollIntoView({behavior:'auto',block:'nearest',inline:'end'});
 }
 
 function deleteCurrent(){
   if(!editingCard) return;
   const card=editingCard;
+  window.RaptorPipeline?.onDelete?.(card);
   closeEdit();
   card.remove();
 }
