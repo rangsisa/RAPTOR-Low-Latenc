@@ -10,9 +10,9 @@ const measurementList=document.getElementById('measurementList');
 if(!api||!canvas||!wireSvg||!previewPath||!measurementNode||!measurementList) return;
 
 const PORTS=[
-  {id:'raptor',label:'RAPTOR Editor',exclusive:true},
-  {id:'nga',label:'NGA Editor',exclusive:true},
-  {id:'autoZero',label:'NGA Auto ZERO / GD Target',exclusive:true}
+  {id:'raptor',label:'RAPTOR Editor',toolId:'raptor-editor',exclusive:true},
+  {id:'nga',label:'NGA Editor',toolId:'nga-editor',exclusive:true},
+  {id:'autoZero',label:'NGA Auto ZERO / GD Target',toolId:'nga-auto-zero',exclusive:true}
 ];
 
 let activeCard=null;
@@ -93,10 +93,23 @@ function makePane(port,kind){
     label.innerHTML='<strong>NGA</strong><span>Auto ZERO<br>GD Target</span>';
   }
 
+  const openTool=document.createElement('button');
+  openTool.className='processor-open-tool';
+  openTool.type='button';
+  openTool.dataset.tool=port.toolId;
+  openTool.title='Open '+port.label;
+  openTool.setAttribute('aria-label','Open '+port.label);
+  openTool.innerHTML='<span aria-hidden="true"></span>';
+  openTool.addEventListener('click',event=>{
+    event.preventDefault();
+    event.stopPropagation();
+    window.RaptorWorkspace?.openTool?.(port.toolId,{source:'processor-node',slot:port.id});
+  });
+
   const count=document.createElement('span');
   count.className='processor-input-count';
   count.dataset.inputCount=port.id;
-  pane.append(label,count);
+  pane.append(label,openTool,count);
   return pane;
 }
 
