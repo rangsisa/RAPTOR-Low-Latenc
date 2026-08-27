@@ -37,21 +37,111 @@ function activate(page){
 }
 
 const TOOL_PAGES=new Set(['raptor-editor','nga-editor','nga-auto-zero']);
+const TOOL_SLOTS=Object.freeze({
+  'raptor-editor':'raptor',
+  'nga-editor':'nga',
+  'nga-auto-zero':'autoZero'
+});
 const toolContexts=new Map();
+const toolInputs=new Map();
+
+function formatContextRate(value){
+  if(!Number.isFinite(value)||value<=0) return '';
+  return value>=1000?((value/1000).toFixed(value%1000?1:0)+' kHz'):(value+' Hz');
+}
+
+function formatContextFrequency(value){
+  if(!Number.isFinite(value)||value<=0) return '';
+  if(value>=1000){
+    const digits=value>=10000?1:2;
+    return (value/1000).toFixed(digits).replace(/\.0+$/,'')+' kHz';
+  }
+  return value.toFixed(value<10?3:value<100?2:1).replace(/\.0+$/,'')+' Hz';
+}
+
+function hasExplicitPipelineContext(detail={}){
+  return detail.lineId!==undefined||
+    detail.lineName!==undefined||
+    detail.fileId!==undefined||
+    detail.fileName!==undefined||
+    detail.slot!==undefined;
+}
+
+function resolvePipelineToolInput(toolId,detail={}){
+  const slot=detail.slot||TOOL_SLOTS[toolId];
+  const activeLine=window.RaptorPipeline?.getActiveLine?.()||null;
+  const processorState=window.RaptorProcessorNode?.getActiveState?.()||null;
+
+  let lineId=detail.lineId!==undefined?detail.lineId:(activeLine?.id??null);
+  let lineName=detail.lineName!==undefined?detail.lineName:(activeLine?.name||'');
+  let fileId=detail.fileId!==undefined?detail.fileId:(processorState?.inputs?.[slot]||null);
+
+  // If a remembered context belongs to a different loaded Pipeline,
+  // the currently loaded Pipeline becomes authoritative.
+  if(activeLine&&lineId!==null&&String(lineId)!==String(activeLine.id)){
+    lineId=activeLine.id;
+    lineName=activeLine.name||'';
+    fileId=processorState?.inputs?.[slot]||null;
+  }
+
+  const entry=fileId?window.RaptorPipeline?.getMeasurement?.(fileId):null;
+  const canonical=fileId?window.RaptorPipeline?.getMeasurementCanonical?.(fileId):null;
+
+  let views=null;
+  if(canonical&&window.RaptorMeasurementCanonicalV1){
+    window.RaptorMeasurementCanonicalV1.validate(canonical);
+    views=window.RaptorMeasurementCanonicalV1.views(canonical);
+  }
+
+  const context={
+    ...detail,
+    slot,
+    lineId,
+    lineName,
+    fileId:entry?.id||null,
+    fileName:entry?.name||'',
+    points:canonical?.points||0,
+    sampleRate:entry?.sampleRate??canonical?.sample_rate_hz??null,
+    fftSize:entry?.fftSize??canonical?.base_fft_size??null,
+    binHz:entry?.binHz??null,
+    fMin:entry?.fMin??null,
+    fMax:entry?.fMax??null,
+    format:canonical?.format||null,
+    payloadSha256:canonical?.payload_sha256||null
+  };
+
+  return {context,entry,canonical,views};
+}
 
 function renderToolContext(toolId,context={}){
   const label=document.querySelector('[data-tool-context="'+toolId+'"]');
   if(!label) return;
 
-  const lineName=context.lineName||'';
-  const fileName=context.fileName||'';
-  if(lineName&&fileName){
-    label.textContent='Pipeline · '+lineName+' · '+fileName;
-  }else if(lineName){
-    label.textContent='Pipeline · '+lineName+' · no input connected';
+  const parts=[];
+  if(context.lineName) parts.push('Pipeline: '+context.lineName);
+  else parts.push('Pipeline: none');
+
+  if(context.fileName){
+    parts.push('Input: '+context.fileName);
+    if(context.points) parts.push(context.points+' pts');
+
+    const rate=formatContextRate(context.sampleRate);
+    if(rate) parts.push(rate);
+
+    if(context.fftSize) parts.push('FFT '+context.fftSize);
+
+    const fMin=formatContextFrequency(context.fMin);
+    const fMax=formatContextFrequency(context.fMax);
+    if(fMin&&fMax) parts.push(fMin+' – '+fMax);
+
+    if(context.format==='raptor.measurement.canonical.v1') parts.push('Canonical V1');
   }else{
-    label.textContent='Pipeline context · no input connected';
+    parts.push('Input: not connected');
   }
+
+  const text=parts.join('  ·  ');
+  label.textContent=text;
+  label.title=text;
 }
 
 function openTool(toolId,detail={}){
@@ -59,15 +149,12 @@ function openTool(toolId,detail={}){
   if(!TOOL_PAGES.has(id)) return;
 
   const previous=toolContexts.get(id)||{};
-  const hasPipelineContext=
-    detail.lineId!==undefined||
-    detail.lineName!==undefined||
-    detail.fileId!==undefined||
-    detail.fileName!==undefined||
-    detail.slot!==undefined;
+  const base=hasExplicitPipelineContext(detail)?{...previous,...detail}:{...previous,...detail};
+  const resolved=resolvePipelineToolInput(id,base);
+  const context=resolved.context;
 
-  const context=hasPipelineContext?{...previous,...detail}:{...previous};
   toolContexts.set(id,context);
+  toolInputs.set(id,resolved);
   renderToolContext(id,context);
 
   canvas.dataset.tool=id;
@@ -76,9 +163,16 @@ function openTool(toolId,detail={}){
   const nextHash='#'+encodeURIComponent(id);
   if(location.hash!==nextHash) history.pushState({page:id,tool:id},'',nextHash);
 
-  document.dispatchEvent(new CustomEvent('raptor:toolchange',{
-    detail:{toolId:id,...context,source:detail.source||context.source||'workspace'}
-  }));
+  const eventDetail={
+    toolId:id,
+    ...context,
+    source:detail.source||context.source||'workspace',
+    canonical:resolved.canonical,
+    views:resolved.views
+  };
+
+  document.dispatchEvent(new CustomEvent('raptor:toolchange',{detail:eventDetail}));
+  document.dispatchEvent(new CustomEvent('raptor:toolinput',{detail:eventDetail}));
 }
 
 function restoreRouteFromHash(){
@@ -94,9 +188,21 @@ function restoreRouteFromHash(){
 
   if(!toolId) return false;
   canvas.dataset.tool=toolId;
-  renderToolContext(toolId,toolContexts.get(toolId)||{});
+  const previous=toolContexts.get(toolId)||{};
+  const resolved=resolvePipelineToolInput(toolId,previous);
+  toolContexts.set(toolId,resolved.context);
+  toolInputs.set(toolId,resolved);
+  renderToolContext(toolId,resolved.context);
   activate(toolId);
-  document.dispatchEvent(new CustomEvent('raptor:toolchange',{detail:{toolId,...(toolContexts.get(toolId)||{}),source:'route'}}));
+  document.dispatchEvent(new CustomEvent('raptor:toolchange',{
+    detail:{
+      toolId,
+      ...resolved.context,
+      source:'route',
+      canonical:resolved.canonical,
+      views:resolved.views
+    }
+  }));
   return true;
 }
 
@@ -182,6 +288,14 @@ function applyRename(){
   editingCard.dataset.lineName=next;
   editingCard.querySelector('.pipeline-card-name').textContent=next;
   window.RaptorPipeline?.onRename?.(editingCard);
+
+  for(const [toolId,context] of toolContexts){
+    if(String(context.lineId??'')!==String(editingCard.dataset.lineId??'')) continue;
+    const resolved=resolvePipelineToolInput(toolId,{...context,lineName:next});
+    toolContexts.set(toolId,resolved.context);
+    toolInputs.set(toolId,resolved);
+    renderToolContext(toolId,resolved.context);
+  }
 }
 
 function duplicateCurrent(){
@@ -247,7 +361,26 @@ window.RaptorWorkspace=Object.freeze({
   openTool,
   getCurrentPage:()=>canvas.dataset.page||'',
   getCurrentTool:()=>canvas.dataset.tool||'',
-  getToolContext:toolId=>({...toolContexts.get(String(toolId||''))})
+  getToolContext:toolId=>({...toolContexts.get(String(toolId||''))}),
+  getToolInput(toolId){
+    const id=String(toolId||'');
+    const resolved=toolInputs.get(id)||resolvePipelineToolInput(id,toolContexts.get(id)||{});
+    return {
+      context:{...resolved.context},
+      entry:resolved.entry||null,
+      canonical:resolved.canonical||null,
+      views:resolved.views||null
+    };
+  },
+  refreshTool(toolId){
+    const id=String(toolId||'');
+    if(!TOOL_PAGES.has(id)) return null;
+    const resolved=resolvePipelineToolInput(id,toolContexts.get(id)||{});
+    toolContexts.set(id,resolved.context);
+    toolInputs.set(id,resolved);
+    renderToolContext(id,resolved.context);
+    return resolved;
+  }
 });
 
 window.addEventListener('popstate',()=>{
