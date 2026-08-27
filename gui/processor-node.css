@@ -72,8 +72,8 @@
   transform:translate(-50%,-50%) scale(1.32);
   background:var(--raptor-active);box-shadow:0 0 0 2px #fff,0 0 0 7px rgba(232,111,23,.22)
 }
-.processor-input.is-full:not(.processor-input-bypass){cursor:not-allowed}
-.processor-input.is-full:not(.processor-input-bypass)::after{
+.processor-input.is-full{cursor:not-allowed}
+.processor-input.is-full::after{
   box-shadow:0 0 0 2px var(--port-color),0 0 0 4px rgba(40,50,58,.07)
 }
 .processor-input-count{
