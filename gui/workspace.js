@@ -149,7 +149,10 @@ function openTool(toolId,detail={}){
   if(!TOOL_PAGES.has(id)) return;
 
   const previous=toolContexts.get(id)||{};
-  const base=hasExplicitPipelineContext(detail)?{...previous,...detail}:{...previous,...detail};
+  const explicitPipelineContext=hasExplicitPipelineContext(detail);
+  const base=explicitPipelineContext
+    ?{...previous,...detail}
+    :{source:detail.source||previous.source||'workspace-nav',slot:TOOL_SLOTS[id]};
   const resolved=resolvePipelineToolInput(id,base);
   const context=resolved.context;
 
@@ -188,8 +191,7 @@ function restoreRouteFromHash(){
 
   if(!toolId) return false;
   canvas.dataset.tool=toolId;
-  const previous=toolContexts.get(toolId)||{};
-  const resolved=resolvePipelineToolInput(toolId,previous);
+  const resolved=resolvePipelineToolInput(toolId,{source:'route',slot:TOOL_SLOTS[toolId]});
   toolContexts.set(toolId,resolved.context);
   toolInputs.set(toolId,resolved);
   renderToolContext(toolId,resolved.context);
