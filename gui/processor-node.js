@@ -9,7 +9,6 @@ const measurementNode=document.getElementById('measurementNode');
 const measurementList=document.getElementById('measurementList');
 if(!api||!canvas||!wireSvg||!previewPath||!measurementNode||!measurementList) return;
 
-const MAX_OUTPUTS=4;
 const PORTS=[
   {id:'raptor',label:'RAPTOR Editor',exclusive:true},
   {id:'nga',label:'NGA Editor',exclusive:true},
@@ -104,7 +103,7 @@ function makeOutputPane(slot,top=false){
   const pane=document.createElement('div');
   pane.className='processor-pane processor-pane-output'+(top?' processor-output-top':'');
   pane.dataset.outputPane=slot;
-  pane.innerHTML='<div class="processor-output-zone"><div class="processor-output-head"><span>OUTPUT FILES</span><span class="processor-output-count">0 / 4</span></div><div class="processor-output-list"><span class="processor-output-empty">No files yet</span></div></div>';
+  pane.innerHTML='<div class="processor-output-zone"><div class="processor-output-head"><span>OUTPUT FILES</span><span class="processor-output-count">0 files</span></div><div class="processor-output-list"><span class="processor-output-empty">No files yet</span></div></div>';
   return pane;
 }
 
@@ -205,9 +204,8 @@ function renderOutputs(){
     const pane=processorNode.querySelector('[data-output-pane="'+slot+'"]');
     const list=pane.querySelector('.processor-output-list');
     const count=pane.querySelector('.processor-output-count');
-    const outputs=state.outputs[slot].slice(0,MAX_OUTPUTS);
-    state.outputs[slot]=outputs;
-    count.textContent=outputs.length+' / '+MAX_OUTPUTS;
+    const outputs=state.outputs[slot];
+    count.textContent=outputs.length+' file'+(outputs.length===1?'':'s');
     list.replaceChildren();
     if(!outputs.length){
       const empty=document.createElement('span');
@@ -272,12 +270,32 @@ function renderBypass(){
   }
 }
 
+function syncOutputWidth(){
+  if(!processorNode||processorNode.hidden) return;
+  const referenceRow=measurementList.querySelector('.measurement-file');
+  const referenceWidth=Math.max(
+    180,
+    Math.round(referenceRow?.getBoundingClientRect().width||measurementNode.getBoundingClientRect().width||300)
+  );
+  const names=[...processorNode.querySelectorAll('.processor-output-name')];
+  let width=112;
+  if(names.length){
+    const longest=Math.max(...names.map(name=>Math.ceil(name.scrollWidth+52)));
+    width=Math.max(142,Math.min(referenceWidth,longest));
+  }
+  processorNode.style.setProperty('--processor-output-width',width+'px');
+}
+
 function sync(){
   if(!activeCard||processorNode.hidden) return;
   renderInputs();
   renderOutputs();
   renderBypass();
-  requestAnimationFrame(()=>{applyPosition();renderConnections();});
+  requestAnimationFrame(()=>{
+    syncOutputWidth();
+    applyPosition();
+    renderConnections();
+  });
 }
 
 function pointFor(element){
@@ -494,7 +512,6 @@ function clearCard(card){
 function addOutput(slot,file){
   if(!activeCard||!['raptor','nga','autoZero'].includes(slot)) return {ok:false,reason:'No active processor slot'};
   const state=ensureProcessorState(activeCard);
-  if(state.outputs[slot].length>=MAX_OUTPUTS) return {ok:false,reason:'Output slot is full (4/4)'};
   const entry={
     id:file?.id||('processor-output-'+Date.now()+'-'+Math.random().toString(36).slice(2,7)),
     name:file?.name||'RAPTOR output',
@@ -503,6 +520,10 @@ function addOutput(slot,file){
   };
   state.outputs[slot].push(entry);
   renderOutputs();
+  requestAnimationFrame(()=>{
+    syncOutputWidth();
+    renderConnections();
+  });
   return {ok:true,entry};
 }
 
@@ -555,7 +576,10 @@ document.addEventListener('pointerdown',event=>{
 
 new MutationObserver(()=>sync()).observe(measurementList,{childList:true,subtree:false});
 new MutationObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode,{attributes:true,attributeFilter:['style']});
-new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode);
+new ResizeObserver(()=>requestAnimationFrame(()=>{
+  syncOutputWidth();
+  renderConnections();
+})).observe(measurementNode);
 new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(processorNode);
 canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
 
