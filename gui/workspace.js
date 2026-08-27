@@ -173,7 +173,20 @@ function deleteCurrent(){
   card.remove();
 }
 
-navItems.forEach(button=>button.addEventListener('click',()=>activate(button.dataset.page)));
+navItems.forEach(button=>button.addEventListener('click',()=>{
+  const page=button.dataset.page;
+  if(TOOL_PAGES.has(page)){
+    openTool(page,{source:'workspace-nav'});
+    return;
+  }
+
+  canvas.dataset.tool='';
+  activate(page);
+
+  if(location.hash){
+    history.pushState({page},'',location.pathname+location.search);
+  }
+}));
 addPipelineButton.addEventListener('click',addPipeline);
 editClose.addEventListener('click',closeEdit);
 doneButton.addEventListener('click',()=>{applyRename();closeEdit()});
