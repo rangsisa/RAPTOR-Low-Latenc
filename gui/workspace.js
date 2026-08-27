@@ -113,6 +113,24 @@ function resolvePipelineToolInput(toolId,detail={}){
   return {context,entry,canonical,views};
 }
 
+function bindToolWorkspaceInput(toolId,resolved){
+  const body=document.querySelector('[data-tool-body="'+toolId+'"]');
+  if(!body) return;
+
+  const input={
+    context:{...resolved.context},
+    entry:resolved.entry||null,
+    canonical:resolved.canonical||null,
+    views:resolved.views||null
+  };
+
+  body._raptorInput=input;
+  body.dataset.inputState=resolved.canonical?'ready':'empty';
+  body.dataset.pipelineId=resolved.context.lineId??'';
+  body.dataset.measurementId=resolved.context.fileId??'';
+  body.dataset.slot=resolved.context.slot||TOOL_SLOTS[toolId]||'';
+}
+
 function renderToolContext(toolId,context={}){
   const label=document.querySelector('[data-tool-context="'+toolId+'"]');
   if(!label) return;
@@ -158,6 +176,7 @@ function openTool(toolId,detail={}){
 
   toolContexts.set(id,context);
   toolInputs.set(id,resolved);
+  bindToolWorkspaceInput(id,resolved);
   renderToolContext(id,context);
 
   canvas.dataset.tool=id;
@@ -194,6 +213,7 @@ function restoreRouteFromHash(){
   const resolved=resolvePipelineToolInput(toolId,{source:'route',slot:TOOL_SLOTS[toolId]});
   toolContexts.set(toolId,resolved.context);
   toolInputs.set(toolId,resolved);
+  bindToolWorkspaceInput(toolId,resolved);
   renderToolContext(toolId,resolved.context);
   activate(toolId);
   document.dispatchEvent(new CustomEvent('raptor:toolchange',{
@@ -296,6 +316,7 @@ function applyRename(){
     const resolved=resolvePipelineToolInput(toolId,{...context,lineName:next});
     toolContexts.set(toolId,resolved.context);
     toolInputs.set(toolId,resolved);
+    bindToolWorkspaceInput(toolId,resolved);
     renderToolContext(toolId,resolved.context);
   }
 }
@@ -380,6 +401,7 @@ window.RaptorWorkspace=Object.freeze({
     const resolved=resolvePipelineToolInput(id,toolContexts.get(id)||{});
     toolContexts.set(id,resolved.context);
     toolInputs.set(id,resolved);
+    bindToolWorkspaceInput(id,resolved);
     renderToolContext(id,resolved.context);
     return resolved;
   }
