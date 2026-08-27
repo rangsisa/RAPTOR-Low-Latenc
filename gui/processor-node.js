@@ -103,7 +103,19 @@ function makePane(port,kind){
   openTool.addEventListener('click',event=>{
     event.preventDefault();
     event.stopPropagation();
-    window.RaptorWorkspace?.openTool?.(port.toolId,{source:'processor-node',slot:port.id});
+
+    const state=activeCard?ensureProcessorState(activeCard):null;
+    const fileId=state?.inputs?.[port.id]||null;
+    const file=fileId?measurementById(fileId):null;
+
+    window.RaptorWorkspace?.openTool?.(port.toolId,{
+      source:'processor-node',
+      slot:port.id,
+      lineId:activeCard?.dataset.lineId||null,
+      lineName:activeCard?.dataset.lineName||'',
+      fileId:file?.id||null,
+      fileName:file?.name||''
+    });
   });
 
   const count=document.createElement('span');
