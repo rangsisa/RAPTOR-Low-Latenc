@@ -12,8 +12,7 @@ if(!api||!canvas||!wireSvg||!previewPath||!measurementNode||!measurementList) re
 const PORTS=[
   {id:'raptor',label:'RAPTOR Editor',exclusive:true},
   {id:'nga',label:'NGA Editor',exclusive:true},
-  {id:'autoZero',label:'NGA Auto ZERO / GD Target',exclusive:true},
-  {id:'bypass',label:'Bypass',exclusive:false}
+  {id:'autoZero',label:'NGA Auto ZERO / GD Target',exclusive:true}
 ];
 
 let activeCard=null;
@@ -38,7 +37,7 @@ function cloneValue(value){
 function blankProcessorState(){
   return {
     position:null,
-    inputs:{raptor:null,nga:null,autoZero:null,bypass:[]},
+    inputs:{raptor:null,nga:null,autoZero:null},
     outputs:{raptor:[],nga:[],autoZero:[]}
   };
 }
@@ -49,8 +48,9 @@ function ensureProcessorState(card){
   if(!card._raptorLineState.nodes) card._raptorLineState.nodes={};
   if(!card._raptorLineState.nodes.processor) card._raptorLineState.nodes.processor=blankProcessorState();
   const state=card._raptorLineState.nodes.processor;
-  if(!state.inputs) state.inputs={raptor:null,nga:null,autoZero:null,bypass:[]};
-  if(!Array.isArray(state.inputs.bypass)) state.inputs.bypass=[];
+  if(!state.inputs) state.inputs={raptor:null,nga:null,autoZero:null};
+  // Bypass was removed from Node 2. Drop legacy bypass state without touching other slots.
+  if(Object.prototype.hasOwnProperty.call(state.inputs,'bypass')) delete state.inputs.bypass;
   if(!state.outputs) state.outputs={raptor:[],nga:[],autoZero:[]};
   for(const key of ['raptor','nga','autoZero']) if(!Array.isArray(state.outputs[key])) state.outputs[key]=[];
   if(state.position===undefined) state.position=null;
@@ -67,10 +67,10 @@ function measurementById(id){
 
 function makeInput(port){
   const button=document.createElement('button');
-  button.className='processor-input'+(port.id==='bypass'?' processor-input-bypass':'');
+  button.className='processor-input';
   button.type='button';
   button.dataset.port=port.id;
-  button.title=port.exclusive?port.label+' · 1 input max':port.label+' · unlimited inputs';
+  button.title=port.label+' · 1 input max';
   button.setAttribute('aria-label',button.title);
   button.addEventListener('pointerdown',event=>beginInputDetach(event,button));
   return button;
@@ -124,16 +124,6 @@ function buildNode(){
     makeOutputPane('autoZero')
   );
 
-  const bypass=document.createElement('div');
-  bypass.className='processor-bypass';
-  bypass.dataset.portPane='bypass';
-  bypass.appendChild(makeInput(PORTS[3]));
-  bypass.innerHTML+=
-    '<strong class="processor-bypass-title">Bypass</strong>'+
-    '<span class="processor-bypass-count" data-input-count="bypass">0 files</span>'+
-    '<div class="processor-bypass-list"><span class="processor-bypass-empty">Drop any number of measurements here</span></div>';
-  node.appendChild(bypass);
-
   canvas.appendChild(node);
   return node;
 }
@@ -181,20 +171,13 @@ function renderInputs(){
   for(const port of PORTS){
     const button=processorNode.querySelector('.processor-input[data-port="'+port.id+'"]');
     const count=processorNode.querySelector('[data-input-count="'+port.id+'"]');
-    if(port.exclusive){
-      const file=measurementById(state.inputs[port.id]);
-      if(state.inputs[port.id]&&!file) state.inputs[port.id]=null;
-      const connected=!!file;
-      button.classList.toggle('is-connected',connected);
-      button.classList.toggle('is-full',connected);
-      button.style.setProperty('--port-color',connected?sourceColor(file):'');
-      if(count) count.textContent=connected?'1 / 1':'0 / 1';
-    }else{
-      const valid=[...new Set(state.inputs.bypass)].filter(id=>measurementById(id));
-      state.inputs.bypass=valid;
-      button.classList.toggle('is-connected',valid.length>0);
-      if(count) count.textContent=valid.length+' file'+(valid.length===1?'':'s');
-    }
+    const file=measurementById(state.inputs[port.id]);
+    if(state.inputs[port.id]&&!file) state.inputs[port.id]=null;
+    const connected=!!file;
+    button.classList.toggle('is-connected',connected);
+    button.classList.toggle('is-full',connected);
+    button.style.setProperty('--port-color',connected?sourceColor(file):'');
+    if(count) count.textContent=connected?'1 / 1':'0 / 1';
   }
 }
 
@@ -239,38 +222,6 @@ function renderOutputs(){
   }
 }
 
-function renderBypass(){
-  if(!activeCard) return;
-  const state=ensureProcessorState(activeCard);
-  const list=processorNode.querySelector('.processor-bypass-list');
-  list.replaceChildren();
-  const files=state.inputs.bypass.map(measurementById).filter(Boolean);
-  if(!files.length){
-    const empty=document.createElement('span');
-    empty.className='processor-bypass-empty';
-    empty.textContent='Drop any number of measurements here';
-    list.appendChild(empty);
-    return;
-  }
-  for(const file of files){
-    const chip=document.createElement('div');
-    chip.className='processor-bypass-file';
-    chip.style.setProperty('--file-color',sourceColor(file));
-    const name=document.createElement('span');
-    name.textContent=file.name;
-    const handle=document.createElement('button');
-    handle.className='processor-bypass-output';
-    handle.type='button';
-    handle.style.setProperty('--file-color',sourceColor(file));
-    handle.setAttribute('aria-label','Bypass output '+file.name);
-    handle.addEventListener('pointerdown',event=>beginWire(event,{
-      kind:'bypass',id:file.id,name:file.name,color:sourceColor(file),fileId:file.id
-    },handle));
-    chip.append(name,handle);
-    list.appendChild(chip);
-  }
-}
-
 function syncOutputWidth(){
   if(!processorNode||processorNode.hidden) return;
   const referenceRow=measurementList.querySelector('.measurement-file');
@@ -291,7 +242,6 @@ function sync(){
   if(!activeCard||processorNode.hidden) return;
   renderInputs();
   renderOutputs();
-  renderBypass();
   requestAnimationFrame(()=>{
     syncOutputWidth();
     applyPosition();
@@ -331,7 +281,6 @@ function renderConnections(){
   for(const port of ['raptor','nga','autoZero']){
     if(state.inputs[port]) links.push({fileId:state.inputs[port],port});
   }
-  for(const fileId of state.inputs.bypass) links.push({fileId,port:'bypass'});
 
   for(const link of links){
     const file=measurementById(link.fileId);
@@ -355,8 +304,7 @@ function renderConnections(){
 function canAccept(portId,source){
   if(source.kind!=='measurement'||!activeCard) return false;
   const state=ensureProcessorState(activeCard);
-  if(portId==='bypass') return true;
-  return !state.inputs[portId];
+  return PORTS.some(port=>port.id===portId)&&!state.inputs[portId];
 }
 
 function clearPortHighlights(){
@@ -388,11 +336,7 @@ function connectMeasurement(source,input){
   const state=ensureProcessorState(activeCard);
   const port=input.dataset.port;
   if(!canAccept(port,source)) return false;
-  if(port==='bypass'){
-    if(!state.inputs.bypass.includes(source.fileId)) state.inputs.bypass.push(source.fileId);
-  }else{
-    state.inputs[port]=source.fileId;
-  }
+  state.inputs[port]=source.fileId;
   sync();
   input.classList.add('is-magnet');
   setTimeout(()=>input.classList.remove('is-magnet'),110);
@@ -403,14 +347,7 @@ function connectedSourceForInput(input){
   if(!activeCard||!input) return null;
   const state=ensureProcessorState(activeCard);
   const port=input.dataset.port;
-  let fileId=null;
-
-  if(port==='bypass'){
-    fileId=state.inputs.bypass[state.inputs.bypass.length-1]||null;
-  }else{
-    fileId=state.inputs[port]||null;
-  }
-
+  const fileId=state.inputs[port]||null;
   const file=measurementById(fileId);
   if(!file) return null;
   return {
@@ -427,25 +364,15 @@ function detachSourceFromPort(port,fileId){
   if(!activeCard) return false;
   const state=ensureProcessorState(activeCard);
 
-  if(port==='bypass'){
-    const index=state.inputs.bypass.lastIndexOf(fileId);
-    if(index<0) return false;
-    state.inputs.bypass.splice(index,1);
-  }else{
-    if(state.inputs[port]!==fileId) return false;
-    state.inputs[port]=null;
-  }
+  if(state.inputs[port]!==fileId) return false;
+  state.inputs[port]=null;
   return true;
 }
 
 function restoreSourceToPort(port,fileId){
   if(!activeCard) return;
   const state=ensureProcessorState(activeCard);
-  if(port==='bypass'){
-    if(!state.inputs.bypass.includes(fileId)) state.inputs.bypass.push(fileId);
-  }else if(!state.inputs[port]){
-    state.inputs[port]=fileId;
-  }
+  if(!state.inputs[port]) state.inputs[port]=fileId;
 }
 
 function beginInputDetach(event,input){
@@ -603,7 +530,7 @@ function sourceFromMeasurementHandle(handle){
 function startNodeDrag(event){
   if(!activeCard||processorNode.hidden) return;
   if(event.button!==undefined&&event.button!==0) return;
-  if(event.target.closest('button,.processor-output-file,.processor-bypass-file')) return;
+  if(event.target.closest('button,.processor-output-file')) return;
   event.preventDefault();
 
   const pointerId=event.pointerId;
