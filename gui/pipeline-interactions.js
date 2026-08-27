@@ -53,6 +53,12 @@ function correctEntry(entry){
   const inferred=inferFromRange(entry);
   entry.sampleRate=inferred.sampleRate;
   entry.fftSize=inferred.fftSize;
+
+  // Keep Canonical V1 provenance metadata synchronized with the UI inference.
+  if(entry?.canonical){
+    entry.canonical.sample_rate_hz=inferred.sampleRate;
+    entry.canonical.base_fft_size=inferred.fftSize;
+  }
   return inferred;
 }
 
