@@ -37,10 +37,38 @@ function activate(page){
 }
 
 const TOOL_PAGES=new Set(['raptor-editor','nga-editor','nga-auto-zero']);
+const toolContexts=new Map();
+
+function renderToolContext(toolId,context={}){
+  const label=document.querySelector('[data-tool-context="'+toolId+'"]');
+  if(!label) return;
+
+  const lineName=context.lineName||'';
+  const fileName=context.fileName||'';
+  if(lineName&&fileName){
+    label.textContent='Pipeline · '+lineName+' · '+fileName;
+  }else if(lineName){
+    label.textContent='Pipeline · '+lineName+' · no input connected';
+  }else{
+    label.textContent='Pipeline context · no input connected';
+  }
+}
 
 function openTool(toolId,detail={}){
   const id=String(toolId||'').trim();
   if(!TOOL_PAGES.has(id)) return;
+
+  const previous=toolContexts.get(id)||{};
+  const hasPipelineContext=
+    detail.lineId!==undefined||
+    detail.lineName!==undefined||
+    detail.fileId!==undefined||
+    detail.fileName!==undefined||
+    detail.slot!==undefined;
+
+  const context=hasPipelineContext?{...previous,...detail}:{...previous};
+  toolContexts.set(id,context);
+  renderToolContext(id,context);
 
   canvas.dataset.tool=id;
   activate(id);
@@ -49,7 +77,7 @@ function openTool(toolId,detail={}){
   if(location.hash!==nextHash) history.pushState({page:id,tool:id},'',nextHash);
 
   document.dispatchEvent(new CustomEvent('raptor:toolchange',{
-    detail:{toolId:id,...detail}
+    detail:{toolId:id,...context,source:detail.source||context.source||'workspace'}
   }));
 }
 
@@ -66,8 +94,9 @@ function restoreRouteFromHash(){
 
   if(!toolId) return false;
   canvas.dataset.tool=toolId;
+  renderToolContext(toolId,toolContexts.get(toolId)||{});
   activate(toolId);
-  document.dispatchEvent(new CustomEvent('raptor:toolchange',{detail:{toolId,source:'route'}}));
+  document.dispatchEvent(new CustomEvent('raptor:toolchange',{detail:{toolId,...(toolContexts.get(toolId)||{}),source:'route'}}));
   return true;
 }
 
@@ -217,7 +246,8 @@ window.RaptorWorkspace=Object.freeze({
   activate,
   openTool,
   getCurrentPage:()=>canvas.dataset.page||'',
-  getCurrentTool:()=>canvas.dataset.tool||''
+  getCurrentTool:()=>canvas.dataset.tool||'',
+  getToolContext:toolId=>({...toolContexts.get(String(toolId||''))})
 });
 
 window.addEventListener('popstate',()=>{
