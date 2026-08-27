@@ -45,13 +45,33 @@
 .processor-pane-output.processor-output-top{border-radius:0 7px 0 0}
 .processor-pane-label{
   height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:6px 10px 6px 26px;text-align:center;color:#26323d;line-height:1.10;cursor:grab
+  padding:9px 30px 6px 26px;text-align:center;color:#26323d;line-height:1.10;cursor:grab
 }
 .processor-node.is-dragging .processor-pane-label{cursor:grabbing}
 .processor-signal{font-size:7.5px;color:#55636e;letter-spacing:.01em}
 .processor-pane-label strong{margin-top:6px;font-size:9px;font-weight:700}
 .processor-pane-auto .processor-pane-label strong{margin-top:0;font-size:10px}
 .processor-pane-auto .processor-pane-label span{margin-top:6px;font-size:8px;line-height:1.18}
+.processor-open-tool{
+  position:absolute;top:6px;right:6px;z-index:12;
+  width:21px;height:21px;padding:0;border:1px solid rgba(70,84,94,.28);
+  border-radius:5px;background:rgba(255,255,255,.76);
+  box-shadow:0 1px 2px rgba(24,32,42,.06);
+  cursor:pointer;touch-action:manipulation
+}
+.processor-open-tool span{
+  position:absolute;left:50%;top:50%;width:0;height:0;
+  border-top:4px solid transparent;border-bottom:4px solid transparent;
+  border-left:7px solid currentColor;
+  transform:translate(-38%,-50%)
+}
+.processor-open-tool:hover,.processor-open-tool:focus-visible{
+  background:#fff;transform:translateY(-1px);
+  box-shadow:0 2px 5px rgba(24,32,42,.11)
+}
+.processor-pane-raptor .processor-open-tool{color:#a47814;border-color:rgba(192,145,32,.36)}
+.processor-pane-nga .processor-open-tool{color:#3f9158;border-color:rgba(79,154,101,.34)}
+.processor-pane-auto .processor-open-tool{color:#8257a6;border-color:rgba(135,91,171,.34)}
 .processor-input{
   --port-color:#70808b;position:absolute;left:0;top:50%;z-index:11;
   width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;
