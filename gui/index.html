@@ -74,9 +74,24 @@
       </section>
 
       <section class="page-view" data-view="welcome" hidden></section>
-      <section class="page-view page-view--tool" data-view="raptor-editor" data-tool-view="raptor-editor" hidden></section>
-      <section class="page-view page-view--tool" data-view="nga-editor" data-tool-view="nga-editor" hidden></section>
-      <section class="page-view page-view--tool" data-view="nga-auto-zero" data-tool-view="nga-auto-zero" hidden></section>
+      <section class="page-view page-view--tool tool-page--raptor" data-view="raptor-editor" data-tool-view="raptor-editor" hidden>
+        <header class="tool-workspace-head">
+          <div class="tool-workspace-title"><strong>RAPTOR Editor</strong><span data-tool-context="raptor-editor">Pipeline context · no input connected</span></div>
+        </header>
+        <div class="tool-workspace-body" data-tool-body="raptor-editor"></div>
+      </section>
+      <section class="page-view page-view--tool tool-page--nga" data-view="nga-editor" data-tool-view="nga-editor" hidden>
+        <header class="tool-workspace-head">
+          <div class="tool-workspace-title"><strong>NGA Editor</strong><span data-tool-context="nga-editor">Pipeline context · no input connected</span></div>
+        </header>
+        <div class="tool-workspace-body" data-tool-body="nga-editor"></div>
+      </section>
+      <section class="page-view page-view--tool tool-page--auto" data-view="nga-auto-zero" data-tool-view="nga-auto-zero" hidden>
+        <header class="tool-workspace-head">
+          <div class="tool-workspace-title"><strong>NGA Auto ZERO</strong><span data-tool-context="nga-auto-zero">Pipeline context · no input connected</span></div>
+        </header>
+        <div class="tool-workspace-body" data-tool-body="nga-auto-zero"></div>
+      </section>
 
       <section class="page-view page-view--matching" data-view="matching" hidden>
         <section class="matching-page">
