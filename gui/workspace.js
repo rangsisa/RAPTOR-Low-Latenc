@@ -36,6 +36,31 @@ function activate(page){
   canvas.dataset.page=page;
 }
 
+function openTool(toolId,detail={}){
+  const id=String(toolId||'').trim();
+  if(!id) return;
+
+  canvas.dataset.tool=id;
+  activate('target-editor');
+
+  const nextHash='#target-editor/'+encodeURIComponent(id);
+  if(location.hash!==nextHash) history.pushState({page:'target-editor',tool:id},'',nextHash);
+
+  document.dispatchEvent(new CustomEvent('raptor:toolchange',{
+    detail:{toolId:id,...detail}
+  }));
+}
+
+function restoreRouteFromHash(){
+  const match=location.hash.match(/^#target-editor\/([^/?#]+)/);
+  if(!match) return false;
+  const toolId=decodeURIComponent(match[1]);
+  canvas.dataset.tool=toolId;
+  activate('target-editor');
+  document.dispatchEvent(new CustomEvent('raptor:toolchange',{detail:{toolId,source:'route'}}));
+  return true;
+}
+
 function defaultLineName(){
   const index=pipelineSequence++;
   return index===0?'RAPTOR Line':`RAPTOR Line ${index}`;
@@ -165,6 +190,17 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && !editModal.hidden) closeEdit();
 });
 
-// Pipeline is the initial workspace page. No transition is used between views.
+window.RaptorWorkspace=Object.freeze({
+  activate,
+  openTool,
+  getCurrentPage:()=>canvas.dataset.page||'',
+  getCurrentTool:()=>canvas.dataset.tool||''
+});
+
+window.addEventListener('popstate',()=>{
+  if(!restoreRouteFromHash()) activate('pipeline');
+});
+
+// Pipeline is the initial workspace page unless a tool route is present.
 canvas.dataset.page='';
-activate('pipeline');
+if(!restoreRouteFromHash()) activate('pipeline');
