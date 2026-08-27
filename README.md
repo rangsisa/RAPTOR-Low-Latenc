@@ -17,3 +17,12 @@ Current working GUI: `gui/matching/`
 
 Source of truth: GitHub.
 Backup/checkpoints: Google Drive `/Rapter GUI`.
+
+
+## Measurement data contract
+
+The authoritative WebApp working-measurement contract is:
+
+`docs/RAPTOR_MEASUREMENT_CANONICAL_V1_WEBAPP_IMPLEMENTATION_CONTRACT.md`
+
+RAPTOR Measurement Canonical V1 is the single source of truth from import through Editor, Graph, Pipeline, NGA, Matching, API, and Engine/Kernel.
