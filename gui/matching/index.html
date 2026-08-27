@@ -8,18 +8,46 @@
 <body>
 <section class="matching-page">
   <main class="matching-app"><section class="matching-left">
-    <header class="matching-toolbar"><div class="matching-tt">GRAPH DISPLAY</div><div class="matching-sep"></div><div class="matching-checks">
-      <label class="matching-check"><input id="tp" type="checkbox" checked>Show phase</label>
-      <label class="matching-check"><input id="tm" type="checkbox" checked>Show magnitude</label>
-      <label class="matching-check"><input id="tw" type="checkbox" checked>Phase wrap lines</label>
-      <label class="matching-check"><input id="ts" type="checkbox" checked>Sync cursor</label>
-    </div>
-    <div class="matching-actions"><span class="matching-hint">Wheel: zoom · Shift+drag: pan · Alt+drag: band · Double-click: fit</span><button class="matching-btn" id="cb">CLEAR BAND</button><button class="matching-btn" id="fit">FIT 20–20k</button></div></header>
+    <header class="matching-toolbar">
+      <div class="matching-toolbar-top">
+        <div class="matching-toolbar-title">
+          <div class="matching-tt">GRAPH DISPLAY</div>
+          <div class="matching-toolbar-sub">Phase + Magnitude inspection</div>
+        </div>
+        <div class="matching-actions">
+          <button class="matching-btn" id="cb">CLEAR BAND</button>
+          <button class="matching-btn matching-btn--primary" id="fit">FIT 20–20k</button>
+        </div>
+      </div>
+      <div class="matching-toolbar-bottom">
+        <div class="matching-checks">
+          <label class="matching-check"><input id="tp" type="checkbox" checked><span>Phase</span></label>
+          <label class="matching-check"><input id="tm" type="checkbox" checked><span>Magnitude</span></label>
+          <label class="matching-check"><input id="tw" type="checkbox" checked><span>Wrap lines</span></label>
+          <label class="matching-check"><input id="ts" type="checkbox" checked><span>Sync cursor</span></label>
+        </div>
+        <div class="matching-hint" aria-label="Graph controls">
+          <span><kbd>Wheel</kbd> Zoom</span>
+          <span><kbd>Shift</kbd> Pan</span>
+          <span><kbd>Alt</kbd> Band</span>
+          <span><kbd>2×</kbd> Fit</span>
+        </div>
+      </div>
+    </header>
     <section class="matching-graphs">
       <article class="matching-card"><header class="matching-head"><div class="matching-title"><span class="matching-dot"></span>Phase</div><div class="matching-readout" id="pr">— Hz · —°</div><span class="matching-unit">deg</span></header><div class="matching-plot" id="pw"><canvas id="phase"></canvas><div class="matching-badge" id="pb"></div><div class="matching-pill" id="pp"></div></div></article>
       <article class="matching-card"><header class="matching-head"><div class="matching-title"><span class="matching-dot"></span>Magnitude</div><div class="matching-readout" id="mr">— Hz · — dB</div><span class="matching-unit">dB</span></header><div class="matching-plot" id="mw"><canvas id="mag"></canvas><div class="matching-badge" id="mb"></div><div class="matching-pill" id="mp"></div></div></article>
     </section>
-  </section><aside class="matching-tools"><header class="matching-tools-head">MATCHING TOOLS</header><div class="matching-tools-body"></div></aside></main>
+  </section><aside class="matching-tools">
+    <header class="matching-tools-head"><div><strong>MATCHING TOOLS</strong><span>Processing workspace</span></div></header>
+    <div class="matching-tools-body">
+      <section class="matching-tools-empty" aria-label="Matching tools workspace">
+        <div class="matching-tools-empty-mark">M</div>
+        <strong>Matching workspace</strong>
+        <span>Tools will appear here as the processing chain is connected.</span>
+      </section>
+    </div>
+  </aside></main>
 </section>
 <script src="./matching-dom.js"></script>
 <script src="./matching.js"></script>
