@@ -36,15 +36,17 @@ function activate(page){
   canvas.dataset.page=page;
 }
 
+const TOOL_PAGES=new Set(['raptor-editor','nga-editor','nga-auto-zero']);
+
 function openTool(toolId,detail={}){
   const id=String(toolId||'').trim();
-  if(!id) return;
+  if(!TOOL_PAGES.has(id)) return;
 
   canvas.dataset.tool=id;
-  activate('target-editor');
+  activate(id);
 
-  const nextHash='#target-editor/'+encodeURIComponent(id);
-  if(location.hash!==nextHash) history.pushState({page:'target-editor',tool:id},'',nextHash);
+  const nextHash='#'+encodeURIComponent(id);
+  if(location.hash!==nextHash) history.pushState({page:id,tool:id},'',nextHash);
 
   document.dispatchEvent(new CustomEvent('raptor:toolchange',{
     detail:{toolId:id,...detail}
@@ -52,11 +54,19 @@ function openTool(toolId,detail={}){
 }
 
 function restoreRouteFromHash(){
-  const match=location.hash.match(/^#target-editor\/([^/?#]+)/);
-  if(!match) return false;
-  const toolId=decodeURIComponent(match[1]);
+  const direct=decodeURIComponent(location.hash.replace(/^#/,''));
+  let toolId=TOOL_PAGES.has(direct)?direct:null;
+
+  // Backward compatibility for links created before Target Editor was removed.
+  if(!toolId){
+    const legacy=location.hash.match(/^#target-editor\/([^/?#]+)/);
+    const legacyId=legacy?decodeURIComponent(legacy[1]):'';
+    if(TOOL_PAGES.has(legacyId)) toolId=legacyId;
+  }
+
+  if(!toolId) return false;
   canvas.dataset.tool=toolId;
-  activate('target-editor');
+  activate(toolId);
   document.dispatchEvent(new CustomEvent('raptor:toolchange',{detail:{toolId,source:'route'}}));
   return true;
 }
