@@ -1,5 +1,7 @@
 (()=>{
 const FILE_COLORS=['#2f6f9f','#e86f17','#2e8b57','#8b5cf6','#d14b4b','#0f8b8d','#b7791f','#5b6770'];
+const canonicalV1=window.RaptorMeasurementCanonicalV1;
+if(!canonicalV1) throw new Error('measurement-canonical-v1.js must load before pipeline.js');
 const COMMON_SAMPLE_RATES=[44100,48000,88200,96000,176400,192000];
 const FFT_SIZES=Array.from({length:13},(_,i)=>2**(8+i));
 const nodeCanvas=document.getElementById('pipelineNodeCanvas');
@@ -47,11 +49,18 @@ function createState(){
 function cloneState(state){
   const source=state||createState();
   const measurement=source.nodes?.measurement||{};
-  const files=(measurement.files||[]).map(file=>({
-    ...file,
-    sourceBuffer:file.sourceBuffer instanceof ArrayBuffer?file.sourceBuffer.slice(0):file.sourceBuffer,
-    buffer:file.buffer instanceof ArrayBuffer?file.buffer.slice(0):file.buffer
-  }));
+  const files=(measurement.files||[]).map(file=>{
+    const canonical=file.canonical?canonicalV1.clone(file.canonical):null;
+    return {
+      ...file,
+      sourceBuffer:file.sourceBuffer instanceof ArrayBuffer?file.sourceBuffer.slice(0):file.sourceBuffer,
+      canonical,
+      // Compatibility bridge only. Canonical V1 remains authoritative.
+      buffer:canonical?.data?.buffer||null,
+      points:canonical?.points||file.points||0,
+      columns:canonical?.column_count||file.columns||0
+    };
+  });
   const position=measurement.position?{...measurement.position}:null;
   return {version:source.version||1,nodes:{measurement:{files,position}}};
 }
@@ -145,76 +154,77 @@ function hexTint(hex,alpha=.09){
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`;
 }
 
-function parseMeasurement(text){
-  const rows=[];
-  let maxColumns=0;
-  for(const rawLine of text.split(/\r?\n/)){
-    const line=rawLine.trim();
-    if(!line) continue;
-    const tokens=line.replace(/^\uFEFF/,'').split(/[\s,;]+/).filter(Boolean);
-    const nums=[];
-    for(let i=0;i<Math.min(4,tokens.length);i++){
-      const value=Number(tokens[i]);
-      if(!Number.isFinite(value)) break;
-      nums.push(value);
-    }
-    if(nums.length>=2){
-      rows.push(nums);
-      if(nums.length>maxColumns) maxColumns=nums.length;
-    }
-  }
-  if(!rows.length) throw new Error('No numeric measurement rows found');
-  const columns=Math.max(2,Math.min(4,maxColumns));
-  const points=rows.length;
-  const buffer=new ArrayBuffer(points*columns*8);
-  for(let c=0;c<columns;c++){
-    const view=new Float64Array(buffer,c*points*8,points);
-    for(let r=0;r<points;r++) view[r]=Number.isFinite(rows[r][c])?rows[r][c]:NaN;
-  }
-  return {points,columns,buffer};
-}
+function inferAcquisition(canonical){
+  canonicalV1.validate(canonical);
+  const {frequency_hz:frequency}=canonicalV1.views(canonical);
+  const points=canonical.points;
+  if(points<2) return {sampleRate:null,fftSize:null,binHz:null,fMin:frequency[0]||null,fMax:frequency[0]||null};
 
-function inferAcquisition(buffer,points){
-  if(!(buffer instanceof ArrayBuffer)||points<2) return {sampleRate:null,fftSize:null,binHz:null,fMin:null,fMax:null};
-  const frequency=new Float64Array(buffer,0,points);
   const steps=[];
   for(let i=1;i<Math.min(points,96);i++){
     const delta=frequency[i]-frequency[i-1];
     if(Number.isFinite(delta)&&delta>0) steps.push(delta);
   }
-  const positiveFirst=Number.isFinite(frequency[0])&&frequency[0]>0?frequency[0]:Infinity;
+
+  const positiveFirst=frequency[0]>0?frequency[0]:Infinity;
   const binHz=Math.min(positiveFirst,...steps);
-  let best=null;
-  if(Number.isFinite(binHz)&&binHz>0){
-    for(const sampleRate of COMMON_SAMPLE_RATES){
-      for(const fftSize of FFT_SIZES){
-        const expected=sampleRate/fftSize;
-        const relative=Math.abs(expected-binHz)/expected;
-        if(!best||relative<best.relative) best={sampleRate,fftSize,relative};
-      }
+  const fMin=frequency[0];
+  const fMax=frequency[points-1];
+
+  const candidates=COMMON_SAMPLE_RATES
+    .map(sampleRate=>({sampleRate,nyquist:sampleRate/2,coverage:fMax/(sampleRate/2)}))
+    .filter(candidate=>fMax<=candidate.nyquist*1.01)
+    .filter(candidate=>candidate.coverage>=0.85)
+    .sort((a,b)=>Math.abs(1-a.coverage)-Math.abs(1-b.coverage));
+
+  const sampleRate=candidates[0]?.sampleRate||null;
+  let fftSize=null;
+
+  if(sampleRate&&Number.isFinite(binHz)&&binHz>0){
+    let best=null;
+    for(const candidate of FFT_SIZES){
+      const expected=sampleRate/candidate;
+      const relative=Math.abs(expected-binHz)/expected;
+      if(!best||relative<best.relative) best={fftSize:candidate,relative};
     }
+    if(best&&best.relative<=0.001) fftSize=best.fftSize;
   }
-  if(!best||best.relative>.001) best=null;
-  const finite=[...frequency].filter(Number.isFinite);
+
   return {
-    sampleRate:best?.sampleRate||null,
-    fftSize:best?.fftSize||null,
+    sampleRate,
+    fftSize,
     binHz:Number.isFinite(binHz)?binHz:null,
-    fMin:finite.length?Math.min(...finite):null,
-    fMax:finite.length?Math.max(...finite):null
+    fMin,
+    fMax
   };
+}
+
+function attachCanonical(entry,canonical){
+  canonicalV1.validate(canonical);
+  entry.canonical=canonical;
+
+  // Compatibility aliases for code being migrated. These are not authority.
+  entry.buffer=canonical.data.buffer;
+  entry.points=canonical.points;
+  entry.columns=canonical.column_count;
 }
 
 async function convertFile(file,entry){
   try{
     const sourceBuffer=await file.arrayBuffer();
     const text=new TextDecoder('utf-8').decode(sourceBuffer);
-    const parsed=parseMeasurement(text);
-    const acquisition=inferAcquisition(parsed.buffer,parsed.points);
+    const canonical=canonicalV1.parseText(text,{
+      measurementId:entry.id,
+      sourceName:file.name
+    });
+    const acquisition=inferAcquisition(canonical);
+
+    canonical.sample_rate_hz=acquisition.sampleRate;
+    canonical.base_fft_size=acquisition.fftSize;
+    canonical.payload_sha256=await canonicalV1.sha256(canonical);
+
     entry.sourceBuffer=sourceBuffer;
-    entry.buffer=parsed.buffer;
-    entry.points=parsed.points;
-    entry.columns=parsed.columns;
+    attachCanonical(entry,canonical);
     entry.sampleRate=acquisition.sampleRate;
     entry.fftSize=acquisition.fftSize;
     entry.binHz=acquisition.binHz;
@@ -223,6 +233,10 @@ async function convertFile(file,entry){
     entry.status='ready';
     entry.error='';
   }catch(error){
+    entry.canonical=null;
+    entry.buffer=null;
+    entry.points=0;
+    entry.columns=0;
     entry.status='error';
     entry.error=error instanceof Error?error.message:'Conversion failed';
   }
@@ -246,6 +260,8 @@ async function importFiles(files){
       fMin:null,
       fMax:null,
       sourceBuffer:null,
+      canonical:null,
+      // Compatibility bridge only; Canonical V1 is authoritative.
       buffer:null,
       error:''
     };
@@ -307,7 +323,7 @@ function renderFiles(){
     meta.className='measurement-file-meta';
     if(entry.status==='converting') meta.textContent='Converting…';
     else if(entry.status==='error') meta.textContent=`Import error · ${entry.error}`;
-    else meta.textContent=`Converted · ${entry.points} pts · ${entry.columns} cols`;
+    else meta.textContent=`Canonical V1 · ${entry.points} pts · 4 cols`;
     info.append(name,meta);
 
     const previewButton=document.createElement('button');
@@ -379,12 +395,15 @@ function drawPreview(entry){
   ctx.clearRect(0,0,w,h);
   ctx.fillStyle='#f7fcf8';
   ctx.fillRect(0,0,w,h);
-  if(!(entry.buffer instanceof ArrayBuffer)||!entry.points||entry.columns<2) return;
+  if(!entry.canonical) return;
+  canonicalV1.validate(entry.canonical);
 
-  const points=entry.points;
-  const frequency=new Float64Array(entry.buffer,0,points);
-  const magnitude=new Float64Array(entry.buffer,points*8,points);
-  const phase=entry.columns>=3?new Float64Array(entry.buffer,points*16,points):null;
+  const points=entry.canonical.points;
+  const {
+    frequency_hz:frequency,
+    magnitude_db:magnitude,
+    phase_deg:phase
+  }=canonicalV1.views(entry.canonical);
   const positive=[];
   const mags=[];
   for(let i=0;i<points;i++){
@@ -632,5 +651,36 @@ window.addEventListener('resize',()=>{
   if(activeCard&&ensureState(activeCard).nodes.measurement.position===null) requestAnimationFrame(applyMeasurementPosition);
 });
 
-window.RaptorPipeline={createState,cloneState,load,onRename,onDelete,refresh:renderFiles,registerInput,unregisterInput};
+function getMeasurement(fileId){
+  return activeFiles().find(file=>file.id===fileId)||null;
+}
+
+function getMeasurementCanonical(fileId){
+  const entry=getMeasurement(fileId);
+  if(!entry?.canonical) return null;
+  canonicalV1.validate(entry.canonical);
+  return entry.canonical;
+}
+
+function getActiveLine(){
+  if(!activeCard) return null;
+  return {
+    id:activeCard.dataset.lineId||null,
+    name:activeCard.dataset.lineName||'RAPTOR Line'
+  };
+}
+
+window.RaptorPipeline={
+  createState,
+  cloneState,
+  load,
+  onRename,
+  onDelete,
+  refresh:renderFiles,
+  registerInput,
+  unregisterInput,
+  getMeasurement,
+  getMeasurementCanonical,
+  getActiveLine
+};
 })();
