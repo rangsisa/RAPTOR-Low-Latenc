@@ -21,7 +21,9 @@
 
       <nav class="primary-nav" aria-label="RAPTOR workspace">
         <button class="nav-item" type="button" data-page="welcome">Welcome</button>
-        <button class="nav-item" type="button" data-page="target-editor">Target Editor</button>
+        <button class="nav-item nav-item--tool nav-item--raptor" type="button" data-page="raptor-editor"><span class="tool-nav-dot"></span>RAPTOR Editor</button>
+        <button class="nav-item nav-item--tool nav-item--nga" type="button" data-page="nga-editor"><span class="tool-nav-dot"></span>NGA Editor</button>
+        <button class="nav-item nav-item--tool nav-item--auto" type="button" data-page="nga-auto-zero"><span class="tool-nav-dot"></span>NGA Auto ZERO</button>
         <button class="nav-item nav-item--pipeline is-active" type="button" data-page="pipeline" aria-current="page"><span class="pipeline-dot"></span>Pipeline</button>
         <button class="nav-item" type="button" data-page="matching">Matching</button>
         <button class="nav-item" type="button" data-page="store">Store</button>
@@ -72,7 +74,9 @@
       </section>
 
       <section class="page-view" data-view="welcome" hidden></section>
-      <section class="page-view" data-view="target-editor" hidden></section>
+      <section class="page-view page-view--tool" data-view="raptor-editor" data-tool-view="raptor-editor" hidden></section>
+      <section class="page-view page-view--tool" data-view="nga-editor" data-tool-view="nga-editor" hidden></section>
+      <section class="page-view page-view--tool" data-view="nga-auto-zero" data-tool-view="nga-auto-zero" hidden></section>
 
       <section class="page-view page-view--matching" data-view="matching" hidden>
         <section class="matching-page">
