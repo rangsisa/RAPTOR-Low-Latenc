@@ -72,6 +72,7 @@ function makeInput(port){
   button.dataset.port=port.id;
   button.title=port.exclusive?port.label+' · 1 input max':port.label+' · unlimited inputs';
   button.setAttribute('aria-label',button.title);
+  button.addEventListener('pointerdown',event=>beginInputDetach(event,button));
   return button;
 }
 
@@ -337,11 +338,17 @@ function renderConnections(){
     const source=measurementHandle(link.fileId);
     const target=processorNode.querySelector('.processor-input[data-port="'+link.port+'"]');
     if(!file||!source||!target) continue;
+    const d=curvePath(pointFor(source),pointFor(target));
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('class','pipeline-persistent-wire');
     path.setAttribute('stroke',sourceColor(file));
-    path.setAttribute('d',curvePath(pointFor(source),pointFor(target)));
-    persistentGroup.appendChild(path);
+    path.setAttribute('d',d);
+
+    const flow=document.createElementNS('http://www.w3.org/2000/svg','path');
+    flow.setAttribute('class','pipeline-wire-flow');
+    flow.setAttribute('d',d);
+
+    persistentGroup.append(path,flow);
   }
 }
 
@@ -390,6 +397,143 @@ function connectMeasurement(source,input){
   input.classList.add('is-magnet');
   setTimeout(()=>input.classList.remove('is-magnet'),110);
   return true;
+}
+
+function connectedSourceForInput(input){
+  if(!activeCard||!input) return null;
+  const state=ensureProcessorState(activeCard);
+  const port=input.dataset.port;
+  let fileId=null;
+
+  if(port==='bypass'){
+    fileId=state.inputs.bypass[state.inputs.bypass.length-1]||null;
+  }else{
+    fileId=state.inputs[port]||null;
+  }
+
+  const file=measurementById(fileId);
+  if(!file) return null;
+  return {
+    kind:'measurement',
+    id:file.id,
+    fileId:file.id,
+    name:file.name,
+    color:sourceColor(file),
+    fromPort:port
+  };
+}
+
+function detachSourceFromPort(port,fileId){
+  if(!activeCard) return false;
+  const state=ensureProcessorState(activeCard);
+
+  if(port==='bypass'){
+    const index=state.inputs.bypass.lastIndexOf(fileId);
+    if(index<0) return false;
+    state.inputs.bypass.splice(index,1);
+  }else{
+    if(state.inputs[port]!==fileId) return false;
+    state.inputs[port]=null;
+  }
+  return true;
+}
+
+function restoreSourceToPort(port,fileId){
+  if(!activeCard) return;
+  const state=ensureProcessorState(activeCard);
+  if(port==='bypass'){
+    if(!state.inputs.bypass.includes(fileId)) state.inputs.bypass.push(fileId);
+  }else if(!state.inputs[port]){
+    state.inputs[port]=fileId;
+  }
+}
+
+function beginInputDetach(event,input){
+  if(event.button!==undefined&&event.button!==0) return;
+  const source=connectedSourceForInput(input);
+  if(!source) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  ensureWireLayers();
+  const originalPort=source.fromPort;
+  const pointerId=event.pointerId;
+  const sourceHandle=measurementHandle(source.fileId);
+  if(!sourceHandle) return;
+
+  if(!detachSourceFromPort(originalPort,source.fileId)) return;
+  input.classList.add('is-detaching');
+  sync();
+
+  const start=pointFor(sourceHandle);
+  previewPath.setAttribute('stroke',source.color||'#5b6770');
+  previewEnd.setAttribute('fill',source.color||'#5b6770');
+  previewEnd.hidden=false;
+
+  clearPortHighlights();
+  for(const target of eligibleInputs(source)) target.classList.add('is-available');
+
+  try{input.setPointerCapture(pointerId)}catch{}
+
+  const move=moveEvent=>{
+    if(moveEvent.pointerId!==pointerId) return;
+
+    clearPortHighlights();
+    for(const target of eligibleInputs(source)) target.classList.add('is-available');
+
+    const magnet=nearestInput(moveEvent.clientX,moveEvent.clientY,source);
+    let end={
+      x:moveEvent.clientX-canvas.getBoundingClientRect().left+canvas.scrollLeft,
+      y:moveEvent.clientY-canvas.getBoundingClientRect().top+canvas.scrollTop
+    };
+
+    if(magnet){
+      magnet.input.classList.add('is-magnet');
+      end=pointFor(magnet.input);
+    }
+
+    previewPath.setAttribute('d',curvePath(start,end));
+    previewEnd.setAttribute('cx',end.x);
+    previewEnd.setAttribute('cy',end.y);
+  };
+
+  const finish=(endEvent,cancelled=false)=>{
+    if(endEvent.pointerId!==pointerId) return;
+
+    if(cancelled){
+      restoreSourceToPort(originalPort,source.fileId);
+      sync();
+    }else{
+      const magnet=nearestInput(endEvent.clientX,endEvent.clientY,source);
+      if(magnet){
+        connectMeasurement(source,magnet.input);
+      }else{
+        sync();
+      }
+    }
+
+    previewPath.removeAttribute('d');
+    previewEnd.hidden=true;
+    input.classList.remove('is-detaching');
+    clearPortHighlights();
+
+    window.removeEventListener('pointermove',move);
+    window.removeEventListener('pointerup',up);
+    window.removeEventListener('pointercancel',cancel);
+
+    try{
+      if(input.hasPointerCapture(pointerId)) input.releasePointerCapture(pointerId);
+    }catch{}
+  };
+
+  const up=endEvent=>finish(endEvent,false);
+  const cancel=endEvent=>finish(endEvent,true);
+
+  move(event);
+  window.addEventListener('pointermove',move,{passive:true});
+  window.addEventListener('pointerup',up);
+  window.addEventListener('pointercancel',cancel);
 }
 
 function beginWire(event,source,handle){
