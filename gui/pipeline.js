@@ -154,32 +154,79 @@ function hexTint(hex,alpha=.09){
   return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`;
 }
 
-function inferAcquisition(canonical){
+function extractDeclaredSampleRate(text){
+  const head=String(text||'').split(/\r?\n/).slice(0,32).join('\n');
+  const patterns=[
+    /(?:sample\s*rate|samplerate|sample_rate_hz)\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(khz|hz)?/i,
+    /(?:^|[\s,;])fs\s*[:=]\s*(\d+(?:\.\d+)?)\s*(khz|hz)?/im
+  ];
+
+  for(const pattern of patterns){
+    const match=head.match(pattern);
+    if(!match) continue;
+    let value=Number(match[1]);
+    if(!Number.isFinite(value)||value<=0) continue;
+    if(String(match[2]||'').toLowerCase()==='khz') value*=1000;
+    if(value>=8000&&value<=768000) return value;
+  }
+  return null;
+}
+
+function sampleRateFromFrequencyCoverage(fMax){
+  if(!Number.isFinite(fMax)||fMax<=0) return null;
+
+  // Fallback only when source metadata does not declare Sample Rate.
+  // This uses measured frequency coverage, never FFT/bin spacing.
+  const candidates=COMMON_SAMPLE_RATES
+    .map(sampleRate=>({
+      sampleRate,
+      nyquist:sampleRate/2,
+      coverage:fMax/(sampleRate/2)
+    }))
+    .filter(candidate=>fMax<=candidate.nyquist*1.01)
+    .filter(candidate=>candidate.coverage>=0.85)
+    .sort((a,b)=>Math.abs(1-a.coverage)-Math.abs(1-b.coverage));
+
+  return candidates[0]?.sampleRate||null;
+}
+
+function inferAcquisition(canonical,declaredSampleRate=null){
   canonicalV1.validate(canonical);
   const {frequency_hz:frequency}=canonicalV1.views(canonical);
   const points=canonical.points;
-  if(points<2) return {sampleRate:null,fftSize:null,binHz:null,fMin:frequency[0]||null,fMax:frequency[0]||null};
+  const fMin=frequency[0]||null;
+  const fMax=frequency[points-1]||null;
+
+  if(points<2){
+    const sampleRate=Number.isFinite(declaredSampleRate)&&declaredSampleRate>0
+      ?declaredSampleRate
+      :sampleRateFromFrequencyCoverage(fMax);
+    return {
+      sampleRate,
+      sampleRateSource:Number.isFinite(declaredSampleRate)&&declaredSampleRate>0?'source':'frequency-range',
+      fftSize:null,
+      binHz:null,
+      fMin,
+      fMax
+    };
+  }
 
   const steps=[];
   for(let i=1;i<Math.min(points,96);i++){
     const delta=frequency[i]-frequency[i-1];
     if(Number.isFinite(delta)&&delta>0) steps.push(delta);
   }
-
   const positiveFirst=frequency[0]>0?frequency[0]:Infinity;
   const binHz=Math.min(positiveFirst,...steps);
-  const fMin=frequency[0];
-  const fMax=frequency[points-1];
 
-  const candidates=COMMON_SAMPLE_RATES
-    .map(sampleRate=>({sampleRate,nyquist:sampleRate/2,coverage:fMax/(sampleRate/2)}))
-    .filter(candidate=>fMax<=candidate.nyquist*1.01)
-    .filter(candidate=>candidate.coverage>=0.85)
-    .sort((a,b)=>Math.abs(1-a.coverage)-Math.abs(1-b.coverage));
+  const hasDeclared=Number.isFinite(declaredSampleRate)&&declaredSampleRate>0;
+  const sampleRate=hasDeclared
+    ?declaredSampleRate
+    :sampleRateFromFrequencyCoverage(fMax);
 
-  const sampleRate=candidates[0]?.sampleRate||null;
+  // FFT is secondary metadata only. It may be estimated only after Sample Rate
+  // is already authoritative; it must never determine or overwrite Sample Rate.
   let fftSize=null;
-
   if(sampleRate&&Number.isFinite(binHz)&&binHz>0){
     let best=null;
     for(const candidate of FFT_SIZES){
@@ -192,6 +239,7 @@ function inferAcquisition(canonical){
 
   return {
     sampleRate,
+    sampleRateSource:hasDeclared?'source':(sampleRate?'frequency-range':null),
     fftSize,
     binHz:Number.isFinite(binHz)?binHz:null,
     fMin,
@@ -217,7 +265,8 @@ async function convertFile(file,entry){
       measurementId:entry.id,
       sourceName:file.name
     });
-    const acquisition=inferAcquisition(canonical);
+    const declaredSampleRate=extractDeclaredSampleRate(text);
+    const acquisition=inferAcquisition(canonical,declaredSampleRate);
 
     canonical.sample_rate_hz=acquisition.sampleRate;
     canonical.base_fft_size=acquisition.fftSize;
@@ -226,6 +275,7 @@ async function convertFile(file,entry){
     entry.sourceBuffer=sourceBuffer;
     attachCanonical(entry,canonical);
     entry.sampleRate=acquisition.sampleRate;
+    entry.sampleRateSource=acquisition.sampleRateSource;
     entry.fftSize=acquisition.fftSize;
     entry.binHz=acquisition.binHz;
     entry.fMin=acquisition.fMin;
@@ -255,6 +305,7 @@ async function importFiles(files){
       columns:0,
       size:file.size,
       sampleRate:null,
+      sampleRateSource:null,
       fftSize:null,
       binHz:null,
       fMin:null,
