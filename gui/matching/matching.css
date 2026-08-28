@@ -4,7 +4,7 @@
   --bg:#e7ecef;
   --surface:#fff;
   --surface-soft:#f7f9fb;
-  --phase-bg:#f4fbff;
+  --phase-bg:#f3f8fb;
   --mag-bg:#fff8ef;
   --border:#aeb9c4;
   --border-soft:#c9d2d9;
@@ -280,7 +280,7 @@
   font-weight:700
 }
 .matching-plot{position:relative;min-width:0;min-height:0}
-#pw{background:linear-gradient(180deg,#f8fdff 0%,var(--phase-bg) 100%)}
+#pw{background:var(--phase-bg)}
 #mw{background:linear-gradient(180deg,#fffdf9 0%,var(--mag-bg) 100%)}
 .matching-page canvas{
   display:block;
