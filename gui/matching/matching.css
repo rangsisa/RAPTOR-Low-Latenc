@@ -264,7 +264,9 @@
 }
 .matching-readout{
   margin-left:auto;
-  min-width:156px;
+  min-width:0;
+  width:fit-content;
+  max-width:52%;
   padding:3px 7px;
   border:1px solid #c0cad2;
   border-radius:5px;
@@ -272,7 +274,29 @@
   color:#36434f;
   font-size:9.5px;
   font-variant-numeric:tabular-nums;
-  text-align:right
+  text-align:right;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  flex:0 1 auto
+}
+
+.matching-pointer-readout{
+  min-width:0;
+  width:fit-content;
+  max-width:38%;
+  padding:3px 7px;
+  border:1px solid #9dc8aa;
+  border-radius:5px;
+  background:#edf8f0;
+  color:#315e3f;
+  font-size:9.5px;
+  font-variant-numeric:tabular-nums;
+  text-align:right;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  flex:0 1 auto
 }
 .matching-unit{
   min-width:20px;
@@ -442,7 +466,8 @@
   .matching-card{grid-template-rows:28px minmax(0,1fr)}
   .matching-head{height:28px;padding:0 8px}
   .matching-title{font-size:9.5px}
-  .matching-readout{min-width:140px;padding:2px 6px;font-size:8.5px}
+  .matching-readout{min-width:0;max-width:48%;padding:2px 6px;font-size:8.5px}
+  .matching-pointer-readout{max-width:36%;padding:2px 6px;font-size:8.5px}
   .matching-tools{grid-template-rows:36px minmax(0,1fr)}
   .matching-tools-head{height:36px;padding:0 10px}
   .matching-tools-empty{top:48%}
