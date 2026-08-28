@@ -7,7 +7,15 @@ const F1=20000;
 const WIDTH=1000;
 const HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
+const SVG_NS='http://www.w3.org/2000/svg';
+
 const VIEW_STATES=new Map(TOOL_IDS.map(id=>[id,{v0:F0,v1:F1}]));
+const UI_STATES=new Map(TOOL_IDS.map(id=>[id,{
+  phase:true,
+  magnitude:true,
+  wrap:true,
+  sync:true
+}]));
 
 function log10(value){return Math.log(value)/Math.LN10;}
 
@@ -23,13 +31,16 @@ function frequencyAtRatio(ratio,state){
   return Math.exp(a+Math.max(0,Math.min(1,ratio))*(b-a));
 }
 
-function formatFrequency(value){
+function formatFrequency(value,withUnit=false){
   if(!Number.isFinite(value)||value<=0) return '—';
+  let text='';
   if(value>=1000){
     const k=value/1000;
-    return (k<10?k.toFixed(2):k.toFixed(1)).replace(/\.?0+$/,'')+'k';
+    text=(k<10?k.toFixed(2):k.toFixed(1)).replace(/\.?0+$/,'')+'k';
+  }else{
+    text=(value<100?value.toFixed(1):value.toFixed(0)).replace(/\.0$/,'');
   }
-  return (value<100?value.toFixed(1):value.toFixed(0)).replace(/\.0$/,'');
+  return withUnit?text+' Hz':text;
 }
 
 function yPhase(value){
@@ -95,34 +106,6 @@ function fillPath(linePath,frequency,indices,state){
   return linePath+' L'+xOf(last,state).toFixed(2)+' '+HEIGHT+' L'+xOf(first,state).toFixed(2)+' '+HEIGHT+' Z';
 }
 
-function updateXAxis(body,state){
-  for(const axis of body.querySelectorAll('.editor-foundation-x')){
-    const labels=[...axis.querySelectorAll('span')];
-    if(!labels.length) continue;
-    labels.forEach((label,index)=>{
-      const ratio=labels.length===1?0:index/(labels.length-1);
-      label.textContent=formatFrequency(frequencyAtRatio(ratio,state));
-    });
-  }
-}
-
-function setEmpty(body,state){
-  const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
-  const magSvg=body.querySelector('.editor-foundation-trace--mag');
-  const magFill=magSvg?.querySelector('.editor-foundation-fill');
-  const magLine=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')):null;
-  phasePathEl?.setAttribute('d','');
-  magFill?.setAttribute('d','');
-  magLine?.setAttribute('d','');
-
-  const readouts=[...body.querySelectorAll('.matching-readout')];
-  if(readouts[0]) readouts[0].textContent='No Pipeline input';
-  if(readouts[1]) readouts[1].textContent='No Pipeline input';
-
-  updateXAxis(body,state);
-  body.dataset.graphInput='empty';
-}
-
 function currentInput(toolId){
   const body=document.querySelector('[data-tool-body="'+toolId+'"]');
   const workspace=window.RaptorWorkspace?.getToolInput?.(toolId)||null;
@@ -134,8 +117,174 @@ function currentInput(toolId){
   };
 }
 
+function updateXAxis(body,state){
+  for(const axis of body.querySelectorAll('.editor-foundation-x')){
+    const labels=[...axis.querySelectorAll('span')];
+    labels.forEach((label,index)=>{
+      const ratio=labels.length===1?0:index/(labels.length-1);
+      label.textContent=formatFrequency(frequencyAtRatio(ratio,state));
+    });
+  }
+}
+
+function updateTraceVisibility(body,ui){
+  const phaseSvg=body.querySelector('.editor-foundation-trace--phase');
+  const magSvg=body.querySelector('.editor-foundation-trace--mag');
+  if(phaseSvg) phaseSvg.style.opacity=ui.phase?'1':'0';
+  if(magSvg) magSvg.style.opacity=ui.magnitude?'1':'0';
+
+  for(const marker of body.querySelectorAll('.editor-wrap-marker')){
+    marker.style.display=ui.phase&&ui.wrap?'':'none';
+  }
+}
+
+function clearWrapMarkers(body){
+  body.querySelectorAll('.editor-wrap-marker').forEach(node=>node.remove());
+}
+
+function renderWrapMarkers(body,frequency,phase,indices,state,ui){
+  clearWrapMarkers(body);
+  if(!ui.phase||!ui.wrap||indices.length<2) return;
+
+  const svg=body.querySelector('.editor-foundation-trace--phase');
+  if(!svg) return;
+
+  let previousIndex=indices[0];
+  let count=0;
+  for(let n=1;n<indices.length;n++){
+    const i=indices[n];
+    const previous=phase[previousIndex];
+    const current=phase[i];
+    if(Number.isFinite(previous)&&Number.isFinite(current)&&Math.abs(current-previous)>300){
+      const f=frequency[i];
+      if(Number.isFinite(f)&&f>=state.v0&&f<=state.v1){
+        const x=xOf(f,state);
+        const line=document.createElementNS(SVG_NS,'line');
+        line.classList.add('editor-wrap-marker');
+        line.setAttribute('x1',x.toFixed(2));
+        line.setAttribute('x2',x.toFixed(2));
+        line.setAttribute('y1','0');
+        line.setAttribute('y2',String(HEIGHT));
+        svg.appendChild(line);
+        count++;
+        if(count>=96) break;
+      }
+    }
+    previousIndex=i;
+  }
+}
+
+function ensureCursorLine(svg){
+  let line=svg?.querySelector('.editor-cursor-line');
+  if(!line&&svg){
+    line=document.createElementNS(SVG_NS,'line');
+    line.classList.add('editor-cursor-line');
+    line.setAttribute('y1','0');
+    line.setAttribute('y2',String(HEIGHT));
+    line.hidden=true;
+    svg.appendChild(line);
+  }
+  return line;
+}
+
+function hideCursors(body){
+  body.querySelectorAll('.editor-cursor-line').forEach(line=>{line.hidden=true;});
+}
+
+function nearestIndex(frequency,target){
+  let lo=0,hi=frequency.length-1;
+  while(lo<hi){
+    const mid=(lo+hi)>>1;
+    if(frequency[mid]<target) lo=mid+1;
+    else hi=mid;
+  }
+  if(lo<=0) return 0;
+  if(lo>=frequency.length) return frequency.length-1;
+  const prev=lo-1;
+  return Math.abs(frequency[lo]-target)<Math.abs(frequency[prev]-target)?lo:prev;
+}
+
+function restoreReadouts(toolId){
+  const state=VIEW_STATES.get(toolId);
+  const {body,entry,canonical}=currentInput(toolId);
+  if(!body) return;
+  const readouts=[...body.querySelectorAll('.matching-readout')];
+
+  if(!canonical){
+    if(readouts[0]) readouts[0].textContent='No Pipeline input';
+    if(readouts[1]) readouts[1].textContent='No Pipeline input';
+    return;
+  }
+
+  const name=entry?.name||canonical.source_name||'Pipeline measurement';
+  const range=formatFrequency(state.v0)+'–'+formatFrequency(state.v1)+' Hz';
+  if(readouts[0]) readouts[0].textContent=name+' · '+range;
+  if(readouts[1]) readouts[1].textContent=name+' · '+range;
+}
+
+function showCursor(toolId,plotKind,ratio){
+  const state=VIEW_STATES.get(toolId);
+  const ui=UI_STATES.get(toolId);
+  const {body,views}=currentInput(toolId);
+  if(!body||!views?.frequency_hz) return;
+
+  const frequency=views.frequency_hz;
+  const phase=views.phase_deg;
+  const magnitude=views.magnitude_db;
+  const target=frequencyAtRatio(ratio,state);
+  const index=nearestIndex(frequency,target);
+  const f=frequency[index];
+
+  if(!Number.isFinite(f)||f<state.v0||f>state.v1) return;
+
+  const x=xOf(f,state);
+  const phaseSvg=body.querySelector('.editor-foundation-trace--phase');
+  const magSvg=body.querySelector('.editor-foundation-trace--mag');
+  const phaseCursor=ensureCursorLine(phaseSvg);
+  const magCursor=ensureCursorLine(magSvg);
+
+  if(phaseCursor){
+    phaseCursor.setAttribute('x1',x.toFixed(2));
+    phaseCursor.setAttribute('x2',x.toFixed(2));
+    phaseCursor.hidden=!(ui.sync||plotKind==='phase');
+  }
+  if(magCursor){
+    magCursor.setAttribute('x1',x.toFixed(2));
+    magCursor.setAttribute('x2',x.toFixed(2));
+    magCursor.hidden=!(ui.sync||plotKind==='magnitude');
+  }
+
+  const readouts=[...body.querySelectorAll('.matching-readout')];
+  if((ui.sync||plotKind==='phase')&&readouts[0]){
+    readouts[0].textContent=formatFrequency(f,true)+' · '+(Number.isFinite(phase[index])?phase[index].toFixed(1)+'°':'—°');
+  }
+  if((ui.sync||plotKind==='magnitude')&&readouts[1]){
+    readouts[1].textContent=formatFrequency(f,true)+' · '+(Number.isFinite(magnitude[index])?magnitude[index].toFixed(2)+' dB':'— dB');
+  }
+}
+
+function setEmpty(body,state){
+  const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
+  const magSvg=body.querySelector('.editor-foundation-trace--mag');
+  const magFill=magSvg?.querySelector('.editor-foundation-fill');
+  const magLine=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')):null;
+  phasePathEl?.setAttribute('d','');
+  magFill?.setAttribute('d','');
+  magLine?.setAttribute('d','');
+  clearWrapMarkers(body);
+  hideCursors(body);
+
+  const readouts=[...body.querySelectorAll('.matching-readout')];
+  if(readouts[0]) readouts[0].textContent='No Pipeline input';
+  if(readouts[1]) readouts[1].textContent='No Pipeline input';
+
+  updateXAxis(body,state);
+  body.dataset.graphInput='empty';
+}
+
 function render(toolId,input=null){
   const state=VIEW_STATES.get(toolId)||{v0:F0,v1:F1};
+  const ui=UI_STATES.get(toolId);
   const body=input?.body||document.querySelector('[data-tool-body="'+toolId+'"]');
   if(!body) return;
 
@@ -146,6 +295,7 @@ function render(toolId,input=null){
 
   if(!canonical||!views){
     setEmpty(body,state);
+    updateTraceVisibility(body,ui);
     return;
   }
 
@@ -185,13 +335,12 @@ function render(toolId,input=null){
   magFillEl?.setAttribute('d',mFill);
   magLineEl?.setAttribute('d',mPath);
 
-  const readouts=[...body.querySelectorAll('.matching-readout')];
-  const name=entry?.name||canonical.source_name||'Pipeline measurement';
-  const range=formatFrequency(state.v0)+'–'+formatFrequency(state.v1)+' Hz';
-  if(readouts[0]) readouts[0].textContent=name+' · '+range;
-  if(readouts[1]) readouts[1].textContent=name+' · '+range;
-
+  renderWrapMarkers(body,frequency,phase,indices,state,ui);
+  updateTraceVisibility(body,ui);
+  hideCursors(body);
+  restoreReadouts(toolId);
   updateXAxis(body,state);
+
   body.dataset.graphInput='canonical-v1';
   body.dataset.displayPoints=String(indices.length);
   body.dataset.viewMin=String(state.v0);
@@ -235,23 +384,53 @@ function zoom(toolId,ratio,deltaY){
   render(toolId);
 }
 
+function ratioForPointer(plot,event){
+  const rect=plot.getBoundingClientRect();
+  const left=30;
+  const right=7;
+  const usable=Math.max(1,rect.width-left-right);
+  return (event.clientX-rect.left-left)/usable;
+}
+
+function bindControls(toolId,body){
+  const checks=[...body.querySelectorAll('.matching-check input')];
+  const ui=UI_STATES.get(toolId);
+  const keys=['phase','magnitude','wrap','sync'];
+
+  checks.slice(0,4).forEach((check,index)=>{
+    check.checked=ui[keys[index]];
+    check.addEventListener('change',()=>{
+      ui[keys[index]]=check.checked;
+      if(keys[index]==='sync'&&!check.checked) hideCursors(body);
+      render(toolId);
+    });
+  });
+}
+
 function bindGraphInteraction(toolId){
   const body=document.querySelector('[data-tool-body="'+toolId+'"]');
   if(!body||body.dataset.graphInteractionBound==='1') return;
   body.dataset.graphInteractionBound='1';
 
+  bindControls(toolId,body);
+
   body.querySelectorAll('.editor-foundation-plot').forEach(plot=>{
+    const plotKind=plot.classList.contains('editor-foundation-plot--phase')?'phase':'magnitude';
+
     plot.addEventListener('wheel',event=>{
       event.preventDefault();
       event.stopPropagation();
-
-      const rect=plot.getBoundingClientRect();
-      const left=30;
-      const right=7;
-      const usable=Math.max(1,rect.width-left-right);
-      const ratio=(event.clientX-rect.left-left)/usable;
-      zoom(toolId,ratio,event.deltaY);
+      zoom(toolId,ratioForPointer(plot,event),event.deltaY);
     },{passive:false});
+
+    plot.addEventListener('pointermove',event=>{
+      showCursor(toolId,plotKind,ratioForPointer(plot,event));
+    });
+
+    plot.addEventListener('pointerleave',()=>{
+      hideCursors(body);
+      restoreReadouts(toolId);
+    });
 
     plot.addEventListener('dblclick',event=>{
       event.preventDefault();
