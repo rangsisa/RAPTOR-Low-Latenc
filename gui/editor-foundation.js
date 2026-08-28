@@ -703,6 +703,7 @@ function setEmpty(body,state){
   hideCursors(body);
   body._raptorDisplayViews=null;
   body.dataset.eqGeometry='none';
+  body.dataset.coherenceOverlay='none';
   delete body.dataset.eqGeometryOperations;
   delete body.dataset.eqGeometryError;
 
