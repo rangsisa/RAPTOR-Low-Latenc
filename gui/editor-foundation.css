@@ -542,3 +542,19 @@
     max-height:calc(100% - 100px)
   }
 }
+
+
+.editor-dock-btn:disabled{
+  opacity:.42;
+  cursor:not-allowed;
+  background:#f3f5f6;
+  color:#89949d;
+  border-color:#cbd3d9;
+  box-shadow:none
+}
+
+.editor-dock-btn:disabled:hover{
+  background:#f3f5f6;
+  color:#89949d;
+  border-color:#cbd3d9
+}
