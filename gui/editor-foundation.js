@@ -7,6 +7,7 @@ const F1=20000;
 const WIDTH=1000;
 const HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
+const UNCERTAINTY_NEEDLE_MAX_HEIGHT=HEIGHT*.30;
 const SVG_NS='http://www.w3.org/2000/svg';
 const FREQ_TICKS=[
   20,40,80,
@@ -246,40 +247,36 @@ function fillPath(linePath,frequency,indices,state){
   return linePath+' L'+xOf(last,state).toFixed(2)+' '+HEIGHT+' L'+xOf(first,state).toFixed(2)+' '+HEIGHT+' Z';
 }
 
-function coherenceLossPath(frequency,coherence,indices,state){
+function uncertaintyNeedlePath(frequency,coherence,indices,state){
   if(!coherence||!indices.length) return '';
 
-  const points=[];
+  let path='';
   for(const i of indices){
     const f=frequency[i];
     const value=coherence[i];
     if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
-    const c=Math.max(0,Math.min(1,value));
-    const x=xOf(f,state);
-    const y=(1-c)*HEIGHT;
-    points.push([x,y]);
-  }
 
-  if(!points.length) return '';
-  let path='M'+points[0][0].toFixed(2)+' 0 ';
-  path+='L'+points[0][0].toFixed(2)+' '+points[0][1].toFixed(2)+' ';
-  for(let i=1;i<points.length;i++){
-    path+='L'+points[i][0].toFixed(2)+' '+points[i][1].toFixed(2)+' ';
+    const c=Math.max(0,Math.min(1,value));
+    const loss=1-c;
+    if(loss<=0) continue;
+
+    const x=xOf(f,state);
+    const yTop=HEIGHT-loss*UNCERTAINTY_NEEDLE_MAX_HEIGHT;
+    path+='M'+x.toFixed(2)+' '+HEIGHT+' L'+x.toFixed(2)+' '+yTop.toFixed(2)+' ';
   }
-  path+='L'+points[points.length-1][0].toFixed(2)+' 0 Z';
-  return path;
+  return path.trim();
 }
 
-function ensureCoherenceLossPath(svg){
+function ensureUncertaintyNeedles(svg){
   if(!svg) return null;
-  let path=svg.querySelector('.editor-foundation-coherence-loss');
+  let path=svg.querySelector('.editor-foundation-uncertainty-needles');
   if(path) return path;
 
   path=document.createElementNS(SVG_NS,'path');
-  path.classList.add('editor-foundation-coherence-loss');
+  path.classList.add('editor-foundation-uncertainty-needles');
 
   const line=[...svg.querySelectorAll('path')]
-    .find(node=>!node.classList.contains('editor-foundation-fill')&&!node.classList.contains('editor-foundation-coherence-loss'));
+    .find(node=>!node.classList.contains('editor-foundation-fill')&&!node.classList.contains('editor-foundation-uncertainty-needles'));
   if(line) svg.insertBefore(path,line);
   else svg.appendChild(path);
   return path;
@@ -693,11 +690,11 @@ function setEmpty(body,state){
   const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
   const magSvg=body.querySelector('.editor-foundation-trace--mag');
   const magFill=magSvg?.querySelector('.editor-foundation-fill');
-  const coherenceLoss=magSvg?.querySelector('.editor-foundation-coherence-loss');
-  const magLine=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')&&!path.classList.contains('editor-foundation-coherence-loss')):null;
+  const uncertaintyNeedles=magSvg?.querySelector('.editor-foundation-uncertainty-needles');
+  const magLine=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')&&!path.classList.contains('editor-foundation-uncertainty-needles')):null;
   phasePathEl?.setAttribute('d','');
   magFill?.setAttribute('d','');
-  coherenceLoss?.setAttribute('d','');
+  uncertaintyNeedles?.setAttribute('d','');
   magLine?.setAttribute('d','');
   clearWrapMarkers(body);
   hideCursors(body);
@@ -760,17 +757,17 @@ function render(toolId,input=null){
   const pPath=phasePath(frequency,phase,indices,state);
   const mPath=magnitudePath(frequency,magnitude,indices,state);
   const mFill=fillPath(mPath,frequency,indices,state);
-  const uncertaintyPath=coherenceLossPath(frequency,coherence,indices,state);
+  const uncertaintyNeedlesPath=uncertaintyNeedlePath(frequency,coherence,indices,state);
 
   const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
   const magSvg=body.querySelector('.editor-foundation-trace--mag');
   const magFillEl=magSvg?.querySelector('.editor-foundation-fill');
-  const coherenceLossEl=ensureCoherenceLossPath(magSvg);
-  const magLineEl=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')&&!path.classList.contains('editor-foundation-coherence-loss')):null;
+  const uncertaintyNeedlesEl=ensureUncertaintyNeedles(magSvg);
+  const magLineEl=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')&&!path.classList.contains('editor-foundation-uncertainty-needles')):null;
 
   phasePathEl?.setAttribute('d',pPath);
   magFillEl?.setAttribute('d',mFill);
-  coherenceLossEl?.setAttribute('d',uncertaintyPath);
+  uncertaintyNeedlesEl?.setAttribute('d',uncertaintyNeedlesPath);
   magLineEl?.setAttribute('d',mPath);
 
   renderWrapMarkers(body,frequency,phase,indices,state,ui);
@@ -780,7 +777,7 @@ function render(toolId,input=null){
   updateXAxis(body,state);
 
   body.dataset.graphInput='canonical-v1';
-  body.dataset.coherenceOverlay=coherence?'loss-fill':'none';
+  body.dataset.coherenceOverlay=coherence?'uncertainty-needles':'none';
   body.dataset.displayPoints=String(indices.length);
   body.dataset.viewMin=String(state.v0);
   body.dataset.viewMax=String(state.v1);
