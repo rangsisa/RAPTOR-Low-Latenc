@@ -403,20 +403,150 @@ function showPointerCoordinate(toolId,plotKind,plot,event){
 
   const ratio=Math.max(0,Math.min(1,ratioForPointer(plot,event)));
   const frequency=frequencyAtRatio(ratio,state);
-  const rect=plot.getBoundingClientRect();
-  const top=4;
-  const bottom=4;
-  const usable=Math.max(1,rect.height-top-bottom);
-  const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top-top)/usable));
-  const value=plotKind==='phase'
-    ?180-yRatio*360
-    :40-yRatio*80;
+  const value=pointerValueForPlot(plotKind,plot,event);
 
   const readout=body.querySelector('.matching-pointer-readout[data-pointer-kind="'+plotKind+'"]');
   if(!readout) return;
   readout.textContent=plotKind==='phase'
     ?formatFrequency(frequency,true)+' · '+value.toFixed(1)+'°'
     :formatFrequency(frequency,true)+' · '+value.toFixed(2)+' dB';
+}
+
+function pointerValueForPlot(plotKind,plot,event){
+  const rect=plot.getBoundingClientRect();
+  const top=4;
+  const bottom=4;
+  const usable=Math.max(1,rect.height-top-bottom);
+  const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top-top)/usable));
+  return plotKind==='phase'
+    ?180-yRatio*360
+    :40-yRatio*80;
+}
+
+function wrappedPhaseDelta(target,reference){
+  let delta=target-reference;
+  while(delta>180) delta-=360;
+  while(delta<=-180) delta+=360;
+  return delta;
+}
+
+let graphContextMenu=null;
+let graphContextRequest=null;
+
+function ensureGraphContextMenu(){
+  if(graphContextMenu) return graphContextMenu;
+
+  const menu=document.createElement('div');
+  menu.className='editor-graph-context';
+  menu.hidden=true;
+  menu.setAttribute('role','menu');
+  menu.innerHTML=
+    '<div class="editor-graph-context-meta" data-context-meta>—</div>'+
+    '<button class="editor-graph-context-action" type="button" role="menuitem" data-context-action="add-band">Add Band</button>';
+
+  menu.querySelector('[data-context-action="add-band"]')?.addEventListener('click',()=>{
+    const request=graphContextRequest;
+    closeGraphContextMenu();
+    if(!request||request.disabled) return;
+    document.dispatchEvent(new CustomEvent('raptor:addbandrequest',{detail:{...request}}));
+  });
+
+  document.body.appendChild(menu);
+  graphContextMenu=menu;
+  return menu;
+}
+
+function closeGraphContextMenu(){
+  if(!graphContextMenu) return;
+  graphContextMenu.hidden=true;
+  graphContextRequest=null;
+}
+
+function positionGraphContextMenu(menu,event){
+  menu.hidden=false;
+  menu.style.left='0px';
+  menu.style.top='0px';
+
+  const rect=menu.getBoundingClientRect();
+  const gap=6;
+  const left=Math.min(
+    window.innerWidth-rect.width-gap,
+    Math.max(gap,event.clientX)
+  );
+  const top=Math.min(
+    window.innerHeight-rect.height-gap,
+    Math.max(gap,event.clientY)
+  );
+
+  menu.style.left=Math.round(left)+'px';
+  menu.style.top=Math.round(top)+'px';
+}
+
+function openGraphContextMenu(toolId,plotKind,plot,event){
+  if(toolId!=='raptor-editor'&&toolId!=='nga-editor') return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const state=VIEW_STATES.get(toolId);
+  const {body,canonical,views}=currentInput(toolId);
+  const displayViews=body?._raptorDisplayViews||views;
+  if(!state||!body) return;
+
+  const ratio=Math.max(0,Math.min(1,ratioForPointer(plot,event)));
+  const frequencyHz=frequencyAtRatio(ratio,state);
+  const pointerValue=pointerValueForPlot(plotKind,plot,event);
+
+  let nearestIndexValue=null;
+  let nearestFrequencyHz=null;
+  let curveValue=null;
+  let deltaFromCurve=null;
+
+  if(displayViews?.frequency_hz){
+    nearestIndexValue=nearestIndex(displayViews.frequency_hz,frequencyHz);
+    nearestFrequencyHz=displayViews.frequency_hz[nearestIndexValue];
+    const source=plotKind==='phase'?displayViews.phase_deg:displayViews.magnitude_db;
+    curveValue=source?.[nearestIndexValue];
+    if(Number.isFinite(curveValue)){
+      deltaFromCurve=plotKind==='phase'
+        ?wrappedPhaseDelta(pointerValue,curveValue)
+        :pointerValue-curveValue;
+    }
+  }
+
+  const geometry=eqGeometryForTool(toolId);
+  const contextKey=geometry?.contextKey?.(body)||null;
+  const disabled=!canonical||!contextKey;
+  graphContextRequest=Object.freeze({
+    toolId,
+    graphKind:plotKind,
+    pipelineId:body.dataset.pipelineId||null,
+    measurementId:body.dataset.measurementId||null,
+    slot:body.dataset.slot||null,
+    contextKey,
+    frequencyHz,
+    pointerValue,
+    curveValue:Number.isFinite(curveValue)?curveValue:null,
+    deltaFromCurve:Number.isFinite(deltaFromCurve)?deltaFromCurve:null,
+    nearestFrequencyHz:Number.isFinite(nearestFrequencyHz)?nearestFrequencyHz:null,
+    nearestIndex:Number.isInteger(nearestIndexValue)?nearestIndexValue:null,
+    disabled
+  });
+
+  const menu=ensureGraphContextMenu();
+  const meta=menu.querySelector('[data-context-meta]');
+  const add=menu.querySelector('[data-context-action="add-band"]');
+  if(meta){
+    const unit=plotKind==='phase'?'°':' dB';
+    const digits=plotKind==='phase'?1:2;
+    meta.textContent=formatFrequency(frequencyHz,true)+' · '+pointerValue.toFixed(digits)+unit;
+  }
+  if(add){
+    add.disabled=disabled;
+    add.title=disabled?'Connect a Pipeline measurement first':'Add a new editable EQ band here';
+  }
+
+  positionGraphContextMenu(menu,event);
 }
 
 function nearestIndex(frequency,target){
@@ -704,6 +834,12 @@ function bindGraphInteraction(toolId){
       showCursor(toolId,plotKind,ratioForPointer(plot,event));
     });
 
+    if(toolId==='raptor-editor'||toolId==='nga-editor'){
+      plot.addEventListener('contextmenu',event=>{
+        openGraphContextMenu(toolId,plotKind,plot,event);
+      });
+    }
+
     plot.addEventListener('pointerleave',()=>{
       hideCursors(body);
       restoreReadouts(toolId);
@@ -718,6 +854,19 @@ function bindGraphInteraction(toolId){
 
   body.querySelector('[data-editor-action="fit"]')?.addEventListener('click',()=>fit(toolId));
 }
+
+document.addEventListener('pointerdown',event=>{
+  if(graphContextMenu&&!graphContextMenu.hidden&&!graphContextMenu.contains(event.target)){
+    closeGraphContextMenu();
+  }
+});
+
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape') closeGraphContextMenu();
+});
+
+window.addEventListener('resize',closeGraphContextMenu);
+window.addEventListener('scroll',closeGraphContextMenu,true);
 
 document.addEventListener('raptor:toolinput',event=>{
   const toolId=event.detail?.toolId;
@@ -755,6 +904,10 @@ window.RaptorEditorGraphs=Object.freeze({
   },
   getEqGeometry(toolId){
     return eqGeometryForTool(toolId);
-  }
+  },
+  getContextRequest(){
+    return graphContextRequest?{...graphContextRequest}:null;
+  },
+  closeContextMenu:closeGraphContextMenu
 });
 })();
