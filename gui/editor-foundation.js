@@ -809,35 +809,6 @@ function fit(toolId){
   render(toolId);
 }
 
-function zoom(toolId,ratio,deltaY){
-  const state=VIEW_STATES.get(toolId);
-  if(!state) return;
-
-  const anchor=frequencyAtRatio(ratio,state);
-  const scale=Math.exp(deltaY*.0012);
-  const la=Math.log(state.v0);
-  const lb=Math.log(state.v1);
-  const lp=Math.log(anchor);
-
-  let next0=Math.exp(lp+(la-lp)*scale);
-  let next1=Math.exp(lp+(lb-lp)*scale);
-  if(next1/next0<1.06) return;
-
-  const spanRatio=next1/next0;
-  if(next0<F0){
-    next0=F0;
-    next1=Math.min(F1,next0*spanRatio);
-  }
-  if(next1>F1){
-    next1=F1;
-    next0=Math.max(F0,next1/spanRatio);
-  }
-
-  state.v0=next0;
-  state.v1=next1;
-  render(toolId);
-}
-
 function ratioForPointer(plot,event){
   const rect=plot.getBoundingClientRect();
   const left=4;
@@ -903,14 +874,6 @@ function bindGraphInteraction(toolId){
 
   body.querySelectorAll('.editor-foundation-plot').forEach(plot=>{
     const plotKind=plot.classList.contains('editor-foundation-plot--phase')?'phase':'magnitude';
-
-    if(plotKind==='magnitude'){
-      plot.addEventListener('wheel',event=>{
-        event.preventDefault();
-        event.stopPropagation();
-        zoom(toolId,ratioForPointer(plot,event),event.deltaY);
-      },{passive:false});
-    }
 
     plot.addEventListener('pointermove',event=>{
       showPointerCoordinate(toolId,plotKind,plot,event);
