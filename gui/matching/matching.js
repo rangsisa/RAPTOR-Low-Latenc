@@ -11,9 +11,9 @@ function displayWobble(f,isPhase){
   if(MOTION.amp<=0) return 0;
   const t=lg(f/F0);
   if(isPhase){
-    return MOTION.amp*(1.65*Math.sin(t*11.5+MOTION.phase)+.55*Math.sin(t*23.2-MOTION.phase*.55));
+    return MOTION.amp*(2.0*Math.sin(t*11.5+MOTION.phase)+.72*Math.sin(t*23.2-MOTION.phase*.55));
   }
-  return MOTION.amp*(.085*Math.sin(t*10.8+MOTION.phase)+.03*Math.sin(t*21.6-MOTION.phase*.6));
+  return MOTION.amp*(.105*Math.sin(t*10.8+MOTION.phase)+.04*Math.sin(t*21.6-MOTION.phase*.6));
 }
 function triggerDisplayMotion(strength=.7){
   if(MOTION.reduce) return;
@@ -23,8 +23,8 @@ function triggerDisplayMotion(strength=.7){
   const tick=now=>{
     const dt=Math.min(34,Math.max(8,now-MOTION.last));
     MOTION.last=now;
-    MOTION.phase+=dt*.0105;
-    MOTION.amp*=Math.pow(.88,dt/16.67);
+    MOTION.phase+=dt*.0115;
+    MOTION.amp*=Math.pow(.90,dt/16.67);
     if(MOTION.amp<.025) MOTION.amp=0;
     all();
     if(MOTION.amp>0){
@@ -57,9 +57,9 @@ const matchingPage=document.querySelector('.matching-page');
 const matchingView=document.querySelector('.page-view--matching');
 let scrollMotionTimer=0;
 function onMatchingScroll(){
-  triggerDisplayMotion(.38);
+  triggerDisplayMotion(.48);
   clearTimeout(scrollMotionTimer);
-  scrollMotionTimer=setTimeout(()=>triggerDisplayMotion(.22),90);
+  scrollMotionTimer=setTimeout(()=>triggerDisplayMotion(.28),90);
 }
 matchingPage?.addEventListener('scroll',onMatchingScroll,{passive:true});
 matchingView?.addEventListener('scroll',onMatchingScroll,{passive:true});
@@ -69,7 +69,7 @@ window.addEventListener('scroll',()=>{
 
 if(matchingView){
   new MutationObserver(()=>{
-    if(!matchingView.hidden) triggerDisplayMotion(.85);
+    if(!matchingView.hidden) triggerDisplayMotion(.95);
   }).observe(matchingView,{attributes:true,attributeFilter:['hidden']});
 }
-requestAnimationFrame(()=>triggerDisplayMotion(.75));
+requestAnimationFrame(()=>triggerDisplayMotion(.9));
