@@ -34,15 +34,15 @@
   min-height:0;
   padding:8px;
   display:grid;
-  grid-template-columns:minmax(0,65fr) minmax(0,35fr);
+  grid-template-columns:minmax(0,75fr) minmax(0,25fr);
   gap:8px
 }
 .matching-left{
   min-width:0;
   min-height:0;
   display:grid;
-  grid-template-rows:78px minmax(0,1fr);
-  gap:8px
+  grid-template-rows:39px minmax(0,1fr);
+  gap:6px
 }
 
 .matching-toolbar,.matching-card,.matching-tools{
@@ -408,12 +408,17 @@
   }
 
   .matching-left{
-    grid-template-rows:60px minmax(0,1fr);
-    gap:5px
+    grid-template-rows:31px minmax(0,1fr);
+    gap:4px
   }
 
   .matching-toolbar{
-    grid-template-rows:30px 29px
+    grid-template-rows:31px
+  }
+
+  .matching-toolbar--toggles-only{
+    height:31px;
+    min-height:31px
   }
 
   .matching-toolbar-top{
@@ -441,4 +446,23 @@
   .matching-tools{grid-template-rows:36px minmax(0,1fr)}
   .matching-tools-head{height:36px;padding:0 10px}
   .matching-tools-empty{top:48%}
+}
+
+
+/* Unified compact control strip for all four workspaces. */
+.matching-toolbar--toggles-only{
+  display:block;
+  height:39px;
+  min-height:39px
+}
+
+.matching-toolbar--toggles-only .matching-toolbar-bottom{
+  height:100%;
+  grid-template-columns:auto;
+  align-items:center;
+  padding:5px 8px
+}
+
+.matching-toolbar--toggles-only .matching-checks{
+  justify-content:flex-start
 }
