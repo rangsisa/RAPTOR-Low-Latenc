@@ -407,12 +407,44 @@ function bindControls(toolId,body){
   });
 }
 
+function bindDockControls(toolId,body){
+  const inspector=body.querySelector('[data-editor-inspector]');
+  const modeButtons=[...body.querySelectorAll('.editor-dock-btn[data-editor-dock]:not([disabled])')]
+    .filter(button=>!['undo','redo','apply'].includes(button.dataset.editorDock));
+
+  modeButtons.forEach(button=>{
+    button.addEventListener('click',()=>{
+      modeButtons.forEach(item=>item.classList.toggle('is-active',item===button));
+      body.dataset.editorMode=button.dataset.editorDock||'edit';
+    });
+  });
+
+  const inspectorButton=body.querySelector('[data-editor-action="inspector"]');
+  const closeButton=body.querySelector('[data-editor-action="close-inspector"]');
+
+  inspectorButton?.addEventListener('click',()=>{
+    if(!inspector) return;
+    const opening=inspector.hidden;
+    inspector.hidden=!opening;
+    inspectorButton.classList.toggle('is-active',opening);
+    inspectorButton.setAttribute('aria-pressed',opening?'true':'false');
+  });
+
+  closeButton?.addEventListener('click',()=>{
+    if(!inspector) return;
+    inspector.hidden=true;
+    inspectorButton?.classList.remove('is-active');
+    inspectorButton?.setAttribute('aria-pressed','false');
+  });
+}
+
 function bindGraphInteraction(toolId){
   const body=document.querySelector('[data-tool-body="'+toolId+'"]');
   if(!body||body.dataset.graphInteractionBound==='1') return;
   body.dataset.graphInteractionBound='1';
 
   bindControls(toolId,body);
+  bindDockControls(toolId,body);
 
   body.querySelectorAll('.editor-foundation-plot').forEach(plot=>{
     const plotKind=plot.classList.contains('editor-foundation-plot--phase')?'phase':'magnitude';
