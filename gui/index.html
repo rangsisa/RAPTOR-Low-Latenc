@@ -80,32 +80,16 @@
           <div class="tool-workspace-title"><strong>RAPTOR Editor</strong><span data-tool-context="raptor-editor">Pipeline context · no input connected</span></div>
         </header>
         <div class="tool-workspace-body" data-tool-body="raptor-editor">
-          <section class="matching-page editor-foundation editor-foundation--with-bottom editor-foundation--graph-first" aria-label="RAPTOR Editor workspace foundation">
+          <section class="matching-page editor-foundation" aria-label="RAPTOR Editor workspace foundation">
             <main class="matching-app">
               <section class="matching-left">
-                <header class="matching-toolbar">
-                  <div class="matching-toolbar-top">
-                    <div class="matching-toolbar-title">
-                      <div class="matching-tt">GRAPH DISPLAY</div>
-                      <div class="matching-toolbar-sub">Phase + Magnitude workspace</div>
-                    </div>
-                    <div class="matching-actions">
-                      <button class="matching-btn" type="button" data-editor-action="clear-band">CLEAR BAND</button>
-                      <button class="matching-btn matching-btn--primary" type="button" data-editor-action="fit">FIT 20–20k</button>
-                    </div>
-                  </div>
+                <header class="matching-toolbar matching-toolbar--toggles-only">
                   <div class="matching-toolbar-bottom">
                     <div class="matching-checks">
                       <label class="matching-check"><input type="checkbox" checked><span>Phase</span></label>
                       <label class="matching-check"><input type="checkbox" checked><span>Magnitude</span></label>
-                      <label class="matching-check"><input type="checkbox" checked><span>Wrap lines</span></label>
+                      <label class="matching-check"><input type="checkbox" checked><span>Wrap phase</span></label>
                       <label class="matching-check"><input type="checkbox" checked><span>Sync cursor</span></label>
-                    </div>
-                    <div class="matching-hint" aria-label="Graph controls">
-                      <span><kbd>Wheel</kbd> Zoom</span>
-                      <span><kbd>Shift</kbd> Pan</span>
-                      <span><kbd>Alt</kbd> Band</span>
-                      <span><kbd>2×</kbd> Fit</span>
                     </div>
                   </div>
                 </header>
@@ -120,9 +104,7 @@
                       <div class="editor-foundation-plot editor-foundation-plot--phase">
                         <div class="editor-foundation-axis"></div>
                         <div class="editor-foundation-y"><span>180°</span><span>90°</span><span>0°</span><span>-90°</span><span>-180°</span></div>
-                        <svg class="editor-foundation-trace editor-foundation-trace--phase" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-                          <path d="M0 42 C90 72 150 38 215 88 S350 160 420 112 S545 35 620 88 S765 170 830 118 S940 52 1000 76"></path>
-                        </svg>
+                        <svg class="editor-foundation-trace editor-foundation-trace--phase" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true"><path></path></svg>
                         <div class="editor-foundation-x"><span>20</span><span>100</span><span>1k</span><span>10k</span><span>20k</span></div>
                       </div>
                     </div>
@@ -138,8 +120,7 @@
                         <div class="editor-foundation-axis"></div>
                         <div class="editor-foundation-y"><span>12</span><span>6</span><span>0</span><span>-6</span><span>-12</span></div>
                         <svg class="editor-foundation-trace editor-foundation-trace--mag" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-                          <path class="editor-foundation-fill" d="M0 112 C90 142 165 126 240 111 S375 84 455 99 S590 128 675 94 S820 64 900 78 S970 70 1000 66 L1000 220 L0 220 Z"></path>
-                          <path d="M0 112 C90 142 165 126 240 111 S375 84 455 99 S590 128 675 94 S820 64 900 78 S970 70 1000 66"></path>
+                          <path class="editor-foundation-fill"></path><path></path>
                         </svg>
                         <div class="editor-foundation-x"><span>20</span><span>100</span><span>1k</span><span>10k</span><span>20k</span></div>
                       </div>
@@ -148,40 +129,17 @@
                 </section>
               </section>
 
-
-            </main>
-              <section class="editor-bottom-panel" aria-label="RAPTOR lower workspace">
-                <header class="editor-bottom-panel-head">
-                  <div><strong>RAPTOR TOOL DOCK</strong><span>Primary editor tools</span></div>
-                  <span class="editor-bottom-panel-mark">R</span>
-                </header>
-                <div class="editor-bottom-panel-body editor-tool-dock">
-                  <div class="editor-tool-dock-group">
-                    <button type="button" class="editor-dock-btn is-active" data-editor-dock="edit">Edit</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="phase">Phase</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="magnitude">Magnitude</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="gd">Group Delay</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="target">Target</button>
-                  </div>
-                  <div class="editor-tool-dock-group editor-tool-dock-group--right">
-                    <button type="button" class="editor-dock-btn" data-editor-dock="undo" disabled>Undo</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="redo" disabled>Redo</button>
-                    <button type="button" class="editor-dock-btn editor-dock-btn--inspector" data-editor-action="inspector">Inspector</button>
-                    <button type="button" class="editor-dock-btn editor-dock-btn--apply" data-editor-dock="apply" disabled>Apply</button>
-                  </div>
-                </div>
-              </section>
-              <aside class="editor-floating-inspector" data-editor-inspector hidden>
-                <header class="editor-floating-inspector-head">
-                  <div><strong>RAPTOR INSPECTOR</strong><span>Context controls</span></div>
-                  <button type="button" class="editor-floating-close" data-editor-action="close-inspector" aria-label="Close inspector">×</button>
-                </header>
-                <div class="editor-floating-inspector-body">
-                  <div class="editor-floating-empty">R</div>
-                  <strong>Floating inspector</strong>
-                  <span>Detailed controls will appear here when an editable graph object is selected.</span>
+              <aside class="matching-tools">
+                <header class="matching-tools-head"><div><strong>RAPTOR TOOLS</strong><span>Processing workspace</span></div></header>
+                <div class="matching-tools-body">
+                  <section class="matching-tools-empty">
+                    <div class="matching-tools-empty-mark">R</div>
+                    <strong>RAPTOR Editor</strong>
+                    <span>Tool controls will be added here step by step.</span>
+                  </section>
                 </div>
               </aside>
+            </main>
           </section>
         </div>
       </section>
@@ -190,32 +148,16 @@
           <div class="tool-workspace-title"><strong>NGA Editor</strong><span data-tool-context="nga-editor">Pipeline context · no input connected</span></div>
         </header>
         <div class="tool-workspace-body" data-tool-body="nga-editor">
-          <section class="matching-page editor-foundation editor-foundation--with-bottom editor-foundation--graph-first" aria-label="NGA Editor workspace foundation">
+          <section class="matching-page editor-foundation" aria-label="NGA Editor workspace foundation">
             <main class="matching-app">
               <section class="matching-left">
-                <header class="matching-toolbar">
-                  <div class="matching-toolbar-top">
-                    <div class="matching-toolbar-title">
-                      <div class="matching-tt">GRAPH DISPLAY</div>
-                      <div class="matching-toolbar-sub">Phase + Magnitude workspace</div>
-                    </div>
-                    <div class="matching-actions">
-                      <button class="matching-btn" type="button" data-editor-action="clear-band">CLEAR BAND</button>
-                      <button class="matching-btn matching-btn--primary" type="button" data-editor-action="fit">FIT 20–20k</button>
-                    </div>
-                  </div>
+                <header class="matching-toolbar matching-toolbar--toggles-only">
                   <div class="matching-toolbar-bottom">
                     <div class="matching-checks">
                       <label class="matching-check"><input type="checkbox" checked><span>Phase</span></label>
                       <label class="matching-check"><input type="checkbox" checked><span>Magnitude</span></label>
-                      <label class="matching-check"><input type="checkbox" checked><span>Wrap lines</span></label>
+                      <label class="matching-check"><input type="checkbox" checked><span>Wrap phase</span></label>
                       <label class="matching-check"><input type="checkbox" checked><span>Sync cursor</span></label>
-                    </div>
-                    <div class="matching-hint" aria-label="Graph controls">
-                      <span><kbd>Wheel</kbd> Zoom</span>
-                      <span><kbd>Shift</kbd> Pan</span>
-                      <span><kbd>Alt</kbd> Band</span>
-                      <span><kbd>2×</kbd> Fit</span>
                     </div>
                   </div>
                 </header>
@@ -230,9 +172,7 @@
                       <div class="editor-foundation-plot editor-foundation-plot--phase">
                         <div class="editor-foundation-axis"></div>
                         <div class="editor-foundation-y"><span>180°</span><span>90°</span><span>0°</span><span>-90°</span><span>-180°</span></div>
-                        <svg class="editor-foundation-trace editor-foundation-trace--phase" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-                          <path d="M0 42 C90 72 150 38 215 88 S350 160 420 112 S545 35 620 88 S765 170 830 118 S940 52 1000 76"></path>
-                        </svg>
+                        <svg class="editor-foundation-trace editor-foundation-trace--phase" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true"><path></path></svg>
                         <div class="editor-foundation-x"><span>20</span><span>100</span><span>1k</span><span>10k</span><span>20k</span></div>
                       </div>
                     </div>
@@ -248,8 +188,7 @@
                         <div class="editor-foundation-axis"></div>
                         <div class="editor-foundation-y"><span>12</span><span>6</span><span>0</span><span>-6</span><span>-12</span></div>
                         <svg class="editor-foundation-trace editor-foundation-trace--mag" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-                          <path class="editor-foundation-fill" d="M0 112 C90 142 165 126 240 111 S375 84 455 99 S590 128 675 94 S820 64 900 78 S970 70 1000 66 L1000 220 L0 220 Z"></path>
-                          <path d="M0 112 C90 142 165 126 240 111 S375 84 455 99 S590 128 675 94 S820 64 900 78 S970 70 1000 66"></path>
+                          <path class="editor-foundation-fill"></path><path></path>
                         </svg>
                         <div class="editor-foundation-x"><span>20</span><span>100</span><span>1k</span><span>10k</span><span>20k</span></div>
                       </div>
@@ -258,40 +197,17 @@
                 </section>
               </section>
 
-
-            </main>
-              <section class="editor-bottom-panel" aria-label="NGA lower workspace">
-                <header class="editor-bottom-panel-head">
-                  <div><strong>NGA TOOL DOCK</strong><span>Primary editor tools</span></div>
-                  <span class="editor-bottom-panel-mark">N</span>
-                </header>
-                <div class="editor-bottom-panel-body editor-tool-dock">
-                  <div class="editor-tool-dock-group">
-                    <button type="button" class="editor-dock-btn is-active" data-editor-dock="edit">Edit</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="phase">Phase</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="magnitude">Magnitude</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="gd">Group Delay</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="target">Target</button>
-                  </div>
-                  <div class="editor-tool-dock-group editor-tool-dock-group--right">
-                    <button type="button" class="editor-dock-btn" data-editor-dock="undo" disabled>Undo</button>
-                    <button type="button" class="editor-dock-btn" data-editor-dock="redo" disabled>Redo</button>
-                    <button type="button" class="editor-dock-btn editor-dock-btn--inspector" data-editor-action="inspector">Inspector</button>
-                    <button type="button" class="editor-dock-btn editor-dock-btn--apply" data-editor-dock="apply" disabled>Apply</button>
-                  </div>
-                </div>
-              </section>
-              <aside class="editor-floating-inspector" data-editor-inspector hidden>
-                <header class="editor-floating-inspector-head">
-                  <div><strong>NGA INSPECTOR</strong><span>Context controls</span></div>
-                  <button type="button" class="editor-floating-close" data-editor-action="close-inspector" aria-label="Close inspector">×</button>
-                </header>
-                <div class="editor-floating-inspector-body">
-                  <div class="editor-floating-empty">N</div>
-                  <strong>Floating inspector</strong>
-                  <span>Detailed controls will appear here when an editable graph object is selected.</span>
+              <aside class="matching-tools">
+                <header class="matching-tools-head"><div><strong>NGA TOOLS</strong><span>Processing workspace</span></div></header>
+                <div class="matching-tools-body">
+                  <section class="matching-tools-empty">
+                    <div class="matching-tools-empty-mark">N</div>
+                    <strong>NGA Editor</strong>
+                    <span>Tool controls will be added here step by step.</span>
+                  </section>
                 </div>
               </aside>
+            </main>
           </section>
         </div>
       </section>
@@ -303,29 +219,13 @@
           <section class="matching-page editor-foundation" aria-label="NGA Auto ZERO workspace foundation">
             <main class="matching-app">
               <section class="matching-left">
-                <header class="matching-toolbar">
-                  <div class="matching-toolbar-top">
-                    <div class="matching-toolbar-title">
-                      <div class="matching-tt">GRAPH DISPLAY</div>
-                      <div class="matching-toolbar-sub">Phase + Magnitude workspace</div>
-                    </div>
-                    <div class="matching-actions">
-                      <button class="matching-btn" type="button" data-editor-action="clear-band">CLEAR BAND</button>
-                      <button class="matching-btn matching-btn--primary" type="button" data-editor-action="fit">FIT 20–20k</button>
-                    </div>
-                  </div>
+                <header class="matching-toolbar matching-toolbar--toggles-only">
                   <div class="matching-toolbar-bottom">
                     <div class="matching-checks">
                       <label class="matching-check"><input type="checkbox" checked><span>Phase</span></label>
                       <label class="matching-check"><input type="checkbox" checked><span>Magnitude</span></label>
-                      <label class="matching-check"><input type="checkbox" checked><span>Wrap lines</span></label>
+                      <label class="matching-check"><input type="checkbox" checked><span>Wrap phase</span></label>
                       <label class="matching-check"><input type="checkbox" checked><span>Sync cursor</span></label>
-                    </div>
-                    <div class="matching-hint" aria-label="Graph controls">
-                      <span><kbd>Wheel</kbd> Zoom</span>
-                      <span><kbd>Shift</kbd> Pan</span>
-                      <span><kbd>Alt</kbd> Band</span>
-                      <span><kbd>2×</kbd> Fit</span>
                     </div>
                   </div>
                 </header>
@@ -340,9 +240,7 @@
                       <div class="editor-foundation-plot editor-foundation-plot--phase">
                         <div class="editor-foundation-axis"></div>
                         <div class="editor-foundation-y"><span>180°</span><span>90°</span><span>0°</span><span>-90°</span><span>-180°</span></div>
-                        <svg class="editor-foundation-trace editor-foundation-trace--phase" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-                          <path d="M0 42 C90 72 150 38 215 88 S350 160 420 112 S545 35 620 88 S765 170 830 118 S940 52 1000 76"></path>
-                        </svg>
+                        <svg class="editor-foundation-trace editor-foundation-trace--phase" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true"><path></path></svg>
                         <div class="editor-foundation-x"><span>20</span><span>100</span><span>1k</span><span>10k</span><span>20k</span></div>
                       </div>
                     </div>
@@ -358,8 +256,7 @@
                         <div class="editor-foundation-axis"></div>
                         <div class="editor-foundation-y"><span>12</span><span>6</span><span>0</span><span>-6</span><span>-12</span></div>
                         <svg class="editor-foundation-trace editor-foundation-trace--mag" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-                          <path class="editor-foundation-fill" d="M0 112 C90 142 165 126 240 111 S375 84 455 99 S590 128 675 94 S820 64 900 78 S970 70 1000 66 L1000 220 L0 220 Z"></path>
-                          <path d="M0 112 C90 142 165 126 240 111 S375 84 455 99 S590 128 675 94 S820 64 900 78 S970 70 1000 66"></path>
+                          <path class="editor-foundation-fill"></path><path></path>
                         </svg>
                         <div class="editor-foundation-x"><span>20</span><span>100</span><span>1k</span><span>10k</span><span>20k</span></div>
                       </div>
@@ -386,29 +283,13 @@
       <section class="page-view page-view--matching" data-view="matching" hidden>
         <section class="matching-page">
           <main class="matching-app"><section class="matching-left">
-            <header class="matching-toolbar">
-              <div class="matching-toolbar-top">
-                <div class="matching-toolbar-title">
-                  <div class="matching-tt">GRAPH DISPLAY</div>
-                  <div class="matching-toolbar-sub">Phase + Magnitude inspection</div>
-                </div>
-                <div class="matching-actions">
-                  <button class="matching-btn" id="cb">CLEAR BAND</button>
-                  <button class="matching-btn matching-btn--primary" id="fit">FIT 20–20k</button>
-                </div>
-              </div>
+            <header class="matching-toolbar matching-toolbar--toggles-only">
               <div class="matching-toolbar-bottom">
                 <div class="matching-checks">
                   <label class="matching-check"><input id="tp" type="checkbox" checked><span>Phase</span></label>
                   <label class="matching-check"><input id="tm" type="checkbox" checked><span>Magnitude</span></label>
-                  <label class="matching-check"><input id="tw" type="checkbox" checked><span>Wrap lines</span></label>
+                  <label class="matching-check"><input id="tw" type="checkbox" checked><span>Wrap phase</span></label>
                   <label class="matching-check"><input id="ts" type="checkbox" checked><span>Sync cursor</span></label>
-                </div>
-                <div class="matching-hint" aria-label="Graph controls">
-                  <span><kbd>Wheel</kbd> Zoom</span>
-                  <span><kbd>Shift</kbd> Pan</span>
-                  <span><kbd>Alt</kbd> Band</span>
-                  <span><kbd>2×</kbd> Fit</span>
                 </div>
               </div>
             </header>
