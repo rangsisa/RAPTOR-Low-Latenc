@@ -399,3 +399,46 @@
   .matching-checks{justify-content:flex-start}
   .matching-check{padding:0 7px;font-size:9px}
 }
+
+
+@media(max-height:760px){
+  .matching-app{
+    padding:5px;
+    gap:5px
+  }
+
+  .matching-left{
+    grid-template-rows:60px minmax(0,1fr);
+    gap:5px
+  }
+
+  .matching-toolbar{
+    grid-template-rows:30px 29px
+  }
+
+  .matching-toolbar-top{
+    padding:0 7px 0 9px;
+    gap:8px
+  }
+
+  .matching-toolbar-bottom{
+    padding:3px 7px 3px 8px;
+    gap:8px
+  }
+
+  .matching-toolbar-sub{font-size:8px}
+  .matching-btn{height:22px;padding:0 7px;font-size:8px}
+  .matching-check{height:22px;padding:0 6px;font-size:8.5px}
+  .matching-check input{width:11px;height:11px}
+  .matching-hint{gap:5px;font-size:7px}
+  .matching-hint kbd{height:15px;min-width:18px;font-size:6.5px}
+
+  .matching-graphs{gap:5px}
+  .matching-card{grid-template-rows:28px minmax(0,1fr)}
+  .matching-head{height:28px;padding:0 8px}
+  .matching-title{font-size:9.5px}
+  .matching-readout{min-width:140px;padding:2px 6px;font-size:8.5px}
+  .matching-tools{grid-template-rows:36px minmax(0,1fr)}
+  .matching-tools-head{height:36px;padding:0 10px}
+  .matching-tools-empty{top:48%}
+}
