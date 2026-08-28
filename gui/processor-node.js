@@ -204,11 +204,23 @@ function hexTint(hex,alpha=.12){
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+alpha+')';
 }
 
+function hexInk(hex,factor=.58){
+  const value=String(hex||'').replace('#','');
+  const full=value.length===3?value.split('').map(c=>c+c).join(''):value;
+  if(!/^[0-9a-f]{6}$/i.test(full)) return '#465863';
+  const n=parseInt(full,16);
+  const r=Math.round(((n>>16)&255)*factor);
+  const g=Math.round(((n>>8)&255)*factor);
+  const b=Math.round((n&255)*factor);
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
 function lineageForSlot(state,slot){
   const file=measurementById(state.inputs[slot]);
   return file?{
     file,
     color:sourceColor(file),
+    ink:hexInk(sourceColor(file)),
     tint:hexTint(sourceColor(file),.13),
     tintSoft:hexTint(sourceColor(file),.07)
   }:null;
@@ -224,10 +236,12 @@ function applyLineageStyle(state,slot){
     pane.classList.toggle('has-lineage',!!lineage);
     if(lineage){
       pane.style.setProperty('--lineage-color',lineage.color);
+      pane.style.setProperty('--lineage-ink',lineage.ink);
       pane.style.setProperty('--lineage-tint',lineage.tint);
       pane.style.setProperty('--lineage-tint-soft',lineage.tintSoft);
     }else{
       pane.style.removeProperty('--lineage-color');
+      pane.style.removeProperty('--lineage-ink');
       pane.style.removeProperty('--lineage-tint');
       pane.style.removeProperty('--lineage-tint-soft');
     }
