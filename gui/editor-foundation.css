@@ -694,13 +694,18 @@
   stroke:none!important
 }
 
-/* Measurement uncertainty overlay.
-   Uses imported coherence only as display data:
-   loss = 1 - coherence. No line, no blanking, no data mutation. */
-.editor-foundation-trace--mag .editor-foundation-coherence-loss{
+/* Measurement uncertainty needles.
+   Imported coherence is mapped only for display:
+   loss = 1 - coherence. Each sample is a separate bottom-up needle.
+   No connecting trace, no blanking, no data mutation. */
+.editor-foundation-trace--mag .editor-foundation-uncertainty-needles{
   display:block!important;
-  fill:rgba(220,72,72,.065)!important;
-  stroke:none!important;
+  fill:none!important;
+  stroke:rgba(220,72,72,.13)!important;
+  stroke-width:1.15!important;
+  stroke-linecap:butt!important;
+  stroke-linejoin:miter!important;
+  vector-effect:non-scaling-stroke;
   pointer-events:none
 }
 
