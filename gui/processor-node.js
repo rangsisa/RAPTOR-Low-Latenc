@@ -18,8 +18,9 @@ const PORTS=[
 let activeCard=null;
 let processorNode=null;
 let persistentGroup=null;
-let previewEnd=null;
 let dragSource=null;
+let pipelineContextMenu=null;
+let pipelineContextRequest=null;
 let outputSelectionMode=false;
 const selectedOutputs=new Set();
 
@@ -217,14 +218,6 @@ function ensureWireLayers(){
     persistentGroup=document.createElementNS('http://www.w3.org/2000/svg','g');
     persistentGroup.setAttribute('class','pipeline-persistent-wires');
     wireSvg.insertBefore(persistentGroup,previewPath);
-  }
-  previewEnd=wireSvg.querySelector('.processor-wire-end');
-  if(!previewEnd){
-    previewEnd=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    previewEnd.setAttribute('class','pipeline-wire-end processor-wire-end');
-    previewEnd.setAttribute('r','4');
-    previewEnd.hidden=true;
-    wireSvg.appendChild(previewEnd);
   }
 }
 
@@ -448,6 +441,147 @@ function curvePath(start,end){
   return 'M '+start.x+' '+start.y+' C '+(start.x+bend)+' '+start.y+', '+(end.x-bend)+' '+end.y+', '+end.x+' '+end.y;
 }
 
+const PIPELINE_FILTER_COMMANDS=Object.freeze([
+  {type:'lowpass',label:'Lowpass Filter'},
+  {type:'highpass',label:'Highpass Filter'},
+  {type:'bandpass',label:'Bandpass Filter'},
+  {type:'mag-phase-gd',label:'Mag-Phase-GD Filter'}
+]);
+
+function ensurePipelineContextMenu(){
+  if(pipelineContextMenu) return pipelineContextMenu;
+  const menu=document.createElement('div');
+  menu.className='pipeline-context-menu';
+  menu.hidden=true;
+  menu.setAttribute('role','menu');
+  document.body.appendChild(menu);
+  pipelineContextMenu=menu;
+  return menu;
+}
+
+function closePipelineContextMenu(){
+  if(!pipelineContextMenu) return;
+  pipelineContextMenu.hidden=true;
+  pipelineContextMenu.replaceChildren();
+  pipelineContextRequest=null;
+}
+
+function positionPipelineContextMenu(menu,event){
+  menu.hidden=false;
+  menu.style.left='0px';
+  menu.style.top='0px';
+
+  const rect=menu.getBoundingClientRect();
+  const gap=6;
+  const left=Math.min(window.innerWidth-rect.width-gap,Math.max(gap,event.clientX));
+  const top=Math.min(window.innerHeight-rect.height-gap,Math.max(gap,event.clientY));
+  menu.style.left=Math.round(left)+'px';
+  menu.style.top=Math.round(top)+'px';
+}
+
+function canvasPointFromEvent(event){
+  const rect=canvas.getBoundingClientRect();
+  return {
+    x:event.clientX-rect.left+canvas.scrollLeft,
+    y:event.clientY-rect.top+canvas.scrollTop
+  };
+}
+
+function disconnectLink(link){
+  if(!activeCard||!link) return false;
+  const state=ensureProcessorState(activeCard);
+  if(state.inputs[link.port]!==link.fileId) return false;
+
+  state.inputs[link.port]=null;
+  sync();
+
+  document.dispatchEvent(new CustomEvent('raptor:pipelinedisconnect',{
+    detail:{
+      lineId:activeCard.dataset.lineId||null,
+      lineName:activeCard.dataset.lineName||'',
+      fileId:link.fileId,
+      port:link.port
+    }
+  }));
+  return true;
+}
+
+function openWireContextMenu(event,link){
+  event.preventDefault();
+  event.stopPropagation();
+
+  pipelineContextRequest=Object.freeze({
+    kind:'wire',
+    lineId:activeCard?.dataset.lineId||null,
+    lineName:activeCard?.dataset.lineName||'',
+    fileId:link.fileId,
+    port:link.port
+  });
+
+  const menu=ensurePipelineContextMenu();
+  menu.replaceChildren();
+
+  const disconnect=document.createElement('button');
+  disconnect.className='pipeline-context-action pipeline-context-action--disconnect';
+  disconnect.type='button';
+  disconnect.setAttribute('role','menuitem');
+  disconnect.textContent='Disconnect';
+  disconnect.addEventListener('click',()=>{
+    const request=pipelineContextRequest;
+    closePipelineContextMenu();
+    if(request?.kind==='wire') disconnectLink(request);
+  });
+
+  menu.appendChild(disconnect);
+  positionPipelineContextMenu(menu,event);
+}
+
+function openCanvasContextMenu(event){
+  event.preventDefault();
+  event.stopPropagation();
+
+  const point=canvasPointFromEvent(event);
+  pipelineContextRequest=Object.freeze({
+    kind:'canvas',
+    lineId:activeCard?.dataset.lineId||null,
+    lineName:activeCard?.dataset.lineName||'',
+    x:point.x,
+    y:point.y
+  });
+
+  const menu=ensurePipelineContextMenu();
+  menu.replaceChildren();
+
+  for(const command of PIPELINE_FILTER_COMMANDS){
+    const button=document.createElement('button');
+    button.className='pipeline-context-action';
+    button.type='button';
+    button.setAttribute('role','menuitem');
+    button.textContent=command.label;
+    button.disabled=!activeCard;
+    button.title=activeCard?'Create '+command.label+' node here':'Load a RAPTOR Line first';
+    button.addEventListener('click',()=>{
+      const request=pipelineContextRequest;
+      closePipelineContextMenu();
+      if(!request||request.kind!=='canvas'||!activeCard) return;
+
+      document.dispatchEvent(new CustomEvent('raptor:pipelinefilterrequest',{
+        detail:{
+          lineId:request.lineId,
+          lineName:request.lineName,
+          filterType:command.type,
+          filterLabel:command.label,
+          x:request.x,
+          y:request.y
+        }
+      }));
+    });
+    menu.appendChild(button);
+  }
+
+  positionPipelineContextMenu(menu,event);
+}
+
 function renderConnections(){
   if(!persistentGroup) return;
   persistentGroup.replaceChildren();
@@ -464,6 +598,13 @@ function renderConnections(){
     const target=processorNode.querySelector('.processor-input[data-port="'+link.port+'"]');
     if(!file||!source||!target) continue;
     const d=curvePath(pointFor(source),pointFor(target));
+    const hit=document.createElementNS('http://www.w3.org/2000/svg','path');
+    hit.setAttribute('class','pipeline-persistent-wire-hit');
+    hit.setAttribute('d',d);
+    hit.dataset.port=link.port;
+    hit.dataset.fileId=link.fileId;
+    hit.addEventListener('contextmenu',event=>openWireContextMenu(event,link));
+
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('class','pipeline-persistent-wire');
     path.setAttribute('stroke',sourceColor(file));
@@ -473,7 +614,7 @@ function renderConnections(){
     flow.setAttribute('class','pipeline-wire-flow');
     flow.setAttribute('d',d);
 
-    persistentGroup.append(path,flow);
+    persistentGroup.append(hit,path,flow);
   }
 }
 
@@ -571,8 +712,6 @@ function beginInputDetach(event,input){
 
   const start=pointFor(sourceHandle);
   previewPath.setAttribute('stroke',source.color||'#5b6770');
-  previewEnd.setAttribute('fill',source.color||'#5b6770');
-  previewEnd.hidden=false;
 
   clearPortHighlights();
   for(const target of eligibleInputs(source)) target.classList.add('is-available');
@@ -597,8 +736,6 @@ function beginInputDetach(event,input){
     }
 
     previewPath.setAttribute('d',curvePath(start,end));
-    previewEnd.setAttribute('cx',end.x);
-    previewEnd.setAttribute('cy',end.y);
   };
 
   const finish=(endEvent,cancelled=false)=>{
@@ -617,7 +754,6 @@ function beginInputDetach(event,input){
     }
 
     previewPath.removeAttribute('d');
-    previewEnd.hidden=true;
     input.classList.remove('is-detaching');
     clearPortHighlights();
 
@@ -648,8 +784,6 @@ function beginWire(event,source,handle){
   const pointerId=event.pointerId;
   const start=pointFor(handle);
   previewPath.setAttribute('stroke',source.color||'#5b6770');
-  previewEnd.setAttribute('fill',source.color||'#5b6770');
-  previewEnd.hidden=false;
 
   clearPortHighlights();
   for(const input of eligibleInputs(source)) input.classList.add('is-available');
@@ -670,8 +804,6 @@ function beginWire(event,source,handle){
       end=pointFor(magnet.input);
     }
     previewPath.setAttribute('d',curvePath(start,end));
-    previewEnd.setAttribute('cx',end.x);
-    previewEnd.setAttribute('cy',end.y);
   };
 
   const end=endEvent=>{
@@ -679,7 +811,6 @@ function beginWire(event,source,handle){
     const magnet=nearestInput(endEvent.clientX,endEvent.clientY,source);
     if(magnet) connectMeasurement(source,magnet.input);
     previewPath.removeAttribute('d');
-    previewEnd.hidden=true;
     clearPortHighlights();
     dragSource=null;
     window.removeEventListener('pointermove',move);
@@ -820,11 +951,27 @@ if(baseDelete){
 }
 
 document.addEventListener('pointerdown',event=>{
+  if(pipelineContextMenu&&!pipelineContextMenu.hidden&&!pipelineContextMenu.contains(event.target)){
+    closePipelineContextMenu();
+  }
+
   const handle=event.target.closest('.measurement-output');
   if(!handle||!activeCard||processorNode.hidden) return;
   const source=sourceFromMeasurementHandle(handle);
   if(source) beginWire(event,source,handle);
 },true);
+
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape') closePipelineContextMenu();
+});
+
+window.addEventListener('resize',closePipelineContextMenu);
+
+canvas.addEventListener('contextmenu',event=>{
+  const target=event.target;
+  if(target.closest?.('.measurement-node,.processor-node,.pipeline-context-menu,.pipeline-persistent-wire-hit')) return;
+  openCanvasContextMenu(event);
+});
 
 new MutationObserver(()=>sync()).observe(measurementList,{childList:true,subtree:false});
 new MutationObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode,{attributes:true,attributeFilter:['style']});
@@ -833,12 +980,18 @@ new ResizeObserver(()=>requestAnimationFrame(()=>{
   renderConnections();
 })).observe(measurementNode);
 new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(processorNode);
-canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
+canvas.addEventListener('scroll',()=>{
+  closePipelineContextMenu();
+  requestAnimationFrame(renderConnections);
+},{passive:true});
 
 window.RaptorProcessorNode={
   addOutput,
   refresh:sync,
   refreshConnections:renderConnections,
+  disconnectLink,
+  closeContextMenu:closePipelineContextMenu,
+  getContextRequest:()=>pipelineContextRequest?{...pipelineContextRequest}:null,
   getActiveState:()=>activeCard?ensureProcessorState(activeCard):null,
   resetPosition(){
     if(!activeCard) return;
