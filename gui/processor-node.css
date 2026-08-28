@@ -267,3 +267,102 @@
   }
   .processor-node-head{height:30px}
 }
+
+
+/* Node 2 output selection footer */
+.processor-node{
+  grid-template-rows:32px minmax(70px,auto) minmax(70px,auto) minmax(70px,auto) 34px
+}
+
+.processor-node-foot{
+  grid-column:1/-1;
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 6px;
+  border-top:1px solid #bfc8d0;
+  border-radius:0 0 7px 7px;
+  background:#f7f9fa
+}
+
+.processor-output-select,
+.processor-output-delete{
+  height:24px;
+  padding:0 7px;
+  border-radius:4px;
+  font-size:8.5px;
+  font-weight:700;
+  cursor:pointer
+}
+
+.processor-output-select{
+  border:1px solid #9ba7b1;
+  background:#fff;
+  color:#3e4b56
+}
+
+.processor-output-select[aria-pressed="true"]{
+  border-color:var(--raptor-active-border);
+  background:var(--raptor-active);
+  color:#fff
+}
+
+.processor-output-total{
+  margin-left:auto;
+  color:#77848e;
+  font-size:7.5px;
+  font-variant-numeric:tabular-nums
+}
+
+.processor-output-delete{
+  border:1px solid #bd8e8e;
+  background:#fff;
+  color:#993f3f
+}
+
+.processor-output-delete:hover{
+  background:#fff4f4
+}
+
+.processor-output-delete[hidden]{display:none!important}
+
+.processor-output-check{
+  display:none;
+  width:13px;
+  height:13px;
+  margin:0;
+  accent-color:var(--raptor-active)
+}
+
+.processor-node.is-selecting-output .processor-output-check{
+  display:block
+}
+
+.processor-node.is-selecting-output .processor-output-file{
+  grid-template-columns:auto auto minmax(0,1fr);
+  padding-right:5px
+}
+
+.processor-output-file.is-selected{
+  box-shadow:0 0 0 1px var(--raptor-active-soft) inset;
+  background:linear-gradient(90deg,var(--file-tint),#fff3e8 82%)
+}
+
+.processor-node.is-selecting-output .processor-file-output{
+  display:none
+}
+
+/* Footer owns the lower rounded edge now. */
+.processor-pane-auto,
+.processor-pane-output[data-output-pane="autoZero"]{
+  border-radius:0;
+  border-bottom:0
+}
+
+@media(max-width:700px){
+  .processor-node{
+    grid-template-rows:30px minmax(66px,auto) minmax(66px,auto) minmax(66px,auto) 32px
+  }
+  .processor-node-foot{min-height:32px}
+}
