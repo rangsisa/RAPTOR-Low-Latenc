@@ -18,11 +18,6 @@ const countLabel=document.getElementById('measurementCount');
 const colorMenu=document.getElementById('fileColorMenu');
 const wirePath=document.getElementById('pipelineWirePreview');
 const wireLayer=wirePath.closest('svg');
-const wireEnd=document.createElementNS('http://www.w3.org/2000/svg','circle');
-wireEnd.setAttribute('class','pipeline-wire-end');
-wireEnd.setAttribute('r','4');
-wireEnd.hidden=true;
-wireLayer.appendChild(wireEnd);
 const inputRegistry=new Map();
 const preview=document.getElementById('measurementPreview');
 const previewCanvas=document.getElementById('measurementPreviewCanvas');
@@ -125,7 +120,6 @@ function clearLoaded(){
   measurementNode.classList.remove('is-wiring','is-dragging');
   emptyState.hidden=false;
   wirePath.removeAttribute('d');
-  wireEnd.hidden=true;
   closeColorMenu();
   closePreview();
 }
@@ -590,11 +584,9 @@ function startWire(event,entry,handle){
   const startX=handleRect.left+handleRect.width/2-canvasRect.left+nodeCanvas.scrollLeft;
   const startY=handleRect.top+handleRect.height/2-canvasRect.top+nodeCanvas.scrollTop;
   wirePath.setAttribute('stroke',entry.color);
-  wireEnd.setAttribute('fill',entry.color);
   measurementNode.classList.add('is-wiring');
   row?.classList.add('is-wiring');
   handle.classList.add('is-wiring');
-  wireEnd.hidden=false;
   try{handle.setPointerCapture(pointerId)}catch{}
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
@@ -602,8 +594,6 @@ function startWire(event,entry,handle){
     const endY=moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop;
     const bend=Math.max(48,Math.abs(endX-startX)*.38);
     wirePath.setAttribute('d',`M ${startX} ${startY} C ${startX+bend} ${startY}, ${endX-bend} ${endY}, ${endX} ${endY}`);
-    wireEnd.setAttribute('cx',endX);
-    wireEnd.setAttribute('cy',endY);
   };
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
