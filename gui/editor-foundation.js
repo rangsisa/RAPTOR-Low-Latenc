@@ -206,21 +206,57 @@ function renderWrapMarkers(body,frequency,phase,indices,state,ui){
   }
 }
 
-function ensureCursorLine(svg){
-  let line=svg?.querySelector('.editor-cursor-line');
-  if(!line&&svg){
-    line=document.createElementNS(SVG_NS,'line');
-    line.classList.add('editor-cursor-line');
-    line.setAttribute('y1','0');
-    line.setAttribute('y2',String(HEIGHT));
-    line.hidden=true;
-    svg.appendChild(line);
+function ensureCursorOverlay(svg){
+  if(!svg) return null;
+
+  let vertical=svg.querySelector('.editor-cursor-line--vertical');
+  let horizontal=svg.querySelector('.editor-cursor-line--horizontal');
+  let point=svg.querySelector('.editor-cursor-point');
+
+  if(!vertical){
+    vertical=document.createElementNS(SVG_NS,'line');
+    vertical.classList.add('editor-cursor-line','editor-cursor-line--vertical');
+    vertical.setAttribute('y1','0');
+    vertical.setAttribute('y2',String(HEIGHT));
+    vertical.hidden=true;
+    svg.appendChild(vertical);
   }
-  return line;
+
+  if(!horizontal){
+    horizontal=document.createElementNS(SVG_NS,'line');
+    horizontal.classList.add('editor-cursor-line','editor-cursor-line--horizontal');
+    horizontal.setAttribute('x1','0');
+    horizontal.setAttribute('x2',String(WIDTH));
+    horizontal.hidden=true;
+    svg.appendChild(horizontal);
+  }
+
+  if(!point){
+    point=document.createElementNS(SVG_NS,'circle');
+    point.classList.add('editor-cursor-point');
+    point.setAttribute('r','3');
+    point.hidden=true;
+    svg.appendChild(point);
+  }
+
+  return {vertical,horizontal,point};
+}
+
+function setCursorOverlay(overlay,x,y,visible){
+  if(!overlay) return;
+  overlay.vertical.setAttribute('x1',x.toFixed(2));
+  overlay.vertical.setAttribute('x2',x.toFixed(2));
+  overlay.horizontal.setAttribute('y1',y.toFixed(2));
+  overlay.horizontal.setAttribute('y2',y.toFixed(2));
+  overlay.point.setAttribute('cx',x.toFixed(2));
+  overlay.point.setAttribute('cy',y.toFixed(2));
+  overlay.vertical.hidden=!visible;
+  overlay.horizontal.hidden=!visible;
+  overlay.point.hidden=!visible;
 }
 
 function hideCursors(body){
-  body.querySelectorAll('.editor-cursor-line').forEach(line=>{line.hidden=true;});
+  body.querySelectorAll('.editor-cursor-line,.editor-cursor-point').forEach(node=>{node.hidden=true;});
 }
 
 function nearestIndex(frequency,target){
@@ -270,21 +306,28 @@ function showCursor(toolId,plotKind,ratio){
   if(!Number.isFinite(f)||f<state.v0||f>state.v1) return;
 
   const x=xOf(f,state);
+  const phaseValue=phase[index];
+  const magnitudeValue=magnitude[index];
+  const phaseY=yPhase(phaseValue);
+  const magnitudeY=yMagnitude(magnitudeValue);
+
   const phaseSvg=body.querySelector('.editor-foundation-trace--phase');
   const magSvg=body.querySelector('.editor-foundation-trace--mag');
-  const phaseCursor=ensureCursorLine(phaseSvg);
-  const magCursor=ensureCursorLine(magSvg);
+  const phaseCursor=ensureCursorOverlay(phaseSvg);
+  const magCursor=ensureCursorOverlay(magSvg);
 
-  if(phaseCursor){
-    phaseCursor.setAttribute('x1',x.toFixed(2));
-    phaseCursor.setAttribute('x2',x.toFixed(2));
-    phaseCursor.hidden=!(ui.sync||plotKind==='phase');
-  }
-  if(magCursor){
-    magCursor.setAttribute('x1',x.toFixed(2));
-    magCursor.setAttribute('x2',x.toFixed(2));
-    magCursor.hidden=!(ui.sync||plotKind==='magnitude');
-  }
+  setCursorOverlay(
+    phaseCursor,
+    x,
+    phaseY,
+    !!ui.phase&&(ui.sync||plotKind==='phase')
+  );
+  setCursorOverlay(
+    magCursor,
+    x,
+    magnitudeY,
+    !!ui.magnitude&&(ui.sync||plotKind==='magnitude')
+  );
 
   const readouts=[...body.querySelectorAll('.matching-readout')];
   if((ui.sync||plotKind==='phase')&&readouts[0]){
@@ -481,11 +524,13 @@ function bindGraphInteraction(toolId){
   body.querySelectorAll('.editor-foundation-plot').forEach(plot=>{
     const plotKind=plot.classList.contains('editor-foundation-plot--phase')?'phase':'magnitude';
 
-    plot.addEventListener('wheel',event=>{
-      event.preventDefault();
-      event.stopPropagation();
-      zoom(toolId,ratioForPointer(plot,event),event.deltaY);
-    },{passive:false});
+    if(plotKind==='magnitude'){
+      plot.addEventListener('wheel',event=>{
+        event.preventDefault();
+        event.stopPropagation();
+        zoom(toolId,ratioForPointer(plot,event),event.deltaY);
+      },{passive:false});
+    }
 
     plot.addEventListener('pointermove',event=>{
       showCursor(toolId,plotKind,ratioForPointer(plot,event));
