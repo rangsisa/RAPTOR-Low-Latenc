@@ -289,3 +289,256 @@
   .editor-foundation .matching-tools{grid-template-rows:36px minmax(0,1fr)}
   .editor-foundation .matching-tools-head{height:36px;padding:0 10px}
 }
+
+
+/* RAPTOR / NGA graph-first desktop editors */
+.editor-foundation--graph-first{
+  position:relative;
+  grid-template-rows:minmax(0,1fr) 112px
+}
+
+.editor-foundation--graph-first .matching-app{
+  grid-template-columns:minmax(0,1fr)
+}
+
+.editor-foundation--graph-first .matching-left{
+  width:100%
+}
+
+.editor-foundation--graph-first .editor-bottom-panel{
+  margin:0 8px 8px
+}
+
+.editor-foundation--graph-first .editor-bottom-panel-head{
+  height:30px
+}
+
+.editor-foundation--graph-first .editor-bottom-panel-body{
+  height:calc(100% - 30px)
+}
+
+.editor-tool-dock{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:7px 9px;
+  overflow:hidden;
+  background:
+    linear-gradient(rgba(255,255,255,.92),rgba(255,255,255,.92)),
+    radial-gradient(circle,#ccd5dc .7px,transparent .8px);
+  background-size:auto,20px 20px
+}
+
+.editor-tool-dock-group{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:5px
+}
+
+.editor-tool-dock-group--right{
+  margin-left:auto;
+  flex:0 0 auto
+}
+
+.editor-dock-btn{
+  height:30px;
+  padding:0 11px;
+  border:1px solid #b6c1c9;
+  border-radius:5px;
+  background:#fff;
+  color:#46535e;
+  font-size:9.5px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+  box-shadow:0 1px 2px rgba(28,38,48,.035)
+}
+
+.editor-dock-btn:hover{
+  border-color:#929faa;
+  background:#f8fafb;
+  color:#26323d
+}
+
+.editor-dock-btn.is-active{
+  border-color:var(--raptor-active-border);
+  background:var(--raptor-active-soft);
+  color:#a94a0b;
+  box-shadow:inset 0 -2px 0 var(--raptor-active)
+}
+
+.tool-page--raptor .editor-dock-btn.is-active{
+  border-color:#d0a33a;
+  background:#fff7df;
+  color:#76580f;
+  box-shadow:inset 0 -2px 0 #c2952d
+}
+
+.tool-page--nga .editor-dock-btn.is-active{
+  border-color:#73b184;
+  background:#eef9f1;
+  color:#347047;
+  box-shadow:inset 0 -2px 0 #56a66d
+}
+
+.editor-dock-btn--inspector{
+  border-style:dashed
+}
+
+.editor-dock-btn--apply{
+  border-color:var(--raptor-active-border);
+  background:var(--raptor-active);
+  color:#fff
+}
+
+.editor-dock-btn--apply:hover{
+  background:var(--raptor-active-hover);
+  color:#fff
+}
+
+.editor-floating-inspector{
+  position:absolute;
+  z-index:20;
+  top:92px;
+  right:16px;
+  width:268px;
+  max-height:calc(100% - 138px);
+  display:grid;
+  grid-template-rows:38px minmax(0,1fr);
+  border:1px solid #9faab4;
+  border-radius:8px;
+  background:#fff;
+  box-shadow:0 12px 28px rgba(24,32,42,.19);
+  overflow:hidden
+}
+
+.editor-floating-inspector[hidden]{
+  display:none!important
+}
+
+.editor-floating-inspector-head{
+  display:flex;
+  align-items:center;
+  padding:0 7px 0 11px;
+  border-bottom:1px solid #c7d0d7;
+  background:linear-gradient(#fff,#f5f7f9)
+}
+
+.editor-floating-inspector-head>div{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  line-height:1.05
+}
+
+.editor-floating-inspector-head strong{
+  color:#33404b;
+  font-size:9.5px;
+  letter-spacing:.055em
+}
+
+.editor-floating-inspector-head span{
+  margin-top:3px;
+  color:#84909a;
+  font-size:7.5px;
+  font-weight:600
+}
+
+.editor-floating-close{
+  margin-left:auto;
+  width:26px;
+  height:26px;
+  border:0;
+  border-radius:4px;
+  background:transparent;
+  color:#62707b;
+  font-size:18px;
+  line-height:1;
+  cursor:pointer
+}
+
+.editor-floating-close:hover{
+  background:#eef2f4;
+  color:#26323d
+}
+
+.editor-floating-inspector-body{
+  min-height:150px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  text-align:center;
+  background:
+    linear-gradient(rgba(255,255,255,.82),rgba(255,255,255,.82)),
+    radial-gradient(circle,#cad3da .7px,transparent .8px);
+  background-size:auto,20px 20px
+}
+
+.editor-floating-empty{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  margin-bottom:8px;
+  border:1px solid #c3ccd3;
+  border-radius:8px;
+  background:#fff;
+  color:#586672;
+  font-size:11px;
+  font-weight:800
+}
+
+.editor-floating-inspector-body strong{
+  color:#4b5964;
+  font-size:10px
+}
+
+.editor-floating-inspector-body span{
+  margin-top:5px;
+  max-width:210px;
+  color:#7b8791;
+  font-size:8.5px;
+  line-height:1.45
+}
+
+.tool-page--raptor .editor-floating-inspector{border-top:3px solid #c2952d}
+.tool-page--nga .editor-floating-inspector{border-top:3px solid #56a66d}
+
+@media(max-height:760px){
+  .editor-foundation--graph-first{
+    grid-template-rows:minmax(0,1fr) 76px
+  }
+
+  .editor-foundation--graph-first .editor-bottom-panel{
+    margin:0 5px 5px
+  }
+
+  .editor-foundation--graph-first .editor-bottom-panel-head{
+    height:25px
+  }
+
+  .editor-foundation--graph-first .editor-bottom-panel-body{
+    height:calc(100% - 25px)
+  }
+
+  .editor-tool-dock{
+    padding:4px 6px;
+    gap:6px
+  }
+
+  .editor-dock-btn{
+    height:24px;
+    padding:0 7px;
+    font-size:8px
+  }
+
+  .editor-floating-inspector{
+    top:70px;
+    right:10px;
+    width:240px;
+    max-height:calc(100% - 100px)
+  }
+}
