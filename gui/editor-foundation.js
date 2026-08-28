@@ -23,6 +23,60 @@ const UI_STATES=new Map(TOOL_IDS.map(id=>[id,{
   sync:true
 }]));
 
+function eqGeometryForTool(toolId){
+  if(toolId==='raptor-editor') return window.RaptorEditorEqGeometry||null;
+  if(toolId==='nga-editor') return window.NgaEditorEqGeometry||null;
+  return null;
+}
+
+function deriveDisplayViews(toolId,body,entry,canonical,views){
+  const geometry=eqGeometryForTool(toolId);
+  if(!geometry||!body||!views){
+    if(body){
+      body._raptorDisplayViews=views||null;
+      body.dataset.eqGeometry='none';
+      delete body.dataset.eqGeometryError;
+    }
+    return views;
+  }
+
+  const operations=geometry.getOperations(body);
+  if(!operations.length){
+    body._raptorDisplayViews=views;
+    body.dataset.eqGeometry='idle';
+    delete body.dataset.eqGeometryError;
+    return views;
+  }
+
+  const sampleRate=Number(
+    entry?.sampleRate ??
+    canonical?.sample_rate_hz ??
+    body._raptorInput?.context?.sampleRate ??
+    NaN
+  );
+
+  if(!Number.isFinite(sampleRate)||sampleRate<=0){
+    body._raptorDisplayViews=views;
+    body.dataset.eqGeometry='blocked-no-sample-rate';
+    body.dataset.eqGeometryError='Authoritative sample rate required';
+    return views;
+  }
+
+  try{
+    const derived=geometry.deriveViews(body,views,sampleRate);
+    body._raptorDisplayViews=derived;
+    body.dataset.eqGeometry='applied';
+    body.dataset.eqGeometryOperations=String(operations.length);
+    delete body.dataset.eqGeometryError;
+    return derived;
+  }catch(error){
+    body._raptorDisplayViews=views;
+    body.dataset.eqGeometry='error';
+    body.dataset.eqGeometryError=error instanceof Error?error.message:String(error);
+    return views;
+  }
+}
+
 function log10(value){return Math.log(value)/Math.LN10;}
 
 function xOf(frequency,state){
@@ -400,11 +454,12 @@ function showCursor(toolId,plotKind,ratio){
   const state=VIEW_STATES.get(toolId);
   const ui=UI_STATES.get(toolId);
   const {body,views}=currentInput(toolId);
-  if(!body||!views?.frequency_hz) return;
+  const displayViews=body?._raptorDisplayViews||views;
+  if(!body||!displayViews?.frequency_hz) return;
 
-  const frequency=views.frequency_hz;
-  const phase=views.phase_deg;
-  const magnitude=views.magnitude_db;
+  const frequency=displayViews.frequency_hz;
+  const phase=displayViews.phase_deg;
+  const magnitude=displayViews.magnitude_db;
   const target=frequencyAtRatio(ratio,state);
   const index=nearestIndex(frequency,target);
   const f=frequency[index];
@@ -454,6 +509,10 @@ function setEmpty(body,state){
   magLine?.setAttribute('d','');
   clearWrapMarkers(body);
   hideCursors(body);
+  body._raptorDisplayViews=null;
+  body.dataset.eqGeometry='none';
+  delete body.dataset.eqGeometryOperations;
+  delete body.dataset.eqGeometryError;
 
   const readouts=[...body.querySelectorAll('.matching-readout')];
   if(readouts[0]) readouts[0].textContent='No Pipeline input';
@@ -488,9 +547,10 @@ function render(toolId,input=null){
     return;
   }
 
-  const frequency=views.frequency_hz;
-  const magnitude=views.magnitude_db;
-  const phase=views.phase_deg;
+  const displayViews=deriveDisplayViews(toolId,body,entry,canonical,views);
+  const frequency=displayViews?.frequency_hz;
+  const magnitude=displayViews?.magnitude_db;
+  const phase=displayViews?.phase_deg;
   if(!frequency||!magnitude||!phase){
     setEmpty(body,state);
     return;
@@ -671,6 +731,12 @@ document.addEventListener('raptor:toolinput',event=>{
   });
 });
 
+document.addEventListener('raptor:eqgeometrychange',event=>{
+  const toolId=event.detail?.toolId;
+  if(toolId!=='raptor-editor'&&toolId!=='nga-editor') return;
+  render(toolId);
+});
+
 for(const toolId of TOOL_IDS){
   bindGraphInteraction(toolId);
   render(toolId);
@@ -682,6 +748,13 @@ window.RaptorEditorGraphs=Object.freeze({
   getView(toolId){
     const state=VIEW_STATES.get(toolId);
     return state?{...state}:null;
+  },
+  getDisplayViews(toolId){
+    const body=document.querySelector('[data-tool-body="'+toolId+'"]');
+    return body?._raptorDisplayViews||null;
+  },
+  getEqGeometry(toolId){
+    return eqGeometryForTool(toolId);
   }
 });
 })();
