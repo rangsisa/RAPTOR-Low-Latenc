@@ -19,7 +19,7 @@ const VIEW_STATES=new Map(TOOL_IDS.map(id=>[id,{v0:F0,v1:F1}]));
 const UI_STATES=new Map(TOOL_IDS.map(id=>[id,{
   phase:true,
   magnitude:true,
-  wrap:true,
+  wrap:false,
   sync:true
 }]));
 
@@ -59,7 +59,7 @@ function yMagnitude(value){
   return HEIGHT-((v+40)/80)*HEIGHT;
 }
 
-function pointsInDisplayRange(frequency,state){
+function pointsInDisplayRange(frequency,state,phase=null){
   const indices=[];
   for(let i=0;i<frequency.length;i++){
     const f=frequency[i];
@@ -67,27 +67,86 @@ function pointsInDisplayRange(frequency,state){
   }
   if(indices.length<=MAX_DISPLAY_POINTS) return indices;
 
-  const out=[];
+  const selected=new Set();
   const stride=(indices.length-1)/(MAX_DISPLAY_POINTS-1);
   for(let n=0;n<MAX_DISPLAY_POINTS;n++){
-    out.push(indices[Math.min(indices.length-1,Math.round(n*stride))]);
+    selected.add(indices[Math.min(indices.length-1,Math.round(n*stride))]);
   }
-  return out;
+
+  // Preserve samples immediately around every wrapped-phase boundary so
+  // display decimation cannot erase a real ±180° crossing.
+  if(phase){
+    for(let n=1;n<indices.length;n++){
+      const a=indices[n-1];
+      const b=indices[n];
+      const p0=phase[a];
+      const p1=phase[b];
+      if(Number.isFinite(p0)&&Number.isFinite(p1)&&Math.abs(p1-p0)>180){
+        selected.add(a);
+        selected.add(b);
+      }
+    }
+  }
+
+  return [...selected].sort((a,b)=>a-b);
 }
 
 function phasePath(frequency,phase,indices,state){
   let path='';
-  let previous=null;
+  let previousIndex=null;
+
   for(const i of indices){
-    const f=frequency[i];
-    const value=phase[i];
-    if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
-    const x=xOf(f,state);
-    const y=yPhase(value);
-    const move=previous===null||Math.abs(value-previous)>300;
-    path+=(move?'M':'L')+x.toFixed(2)+' '+y.toFixed(2)+' ';
-    previous=value;
+    const f1=frequency[i];
+    const p1=phase[i];
+    if(!Number.isFinite(f1)||!Number.isFinite(p1)) continue;
+
+    const x1=xOf(f1,state);
+    const y1=yPhase(p1);
+
+    if(previousIndex===null){
+      path+='M'+x1.toFixed(2)+' '+y1.toFixed(2)+' ';
+      previousIndex=i;
+      continue;
+    }
+
+    const f0=frequency[previousIndex];
+    const p0=phase[previousIndex];
+    const x0=xOf(f0,state);
+    const delta=p1-p0;
+
+    if(Number.isFinite(f0)&&Number.isFinite(p0)&&Math.abs(delta)>180){
+      // Follow the shortest continuous 360° branch to the real wrap
+      // boundary, terminate exactly at ±180°, then resume from the
+      // opposite boundary at the same log-frequency position.
+      let adjustedP1=p1;
+      let boundary=180;
+      let opposite=-180;
+
+      if(delta>180){
+        adjustedP1=p1-360;
+        boundary=-180;
+        opposite=180;
+      }else{
+        adjustedP1=p1+360;
+        boundary=180;
+        opposite=-180;
+      }
+
+      const denominator=adjustedP1-p0;
+      let t=denominator===0?0:(boundary-p0)/denominator;
+      t=Math.max(0,Math.min(1,t));
+      const xCross=x0+(x1-x0)*t;
+
+      path+='L'+xCross.toFixed(2)+' '+yPhase(boundary).toFixed(2)+' ';
+      path+='M'+xCross.toFixed(2)+' '+yPhase(opposite).toFixed(2)+' ';
+      path+='L'+x1.toFixed(2)+' '+y1.toFixed(2)+' ';
+    }else{
+      path+='L'+x1.toFixed(2)+' '+y1.toFixed(2)+' ';
+    }
+
+    previousIndex=i;
   }
+
   return path.trim();
 }
 
@@ -390,7 +449,7 @@ function render(toolId,input=null){
     return;
   }
 
-  const indices=pointsInDisplayRange(frequency,state);
+  const indices=pointsInDisplayRange(frequency,state,phase);
   if(!indices.length){
     setEmpty(body,state);
     body.dataset.graphInput='out-of-range';
