@@ -20,6 +20,8 @@ let processorNode=null;
 let persistentGroup=null;
 let previewEnd=null;
 let dragSource=null;
+let outputSelectionMode=false;
+const selectedOutputs=new Set();
 
 function cloneValue(value){
   if(value instanceof ArrayBuffer) return value.slice(0);
@@ -134,6 +136,55 @@ function makeOutputPane(slot,top=false){
   return pane;
 }
 
+function outputSelectionKey(slot,id){
+  return slot+'::'+id;
+}
+
+function makeNodeFooter(){
+  const footer=document.createElement('footer');
+  footer.className='processor-node-foot';
+
+  const select=document.createElement('button');
+  select.className='processor-output-select';
+  select.type='button';
+  select.textContent='Select';
+  select.setAttribute('aria-pressed','false');
+
+  const count=document.createElement('span');
+  count.className='processor-output-total';
+  count.textContent='0 files';
+
+  const remove=document.createElement('button');
+  remove.className='processor-output-delete';
+  remove.type='button';
+  remove.textContent='Delete';
+  remove.hidden=true;
+
+  select.addEventListener('click',()=>{
+    outputSelectionMode=!outputSelectionMode;
+    if(!outputSelectionMode) selectedOutputs.clear();
+    renderOutputs();
+  });
+
+  remove.addEventListener('click',()=>{
+    if(!activeCard||!selectedOutputs.size) return;
+    const state=ensureProcessorState(activeCard);
+    for(const slot of ['raptor','nga','autoZero']){
+      state.outputs[slot]=state.outputs[slot].filter(output=>!selectedOutputs.has(outputSelectionKey(slot,output.id)));
+    }
+    selectedOutputs.clear();
+    outputSelectionMode=false;
+    renderOutputs();
+    requestAnimationFrame(()=>{
+      syncOutputWidth();
+      renderConnections();
+    });
+  });
+
+  footer.append(select,count,remove);
+  return footer;
+}
+
 function buildNode(){
   const node=document.createElement('section');
   node.className='processor-node';
@@ -152,7 +203,8 @@ function buildNode(){
     makePane(PORTS[1],'processor-pane-nga'),
     makeOutputPane('nga'),
     makePane(PORTS[2],'processor-pane-auto'),
-    makeOutputPane('autoZero')
+    makeOutputPane('autoZero'),
+    makeNodeFooter()
   );
 
   canvas.appendChild(node);
@@ -265,6 +317,26 @@ function renderInputs(){
   }
 }
 
+function renderOutputFooter(state){
+  const select=processorNode.querySelector('.processor-output-select');
+  const count=processorNode.querySelector('.processor-output-total');
+  const remove=processorNode.querySelector('.processor-output-delete');
+  const total=['raptor','nga','autoZero'].reduce((sum,slot)=>sum+state.outputs[slot].length,0);
+
+  processorNode.classList.toggle('is-selecting-output',outputSelectionMode);
+  if(select){
+    select.setAttribute('aria-pressed',String(outputSelectionMode));
+    select.textContent=outputSelectionMode?'Done':'Select';
+  }
+  if(count) count.textContent=outputSelectionMode
+    ?selectedOutputs.size+' selected'
+    :total+' file'+(total===1?'':'s');
+  if(remove){
+    remove.hidden=!outputSelectionMode||selectedOutputs.size===0;
+    remove.textContent=selectedOutputs.size?'Delete '+selectedOutputs.size:'Delete';
+  }
+}
+
 function renderOutputs(){
   if(!activeCard) return;
   const state=ensureProcessorState(activeCard);
@@ -285,12 +357,26 @@ function renderOutputs(){
     }
     for(const output of outputs){
       const row=document.createElement('div');
-      row.className='processor-output-file';
+      const selectionKey=outputSelectionKey(slot,output.id);
+      const selected=selectedOutputs.has(selectionKey);
+      row.className='processor-output-file'+(selected?' is-selected':'');
       const rowColor=lineage?.color||output.color||'#8FA6B8';
       if(lineage) output.color=rowColor;
       row.style.setProperty('--file-color',rowColor);
       row.style.setProperty('--file-tint',hexTint(rowColor,.10));
       row.dataset.outputId=output.id;
+      row.dataset.outputSlot=slot;
+
+      const checkbox=document.createElement('input');
+      checkbox.className='processor-output-check';
+      checkbox.type='checkbox';
+      checkbox.checked=selected;
+      checkbox.setAttribute('aria-label','Select '+(output.name||'output file'));
+      checkbox.addEventListener('change',()=>{
+        checkbox.checked?selectedOutputs.add(selectionKey):selectedOutputs.delete(selectionKey);
+        renderOutputs();
+      });
+
       const dot=document.createElement('span');
       dot.className='processor-output-dot';
       const name=document.createElement('span');
@@ -299,15 +385,17 @@ function renderOutputs(){
       const handle=document.createElement('button');
       handle.className='processor-file-output';
       handle.type='button';
+      handle.disabled=outputSelectionMode;
       handle.style.setProperty('--file-color',rowColor);
       handle.setAttribute('aria-label','Connect '+name.textContent);
       handle.addEventListener('pointerdown',event=>beginWire(event,{
         kind:'processor-output',id:output.id,name:name.textContent,color:rowColor,slot
       },handle));
-      row.append(dot,name,handle);
+      row.append(checkbox,dot,name,handle);
       list.appendChild(row);
     }
   }
+  renderOutputFooter(state);
 }
 
 function syncOutputWidth(){
@@ -654,6 +742,8 @@ function startNodeDrag(event){
 
 function loadCard(card){
   activeCard=card;
+  outputSelectionMode=false;
+  selectedOutputs.clear();
   ensureProcessorState(card);
   processorNode.hidden=false;
   requestAnimationFrame(sync);
@@ -662,6 +752,8 @@ function loadCard(card){
 function clearCard(card){
   if(card===activeCard){
     activeCard=null;
+    outputSelectionMode=false;
+    selectedOutputs.clear();
     processorNode.hidden=true;
     persistentGroup?.replaceChildren();
     clearPortHighlights();
