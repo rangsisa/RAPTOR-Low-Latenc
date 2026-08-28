@@ -318,6 +318,53 @@ function hideCursors(body){
   body.querySelectorAll('.editor-cursor-line,.editor-cursor-point').forEach(node=>{node.hidden=true;});
 }
 
+function ensurePointerReadouts(body){
+  for(const card of body.querySelectorAll('.matching-card')){
+    const head=card.querySelector('.matching-head');
+    const lineReadout=head?.querySelector('.matching-readout');
+    const plot=card.querySelector('.editor-foundation-plot');
+    if(!head||!lineReadout||!plot) continue;
+
+    const kind=plot.classList.contains('editor-foundation-plot--phase')?'phase':'magnitude';
+    let readout=head.querySelector('.matching-pointer-readout');
+    if(!readout){
+      readout=document.createElement('div');
+      readout.className='matching-pointer-readout';
+      readout.dataset.pointerKind=kind;
+      lineReadout.insertAdjacentElement('afterend',readout);
+    }
+    readout.textContent=kind==='phase'?'— Hz · —°':'— Hz · — dB';
+  }
+}
+
+function resetPointerReadout(body,plotKind){
+  const readout=body.querySelector('.matching-pointer-readout[data-pointer-kind="'+plotKind+'"]');
+  if(readout) readout.textContent=plotKind==='phase'?'— Hz · —°':'— Hz · — dB';
+}
+
+function showPointerCoordinate(toolId,plotKind,plot,event){
+  const state=VIEW_STATES.get(toolId);
+  const body=document.querySelector('[data-tool-body="'+toolId+'"]');
+  if(!state||!body) return;
+
+  const ratio=Math.max(0,Math.min(1,ratioForPointer(plot,event)));
+  const frequency=frequencyAtRatio(ratio,state);
+  const rect=plot.getBoundingClientRect();
+  const top=4;
+  const bottom=4;
+  const usable=Math.max(1,rect.height-top-bottom);
+  const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top-top)/usable));
+  const value=plotKind==='phase'
+    ?180-yRatio*360
+    :40-yRatio*80;
+
+  const readout=body.querySelector('.matching-pointer-readout[data-pointer-kind="'+plotKind+'"]');
+  if(!readout) return;
+  readout.textContent=plotKind==='phase'
+    ?formatFrequency(frequency,true)+' · '+value.toFixed(1)+'°'
+    :formatFrequency(frequency,true)+' · '+value.toFixed(2)+' dB';
+}
+
 function nearestIndex(frequency,target){
   let lo=0,hi=frequency.length-1;
   while(lo<hi){
@@ -579,6 +626,7 @@ function bindGraphInteraction(toolId){
 
   bindControls(toolId,body);
   bindDockControls(toolId,body);
+  ensurePointerReadouts(body);
 
   body.querySelectorAll('.editor-foundation-plot').forEach(plot=>{
     const plotKind=plot.classList.contains('editor-foundation-plot--phase')?'phase':'magnitude';
@@ -592,12 +640,14 @@ function bindGraphInteraction(toolId){
     }
 
     plot.addEventListener('pointermove',event=>{
+      showPointerCoordinate(toolId,plotKind,plot,event);
       showCursor(toolId,plotKind,ratioForPointer(plot,event));
     });
 
     plot.addEventListener('pointerleave',()=>{
       hideCursors(body);
       restoreReadouts(toolId);
+      resetPointerReadout(body,plotKind);
     });
 
     plot.addEventListener('dblclick',event=>{
