@@ -129,7 +129,8 @@ function makeOutputPane(slot,top=false){
   const pane=document.createElement('div');
   pane.className='processor-pane processor-pane-output'+(top?' processor-output-top':'');
   pane.dataset.outputPane=slot;
-  pane.innerHTML='<div class="processor-output-zone"><div class="processor-output-head"><span>OUTPUT FILES</span><span class="processor-output-count">0 files</span></div><div class="processor-output-list"><span class="processor-output-empty">No files yet</span></div></div>';
+  const heading=slot==='autoZero'?'MATCHING FILES':'TARGET FILE';
+  pane.innerHTML='<div class="processor-output-zone"><div class="processor-output-head"><span>'+heading+'</span><span class="processor-output-count">0 files</span></div><div class="processor-output-list"><span class="processor-output-empty">No files yet</span></div></div>';
   return pane;
 }
 
@@ -138,9 +139,14 @@ function buildNode(){
   node.className='processor-node';
   node.id='processorNode';
   node.hidden=true;
-  node.setAttribute('aria-label','RAPTOR processing node');
+  node.setAttribute('aria-label','Target Editor node');
+
+  const head=document.createElement('header');
+  head.className='processor-node-head';
+  head.innerHTML='<strong>Target Editor</strong><span>Signal target workspace</span>';
 
   node.append(
+    head,
     makePane(PORTS[0],'processor-pane-raptor'),
     makeOutputPane('raptor',true),
     makePane(PORTS[1],'processor-pane-nga'),
@@ -188,7 +194,45 @@ function applyPosition(){
   processorNode.style.top=Math.max(8,pos.y)+'px';
 }
 
-function sourceColor(file){ return file?.color||'#5b6770'; }
+function sourceColor(file){ return file?.color||'#8FA6B8'; }
+
+function hexTint(hex,alpha=.12){
+  const value=String(hex||'').replace('#','');
+  const full=value.length===3?value.split('').map(c=>c+c).join(''):value;
+  if(!/^[0-9a-f]{6}$/i.test(full)) return 'rgba(143,166,184,'+alpha+')';
+  const n=parseInt(full,16);
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+alpha+')';
+}
+
+function lineageForSlot(state,slot){
+  const file=measurementById(state.inputs[slot]);
+  return file?{
+    file,
+    color:sourceColor(file),
+    tint:hexTint(sourceColor(file),.13),
+    tintSoft:hexTint(sourceColor(file),.07)
+  }:null;
+}
+
+function applyLineageStyle(state,slot){
+  const lineage=lineageForSlot(state,slot);
+  const inputPane=processorNode.querySelector('[data-port-pane="'+slot+'"]');
+  const outputPane=processorNode.querySelector('[data-output-pane="'+slot+'"]');
+
+  for(const pane of [inputPane,outputPane]){
+    if(!pane) continue;
+    pane.classList.toggle('has-lineage',!!lineage);
+    if(lineage){
+      pane.style.setProperty('--lineage-color',lineage.color);
+      pane.style.setProperty('--lineage-tint',lineage.tint);
+      pane.style.setProperty('--lineage-tint-soft',lineage.tintSoft);
+    }else{
+      pane.style.removeProperty('--lineage-color');
+      pane.style.removeProperty('--lineage-tint');
+      pane.style.removeProperty('--lineage-tint-soft');
+    }
+  }
+}
 
 function renderInputs(){
   if(!activeCard) return;
@@ -203,6 +247,7 @@ function renderInputs(){
     button.classList.toggle('is-full',connected);
     button.style.setProperty('--port-color',connected?sourceColor(file):'');
     if(count) count.textContent=connected?'1 / 1':'0 / 1';
+    applyLineageStyle(state,port.id);
   }
 }
 
@@ -214,6 +259,7 @@ function renderOutputs(){
     const list=pane.querySelector('.processor-output-list');
     const count=pane.querySelector('.processor-output-count');
     const outputs=state.outputs[slot];
+    const lineage=lineageForSlot(state,slot);
     count.textContent=outputs.length+' file'+(outputs.length===1?'':'s');
     list.replaceChildren();
     if(!outputs.length){
@@ -226,7 +272,10 @@ function renderOutputs(){
     for(const output of outputs){
       const row=document.createElement('div');
       row.className='processor-output-file';
-      row.style.setProperty('--file-color',output.color||'#5b6770');
+      const rowColor=lineage?.color||output.color||'#8FA6B8';
+      if(lineage) output.color=rowColor;
+      row.style.setProperty('--file-color',rowColor);
+      row.style.setProperty('--file-tint',hexTint(rowColor,.10));
       row.dataset.outputId=output.id;
       const dot=document.createElement('span');
       dot.className='processor-output-dot';
@@ -236,10 +285,10 @@ function renderOutputs(){
       const handle=document.createElement('button');
       handle.className='processor-file-output';
       handle.type='button';
-      handle.style.setProperty('--file-color',output.color||'#5b6770');
+      handle.style.setProperty('--file-color',rowColor);
       handle.setAttribute('aria-label','Connect '+name.textContent);
       handle.addEventListener('pointerdown',event=>beginWire(event,{
-        kind:'processor-output',id:output.id,name:name.textContent,color:output.color||'#5b6770',slot
+        kind:'processor-output',id:output.id,name:name.textContent,color:rowColor,slot
       },handle));
       row.append(dot,name,handle);
       list.appendChild(row);
@@ -608,10 +657,11 @@ function clearCard(card){
 function addOutput(slot,file){
   if(!activeCard||!['raptor','nga','autoZero'].includes(slot)) return {ok:false,reason:'No active processor slot'};
   const state=ensureProcessorState(activeCard);
+  const lineage=lineageForSlot(state,slot);
   const entry={
     id:file?.id||('processor-output-'+Date.now()+'-'+Math.random().toString(36).slice(2,7)),
     name:file?.name||'RAPTOR output',
-    color:file?.color||'#5b6770',
+    color:lineage?.color||file?.color||'#8FA6B8',
     artifact:file?.artifact!==undefined?file.artifact:null
   };
   state.outputs[slot].push(entry);
