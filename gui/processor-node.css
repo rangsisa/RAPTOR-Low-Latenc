@@ -149,3 +149,121 @@
   .processor-signal{font-size:7px}
   .processor-pane-label strong{font-size:8.5px}
 }
+
+
+/* Node 2 authority: neutral Target Editor until a signal lineage is connected. */
+.processor-node{
+  grid-template-rows:32px minmax(70px,auto) minmax(70px,auto) minmax(70px,auto);
+  background:#fff
+}
+
+.processor-node-head{
+  grid-column:1/-1;
+  height:32px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:0 9px;
+  border-bottom:1px solid #b8c2ca;
+  border-radius:7px 7px 0 0;
+  background:#f7f9fa;
+  color:#26323d;
+  cursor:grab
+}
+
+.processor-node.is-dragging .processor-node-head{cursor:grabbing}
+
+.processor-node-head strong{
+  font-size:10.5px;
+  font-weight:800;
+  letter-spacing:.015em
+}
+
+.processor-node-head span{
+  color:#77848e;
+  font-size:7.5px;
+  font-weight:600
+}
+
+/* Default panes match the neutral/light character of Measurement Node. */
+.processor-pane-raptor,
+.processor-pane-nga,
+.processor-pane-auto,
+.processor-pane-output,
+.processor-pane-output[data-output-pane="raptor"],
+.processor-pane-output[data-output-pane="nga"],
+.processor-pane-output[data-output-pane="autoZero"]{
+  background:#fff;
+  box-shadow:none
+}
+
+.processor-pane-raptor{border-radius:0}
+.processor-pane-output.processor-output-top{border-radius:0}
+.processor-pane-auto{border-radius:0 0 0 7px}
+.processor-pane-output[data-output-pane="autoZero"]{border-radius:0 0 7px 0}
+
+.processor-pane-label,
+.processor-signal,
+.processor-pane-label strong,
+.processor-pane-auto .processor-pane-label span,
+.processor-output-head,
+.processor-output-empty,
+.processor-input-count{
+  transition:color 120ms ease
+}
+
+.processor-pane-raptor .processor-open-tool,
+.processor-pane-nga .processor-open-tool,
+.processor-pane-auto .processor-open-tool{
+  color:#596772;
+  border-color:#c1c9cf;
+  background:#fff
+}
+
+/* Once connected, lineage color propagates across that row to its output. */
+.processor-pane.has-lineage{
+  background:linear-gradient(135deg,var(--lineage-tint-soft) 0%,var(--lineage-tint) 100%);
+  box-shadow:inset 3px 0 0 var(--lineage-color)
+}
+
+.processor-pane-left.has-lineage .processor-pane-label strong,
+.processor-pane-left.has-lineage .processor-signal,
+.processor-pane-left.has-lineage .processor-pane-label span,
+.processor-pane-left.has-lineage .processor-input-count,
+.processor-pane-output.has-lineage .processor-output-head{
+  color:var(--lineage-ink)
+}
+
+.processor-pane-left.has-lineage .processor-open-tool{
+  color:var(--lineage-ink);
+  border-color:var(--lineage-color);
+  background:rgba(255,255,255,.84)
+}
+
+.processor-pane-output.has-lineage .processor-output-zone{
+  background:linear-gradient(90deg,rgba(255,255,255,.54),transparent)
+}
+
+.processor-pane-output.has-lineage .processor-output-empty{
+  color:var(--lineage-ink)
+}
+
+.processor-pane-output.has-lineage .processor-output-file{
+  border-color:var(--file-color);
+  background:linear-gradient(90deg,var(--file-tint),rgba(255,255,255,.88) 72%)
+}
+
+.processor-pane-output.has-lineage .processor-output-name{
+  color:var(--lineage-ink)
+}
+
+.processor-pane-output.has-lineage .processor-output-dot{
+  box-shadow:0 0 0 2px rgba(255,255,255,.78)
+}
+
+@media(max-width:700px){
+  .processor-node{
+    grid-template-rows:30px minmax(66px,auto) minmax(66px,auto) minmax(66px,auto)
+  }
+  .processor-node-head{height:30px}
+}
