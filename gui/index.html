@@ -80,7 +80,7 @@
           <div class="tool-workspace-title"><strong>RAPTOR Editor</strong><span data-tool-context="raptor-editor">Pipeline context · no input connected</span></div>
         </header>
         <div class="tool-workspace-body" data-tool-body="raptor-editor">
-          <section class="matching-page editor-foundation editor-foundation--with-bottom" aria-label="RAPTOR Editor workspace foundation">
+          <section class="matching-page editor-foundation editor-foundation--with-bottom editor-foundation--graph-first" aria-label="RAPTOR Editor workspace foundation">
             <main class="matching-app">
               <section class="matching-left">
                 <header class="matching-toolbar">
@@ -148,24 +148,40 @@
                 </section>
               </section>
 
-              <aside class="matching-tools">
-                <header class="matching-tools-head"><div><strong>RAPTOR TOOLS</strong><span>Processing workspace</span></div></header>
-                <div class="matching-tools-body">
-                  <section class="matching-tools-empty">
-                    <div class="matching-tools-empty-mark">R</div>
-                    <strong>RAPTOR Editor</strong>
-                    <span>Tool controls will be added here step by step.</span>
-                  </section>
-                </div>
-              </aside>
+
             </main>
               <section class="editor-bottom-panel" aria-label="RAPTOR lower workspace">
                 <header class="editor-bottom-panel-head">
                   <div><strong>RAPTOR LOWER PANEL</strong><span>Reserved processing / editor workspace</span></div>
                   <span class="editor-bottom-panel-mark">R</span>
                 </header>
-                <div class="editor-bottom-panel-body"></div>
+                <div class="editor-bottom-panel-body editor-tool-dock">
+                  <div class="editor-tool-dock-group">
+                    <button type="button" class="editor-dock-btn is-active" data-editor-dock="edit">Edit</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="phase">Phase</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="magnitude">Magnitude</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="gd">Group Delay</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="target">Target</button>
+                  </div>
+                  <div class="editor-tool-dock-group editor-tool-dock-group--right">
+                    <button type="button" class="editor-dock-btn" data-editor-dock="undo">Undo</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="redo">Redo</button>
+                    <button type="button" class="editor-dock-btn editor-dock-btn--inspector" data-editor-action="inspector">Inspector</button>
+                    <button type="button" class="editor-dock-btn editor-dock-btn--apply" data-editor-dock="apply">Apply</button>
+                  </div>
+                </div>
               </section>
+              <aside class="editor-floating-inspector" data-editor-inspector hidden>
+                <header class="editor-floating-inspector-head">
+                  <div><strong>RAPTOR INSPECTOR</strong><span>Context controls</span></div>
+                  <button type="button" class="editor-floating-close" data-editor-action="close-inspector" aria-label="Close inspector">×</button>
+                </header>
+                <div class="editor-floating-inspector-body">
+                  <div class="editor-floating-empty">R</div>
+                  <strong>Floating inspector</strong>
+                  <span>Detailed controls will appear here when an editable graph object is selected.</span>
+                </div>
+              </aside>
           </section>
         </div>
       </section>
@@ -174,7 +190,7 @@
           <div class="tool-workspace-title"><strong>NGA Editor</strong><span data-tool-context="nga-editor">Pipeline context · no input connected</span></div>
         </header>
         <div class="tool-workspace-body" data-tool-body="nga-editor">
-          <section class="matching-page editor-foundation editor-foundation--with-bottom" aria-label="NGA Editor workspace foundation">
+          <section class="matching-page editor-foundation editor-foundation--with-bottom editor-foundation--graph-first" aria-label="NGA Editor workspace foundation">
             <main class="matching-app">
               <section class="matching-left">
                 <header class="matching-toolbar">
@@ -242,24 +258,40 @@
                 </section>
               </section>
 
-              <aside class="matching-tools">
-                <header class="matching-tools-head"><div><strong>NGA TOOLS</strong><span>Processing workspace</span></div></header>
-                <div class="matching-tools-body">
-                  <section class="matching-tools-empty">
-                    <div class="matching-tools-empty-mark">N</div>
-                    <strong>NGA Editor</strong>
-                    <span>Tool controls will be added here step by step.</span>
-                  </section>
-                </div>
-              </aside>
+
             </main>
               <section class="editor-bottom-panel" aria-label="NGA lower workspace">
                 <header class="editor-bottom-panel-head">
                   <div><strong>NGA LOWER PANEL</strong><span>Reserved processing / editor workspace</span></div>
                   <span class="editor-bottom-panel-mark">N</span>
                 </header>
-                <div class="editor-bottom-panel-body"></div>
+                <div class="editor-bottom-panel-body editor-tool-dock">
+                  <div class="editor-tool-dock-group">
+                    <button type="button" class="editor-dock-btn is-active" data-editor-dock="edit">Edit</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="phase">Phase</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="magnitude">Magnitude</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="gd">Group Delay</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="target">Target</button>
+                  </div>
+                  <div class="editor-tool-dock-group editor-tool-dock-group--right">
+                    <button type="button" class="editor-dock-btn" data-editor-dock="undo">Undo</button>
+                    <button type="button" class="editor-dock-btn" data-editor-dock="redo">Redo</button>
+                    <button type="button" class="editor-dock-btn editor-dock-btn--inspector" data-editor-action="inspector">Inspector</button>
+                    <button type="button" class="editor-dock-btn editor-dock-btn--apply" data-editor-dock="apply">Apply</button>
+                  </div>
+                </div>
               </section>
+              <aside class="editor-floating-inspector" data-editor-inspector hidden>
+                <header class="editor-floating-inspector-head">
+                  <div><strong>NGA INSPECTOR</strong><span>Context controls</span></div>
+                  <button type="button" class="editor-floating-close" data-editor-action="close-inspector" aria-label="Close inspector">×</button>
+                </header>
+                <div class="editor-floating-inspector-body">
+                  <div class="editor-floating-empty">N</div>
+                  <strong>Floating inspector</strong>
+                  <span>Detailed controls will appear here when an editable graph object is selected.</span>
+                </div>
+              </aside>
           </section>
         </div>
       </section>
