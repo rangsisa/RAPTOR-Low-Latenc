@@ -558,3 +558,46 @@
   color:#89949d;
   border-color:#cbd3d9
 }
+
+
+/* Full-edge graph geometry: axis labels live inside the plot. */
+.editor-foundation-axis{
+  inset:4px;
+}
+
+.editor-foundation-trace{
+  inset:4px;
+  width:calc(100% - 8px);
+  height:calc(100% - 8px);
+}
+
+.editor-foundation-y{
+  z-index:4;
+  top:9px;
+  bottom:9px;
+  left:9px;
+  width:auto;
+  align-items:flex-start;
+  color:#596672;
+  text-shadow:0 1px 2px rgba(255,255,255,.96),1px 0 2px rgba(255,255,255,.96);
+}
+
+.editor-foundation-x{
+  z-index:4;
+  left:10px;
+  right:10px;
+  bottom:8px;
+  color:#596672;
+  text-shadow:0 1px 2px rgba(255,255,255,.96),1px 0 2px rgba(255,255,255,.96);
+}
+
+.editor-foundation-plot{
+  cursor:crosshair
+}
+
+/* Legacy graph-first dock is intentionally disabled after returning all
+   three editors to the Auto ZERO-style graph + right tools layout. */
+.editor-foundation--graph-first,
+.editor-foundation--with-bottom{
+  grid-template-rows:minmax(0,1fr)
+}
