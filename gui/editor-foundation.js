@@ -386,8 +386,8 @@ function zoom(toolId,ratio,deltaY){
 
 function ratioForPointer(plot,event){
   const rect=plot.getBoundingClientRect();
-  const left=30;
-  const right=7;
+  const left=4;
+  const right=4;
   const usable=Math.max(1,rect.width-left-right);
   return (event.clientX-rect.left-left)/usable;
 }
