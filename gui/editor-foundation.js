@@ -8,6 +8,8 @@ const WIDTH=1000;
 const HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
 const UNCERTAINTY_NEEDLE_MAX_HEIGHT=HEIGHT*.30;
+const UNCERTAINTY_MAG_RELIEF_DB=6;
+const UNCERTAINTY_CONFIDENCE_FLOOR=.25;
 const SVG_NS='http://www.w3.org/2000/svg';
 const FREQ_TICKS=[
   20,40,80,
@@ -247,21 +249,35 @@ function fillPath(linePath,frequency,indices,state){
   return linePath+' L'+xOf(last,state).toFixed(2)+' '+HEIGHT+' L'+xOf(first,state).toFixed(2)+' '+HEIGHT+' Z';
 }
 
-function uncertaintyNeedlePath(frequency,coherence,indices,state){
+function uncertaintyMagnitudeRelief(magnitudeDb){
+  if(!Number.isFinite(magnitudeDb)) return 1;
+
+  // UI-only salience rule:
+  // keep coherence as the scientific authority, but reduce needle prominence
+  // as the edited/derived Magnitude approaches 0 dB. Never reduce below the
+  // confidence floor, so poor measurement confidence cannot visually vanish.
+  const t=Math.max(0,Math.min(1,Math.abs(magnitudeDb)/UNCERTAINTY_MAG_RELIEF_DB));
+  const smooth=t*t*(3-2*t);
+  return UNCERTAINTY_CONFIDENCE_FLOOR+(1-UNCERTAINTY_CONFIDENCE_FLOOR)*smooth;
+}
+
+function uncertaintyNeedlePath(frequency,coherence,magnitude,indices,state){
   if(!coherence||!indices.length) return '';
 
   let path='';
   for(const i of indices){
     const f=frequency[i];
     const value=coherence[i];
+    const magnitudeDb=magnitude?.[i];
     if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
 
     const c=Math.max(0,Math.min(1,value));
     const loss=1-c;
     if(loss<=0) continue;
 
+    const relief=uncertaintyMagnitudeRelief(magnitudeDb);
     const x=xOf(f,state);
-    const yTop=HEIGHT-loss*UNCERTAINTY_NEEDLE_MAX_HEIGHT;
+    const yTop=HEIGHT-loss*relief*UNCERTAINTY_NEEDLE_MAX_HEIGHT;
     path+='M'+x.toFixed(2)+' '+HEIGHT+' L'+x.toFixed(2)+' '+yTop.toFixed(2)+' ';
   }
   return path.trim();
@@ -701,6 +717,7 @@ function setEmpty(body,state){
   body._raptorDisplayViews=null;
   body.dataset.eqGeometry='none';
   body.dataset.coherenceOverlay='none';
+  body.dataset.uncertaintyMagnitudeRelief='none';
   delete body.dataset.eqGeometryOperations;
   delete body.dataset.eqGeometryError;
 
@@ -757,7 +774,7 @@ function render(toolId,input=null){
   const pPath=phasePath(frequency,phase,indices,state);
   const mPath=magnitudePath(frequency,magnitude,indices,state);
   const mFill=fillPath(mPath,frequency,indices,state);
-  const uncertaintyNeedlesPath=uncertaintyNeedlePath(frequency,coherence,indices,state);
+  const uncertaintyNeedlesPath=uncertaintyNeedlePath(frequency,coherence,magnitude,indices,state);
 
   const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
   const magSvg=body.querySelector('.editor-foundation-trace--mag');
@@ -778,6 +795,7 @@ function render(toolId,input=null){
 
   body.dataset.graphInput='canonical-v1';
   body.dataset.coherenceOverlay=coherence?'uncertainty-needles':'none';
+  body.dataset.uncertaintyMagnitudeRelief=coherence?'smooth-6db-floor25':'none';
   body.dataset.displayPoints=String(indices.length);
   body.dataset.viewMin=String(state.v0);
   body.dataset.viewMax=String(state.v1);
