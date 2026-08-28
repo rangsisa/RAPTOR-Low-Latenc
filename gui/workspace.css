@@ -2,7 +2,7 @@
 html,body{width:100%;height:100%;margin:0}
 body{background:var(--raptor-bg);color:var(--raptor-text);font-family:Arial,"Helvetica Neue",Helvetica,sans-serif;overflow:hidden}
 button,input{font:inherit}
-.workspace-shell{min-width:1080px;height:100vh;height:100dvh;min-height:0;display:grid;grid-template-rows:58px minmax(0,1fr);overflow:hidden}
+ .workspace-shell{min-width:980px;height:100vh;height:100dvh;min-height:0;display:grid;grid-template-rows:58px minmax(0,1fr);overflow:hidden}
 .topbar{display:grid;grid-template-columns:170px minmax(720px,1fr) 170px;align-items:center;padding:0 12px;border-bottom:1px solid var(--raptor-border);background:#fff;box-shadow:0 1px 2px rgba(24,32,42,.04);z-index:2}
 .brand{display:flex;align-items:center;gap:9px;min-width:0}.brand-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:5px;background:#202a33;color:#fff;font-size:16px;font-weight:700}.brand-copy{display:flex;flex-direction:column;line-height:1.1}.brand-copy strong{font-size:12px;letter-spacing:.05em}.brand-copy span{margin-top:3px;color:var(--raptor-muted);font-size:8px;font-weight:700;letter-spacing:.06em}
 .primary-nav{justify-self:center;height:100%;display:flex;align-items:center;gap:4px}.nav-item{position:relative;height:34px;min-width:96px;padding:0 11px;border:1px solid transparent;border-radius:5px;background:transparent;color:#44515d;font-size:12px;font-weight:600;cursor:pointer;transition:none}.nav-item:hover{background:#f0f3f5;border-color:#c7d0d8;color:#26323d}.nav-item.is-active,.nav-item[aria-current="page"]{background:var(--raptor-active-soft);color:#a94a0b;border-color:#ec9a5e;box-shadow:inset 0 -2px 0 var(--raptor-active)}
@@ -75,4 +75,17 @@ button,input{font:inherit}
   overflow:hidden;
   padding:0;
   background:rgba(248,250,251,.84)
+}
+
+
+@media(max-height:760px){
+  .workspace-shell{grid-template-rows:46px minmax(0,1fr)}
+  .topbar{min-height:46px}
+  .brand-mark{width:26px;height:26px;font-size:14px}
+  .nav-item{height:30px}
+  .nav-item--pipeline{height:34px}
+  .page-view--tool{grid-template-rows:46px minmax(0,1fr)}
+  .tool-workspace-head{height:46px;padding:0 14px}
+  .tool-workspace-title strong{font-size:12px}
+  .tool-workspace-title span{margin-top:3px;font-size:8px}
 }
