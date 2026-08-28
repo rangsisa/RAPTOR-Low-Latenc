@@ -660,3 +660,36 @@
 .editor-foundation-y{
   color:#555f67
 }
+
+
+/* Matching-style hover target for the three editor graphs. */
+.editor-cursor-line{
+  stroke:#53616d;
+  stroke-width:1;
+  stroke-dasharray:3 3;
+  opacity:.78;
+  vector-effect:non-scaling-stroke;
+  pointer-events:none
+}
+
+.editor-cursor-point{
+  stroke:#fff;
+  stroke-width:1.2;
+  vector-effect:non-scaling-stroke;
+  pointer-events:none
+}
+
+.editor-foundation-trace--phase .editor-cursor-point{
+  fill:#1686d9
+}
+
+.editor-foundation-trace--mag .editor-cursor-point{
+  fill:#e86f17
+}
+
+/* Magnitude energy area: light orange, display-only. */
+.editor-foundation-trace--mag .editor-foundation-fill{
+  display:block!important;
+  fill:rgba(232,111,23,.12)!important;
+  stroke:none!important
+}
