@@ -38,9 +38,13 @@ button,input{font:inherit}
   background:linear-gradient(135deg,#f6effd 0%,#e4d5f7 100%);
   color:#694287;border-color:#ad8bc7;box-shadow:inset 0 -2px 0 var(--raptor-active)
 }
-.page-view--tool{overflow:hidden}
+.page-view--tool{
+  overflow:auto;
+  overscroll-behavior:contain;
+  background:#f8fafb
+}
 .tool-workspace-head{
-  position:relative;z-index:2;height:58px;display:flex;align-items:center;
+  position:sticky;top:0;z-index:5;height:58px;display:flex;align-items:center;
   padding:0 20px;border-bottom:1px solid #b8c3cb;
   box-shadow:0 2px 7px rgba(24,32,42,.05)
 }
@@ -63,5 +67,10 @@ button,input{font:inherit}
   color:#65727c;font-size:9px;font-weight:600
 }
 .tool-workspace-body{
-  position:absolute;inset:58px 0 0;overflow:auto;background:rgba(248,250,251,.84)
+  position:relative;
+  inset:auto;
+  min-height:1120px;
+  overflow:visible;
+  padding-bottom:440px;
+  background:rgba(248,250,251,.84)
 }
