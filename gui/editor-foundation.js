@@ -113,7 +113,7 @@ function yMagnitude(value){
   return HEIGHT-((v+40)/80)*HEIGHT;
 }
 
-function pointsInDisplayRange(frequency,state,phase=null){
+function pointsInDisplayRange(frequency,state,phase=null,coherence=null){
   const indices=[];
   for(let i=0;i<frequency.length;i++){
     const f=frequency[i];
@@ -139,6 +139,27 @@ function pointsInDisplayRange(frequency,state,phase=null){
         selected.add(a);
         selected.add(b);
       }
+    }
+  }
+
+  // Preserve the worst coherence sample in each display bucket so a narrow
+  // low-confidence region cannot disappear merely because of decimation.
+  if(coherence){
+    const bucketCount=Math.min(MAX_DISPLAY_POINTS,indices.length);
+    for(let bucket=0;bucket<bucketCount;bucket++){
+      const start=Math.floor(bucket*indices.length/bucketCount);
+      const end=Math.min(indices.length,Math.max(start+1,Math.floor((bucket+1)*indices.length/bucketCount)));
+      let worstIndex=null;
+      let worstValue=Infinity;
+      for(let n=start;n<end;n++){
+        const i=indices[n];
+        const value=coherence[i];
+        if(Number.isFinite(value)&&value<worstValue){
+          worstValue=value;
+          worstIndex=i;
+        }
+      }
+      if(worstIndex!==null) selected.add(worstIndex);
     }
   }
 
@@ -223,6 +244,45 @@ function fillPath(linePath,frequency,indices,state){
   const last=frequency[indices[indices.length-1]];
   if(!(Number.isFinite(first)&&Number.isFinite(last))) return '';
   return linePath+' L'+xOf(last,state).toFixed(2)+' '+HEIGHT+' L'+xOf(first,state).toFixed(2)+' '+HEIGHT+' Z';
+}
+
+function coherenceLossPath(frequency,coherence,indices,state){
+  if(!coherence||!indices.length) return '';
+
+  const points=[];
+  for(const i of indices){
+    const f=frequency[i];
+    const value=coherence[i];
+    if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
+    const c=Math.max(0,Math.min(1,value));
+    const x=xOf(f,state);
+    const y=(1-c)*HEIGHT;
+    points.push([x,y]);
+  }
+
+  if(!points.length) return '';
+  let path='M'+points[0][0].toFixed(2)+' 0 ';
+  path+='L'+points[0][0].toFixed(2)+' '+points[0][1].toFixed(2)+' ';
+  for(let i=1;i<points.length;i++){
+    path+='L'+points[i][0].toFixed(2)+' '+points[i][1].toFixed(2)+' ';
+  }
+  path+='L'+points[points.length-1][0].toFixed(2)+' 0 Z';
+  return path;
+}
+
+function ensureCoherenceLossPath(svg){
+  if(!svg) return null;
+  let path=svg.querySelector('.editor-foundation-coherence-loss');
+  if(path) return path;
+
+  path=document.createElementNS(SVG_NS,'path');
+  path.classList.add('editor-foundation-coherence-loss');
+
+  const line=[...svg.querySelectorAll('path')]
+    .find(node=>!node.classList.contains('editor-foundation-fill')&&!node.classList.contains('editor-foundation-coherence-loss'));
+  if(line) svg.insertBefore(path,line);
+  else svg.appendChild(path);
+  return path;
 }
 
 function currentInput(toolId){
@@ -633,9 +693,11 @@ function setEmpty(body,state){
   const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
   const magSvg=body.querySelector('.editor-foundation-trace--mag');
   const magFill=magSvg?.querySelector('.editor-foundation-fill');
-  const magLine=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')):null;
+  const coherenceLoss=magSvg?.querySelector('.editor-foundation-coherence-loss');
+  const magLine=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')&&!path.classList.contains('editor-foundation-coherence-loss')):null;
   phasePathEl?.setAttribute('d','');
   magFill?.setAttribute('d','');
+  coherenceLoss?.setAttribute('d','');
   magLine?.setAttribute('d','');
   clearWrapMarkers(body);
   hideCursors(body);
@@ -681,12 +743,13 @@ function render(toolId,input=null){
   const frequency=displayViews?.frequency_hz;
   const magnitude=displayViews?.magnitude_db;
   const phase=displayViews?.phase_deg;
+  const coherence=displayViews?.coherence||null;
   if(!frequency||!magnitude||!phase){
     setEmpty(body,state);
     return;
   }
 
-  const indices=pointsInDisplayRange(frequency,state,phase);
+  const indices=pointsInDisplayRange(frequency,state,phase,coherence);
   if(!indices.length){
     setEmpty(body,state);
     body.dataset.graphInput='out-of-range';
@@ -696,14 +759,17 @@ function render(toolId,input=null){
   const pPath=phasePath(frequency,phase,indices,state);
   const mPath=magnitudePath(frequency,magnitude,indices,state);
   const mFill=fillPath(mPath,frequency,indices,state);
+  const uncertaintyPath=coherenceLossPath(frequency,coherence,indices,state);
 
   const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
   const magSvg=body.querySelector('.editor-foundation-trace--mag');
   const magFillEl=magSvg?.querySelector('.editor-foundation-fill');
-  const magLineEl=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')):null;
+  const coherenceLossEl=ensureCoherenceLossPath(magSvg);
+  const magLineEl=magSvg?[...magSvg.querySelectorAll('path')].find(path=>!path.classList.contains('editor-foundation-fill')&&!path.classList.contains('editor-foundation-coherence-loss')):null;
 
   phasePathEl?.setAttribute('d',pPath);
   magFillEl?.setAttribute('d',mFill);
+  coherenceLossEl?.setAttribute('d',uncertaintyPath);
   magLineEl?.setAttribute('d',mPath);
 
   renderWrapMarkers(body,frequency,phase,indices,state,ui);
@@ -713,6 +779,7 @@ function render(toolId,input=null){
   updateXAxis(body,state);
 
   body.dataset.graphInput='canonical-v1';
+  body.dataset.coherenceOverlay=coherence?'loss-fill':'none';
   body.dataset.displayPoints=String(indices.length);
   body.dataset.viewMin=String(state.v0);
   body.dataset.viewMax=String(state.v1);
