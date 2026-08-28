@@ -214,3 +214,78 @@
 
 .tool-page--raptor .editor-bottom-panel{box-shadow:inset 3px 0 0 #d0a33a,0 2px 8px rgba(26,37,47,.055)}
 .tool-page--nga .editor-bottom-panel{box-shadow:inset 3px 0 0 #65ad79,0 2px 8px rgba(26,37,47,.055)}
+
+
+.editor-wrap-marker{
+  stroke:#7e8b97;
+  stroke-width:1;
+  stroke-dasharray:5 5;
+  opacity:.72;
+  vector-effect:non-scaling-stroke
+}
+
+.editor-cursor-line{
+  stroke:#53616d;
+  stroke-width:1;
+  stroke-dasharray:4 4;
+  opacity:.78;
+  vector-effect:non-scaling-stroke
+}
+
+.editor-foundation-trace{
+  transition:opacity .12s ease
+}
+
+@media(max-height:760px){
+  .editor-foundation--with-bottom{
+    grid-template-rows:minmax(0,1fr) 88px
+  }
+
+  .editor-bottom-panel{
+    margin:0 5px 5px
+  }
+
+  .editor-bottom-panel-head{
+    height:28px;
+    padding:0 8px
+  }
+
+  .editor-bottom-panel-body{
+    height:calc(100% - 28px)
+  }
+
+  .editor-foundation .matching-app{
+    padding:5px;
+    gap:5px
+  }
+
+  .editor-foundation .matching-left{
+    grid-template-rows:60px minmax(0,1fr);
+    gap:5px
+  }
+
+  .editor-foundation .matching-toolbar{
+    grid-template-rows:30px 29px
+  }
+
+  .editor-foundation .matching-toolbar-top{
+    padding:0 7px 0 9px;
+    gap:8px
+  }
+
+  .editor-foundation .matching-toolbar-bottom{
+    padding:3px 7px 3px 8px;
+    gap:8px
+  }
+
+  .editor-foundation .matching-btn{height:22px;padding:0 7px}
+  .editor-foundation .matching-check{height:22px;padding:0 6px;font-size:8.5px}
+  .editor-foundation .matching-check input{width:11px;height:11px}
+  .editor-foundation .matching-graphs{gap:5px}
+  .editor-foundation .matching-card{grid-template-rows:28px minmax(0,1fr)}
+  .editor-foundation .matching-head{height:28px;padding:0 8px}
+  .editor-foundation .matching-title{font-size:9.5px}
+  .editor-foundation .matching-readout{min-width:140px;padding:2px 6px;font-size:8.5px}
+  .editor-foundation .matching-tools{grid-template-rows:36px minmax(0,1fr)}
+  .editor-foundation .matching-tools-head{height:36px;padding:0 10px}
+}
