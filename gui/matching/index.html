@@ -8,29 +8,13 @@
 <body>
 <section class="matching-page">
   <main class="matching-app"><section class="matching-left">
-    <header class="matching-toolbar">
-      <div class="matching-toolbar-top">
-        <div class="matching-toolbar-title">
-          <div class="matching-tt">GRAPH DISPLAY</div>
-          <div class="matching-toolbar-sub">Phase + Magnitude inspection</div>
-        </div>
-        <div class="matching-actions">
-          <button class="matching-btn" id="cb">CLEAR BAND</button>
-          <button class="matching-btn matching-btn--primary" id="fit">FIT 20–20k</button>
-        </div>
-      </div>
+    <header class="matching-toolbar matching-toolbar--toggles-only">
       <div class="matching-toolbar-bottom">
         <div class="matching-checks">
           <label class="matching-check"><input id="tp" type="checkbox" checked><span>Phase</span></label>
           <label class="matching-check"><input id="tm" type="checkbox" checked><span>Magnitude</span></label>
-          <label class="matching-check"><input id="tw" type="checkbox" checked><span>Wrap lines</span></label>
+          <label class="matching-check"><input id="tw" type="checkbox" checked><span>Wrap phase</span></label>
           <label class="matching-check"><input id="ts" type="checkbox" checked><span>Sync cursor</span></label>
-        </div>
-        <div class="matching-hint" aria-label="Graph controls">
-          <span><kbd>Wheel</kbd> Zoom</span>
-          <span><kbd>Shift</kbd> Pan</span>
-          <span><kbd>Alt</kbd> Band</span>
-          <span><kbd>2×</kbd> Fit</span>
         </div>
       </div>
     </header>
