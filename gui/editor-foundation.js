@@ -7,13 +7,29 @@ const F1=20000;
 const WIDTH=1000;
 const HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
+const VIEW_STATES=new Map(TOOL_IDS.map(id=>[id,{v0:F0,v1:F1}]));
 
 function log10(value){return Math.log(value)/Math.LN10;}
 
-function xOf(frequency){
-  const a=log10(F0);
-  const b=log10(F1);
+function xOf(frequency,state){
+  const a=log10(state.v0);
+  const b=log10(state.v1);
   return (log10(frequency)-a)/(b-a)*WIDTH;
+}
+
+function frequencyAtRatio(ratio,state){
+  const a=Math.log(state.v0);
+  const b=Math.log(state.v1);
+  return Math.exp(a+Math.max(0,Math.min(1,ratio))*(b-a));
+}
+
+function formatFrequency(value){
+  if(!Number.isFinite(value)||value<=0) return '—';
+  if(value>=1000){
+    const k=value/1000;
+    return (k<10?k.toFixed(2):k.toFixed(1)).replace(/\.?0+$/,'')+'k';
+  }
+  return (value<100?value.toFixed(1):value.toFixed(0)).replace(/\.0$/,'');
 }
 
 function yPhase(value){
@@ -26,11 +42,11 @@ function yMagnitude(value){
   return HEIGHT-((v+12)/24)*HEIGHT;
 }
 
-function pointsInDisplayRange(frequency){
+function pointsInDisplayRange(frequency,state){
   const indices=[];
   for(let i=0;i<frequency.length;i++){
     const f=frequency[i];
-    if(Number.isFinite(f)&&f>=F0&&f<=F1) indices.push(i);
+    if(Number.isFinite(f)&&f>=state.v0&&f<=state.v1) indices.push(i);
   }
   if(indices.length<=MAX_DISPLAY_POINTS) return indices;
 
@@ -42,14 +58,14 @@ function pointsInDisplayRange(frequency){
   return out;
 }
 
-function phasePath(frequency,phase,indices){
+function phasePath(frequency,phase,indices,state){
   let path='';
   let previous=null;
   for(const i of indices){
     const f=frequency[i];
     const value=phase[i];
     if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
-    const x=xOf(f);
+    const x=xOf(f,state);
     const y=yPhase(value);
     const move=previous===null||Math.abs(value-previous)>300;
     path+=(move?'M':'L')+x.toFixed(2)+' '+y.toFixed(2)+' ';
@@ -58,28 +74,39 @@ function phasePath(frequency,phase,indices){
   return path.trim();
 }
 
-function magnitudePath(frequency,magnitude,indices){
+function magnitudePath(frequency,magnitude,indices,state){
   let path='';
   for(const i of indices){
     const f=frequency[i];
     const value=magnitude[i];
     if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
-    const x=xOf(f);
+    const x=xOf(f,state);
     const y=yMagnitude(value);
     path+=(path?'L':'M')+x.toFixed(2)+' '+y.toFixed(2)+' ';
   }
   return path.trim();
 }
 
-function fillPath(linePath,frequency,indices){
+function fillPath(linePath,frequency,indices,state){
   if(!linePath||!indices.length) return '';
   const first=frequency[indices[0]];
   const last=frequency[indices[indices.length-1]];
   if(!(Number.isFinite(first)&&Number.isFinite(last))) return '';
-  return linePath+' L'+xOf(last).toFixed(2)+' '+HEIGHT+' L'+xOf(first).toFixed(2)+' '+HEIGHT+' Z';
+  return linePath+' L'+xOf(last,state).toFixed(2)+' '+HEIGHT+' L'+xOf(first,state).toFixed(2)+' '+HEIGHT+' Z';
 }
 
-function setEmpty(body){
+function updateXAxis(body,state){
+  for(const axis of body.querySelectorAll('.editor-foundation-x')){
+    const labels=[...axis.querySelectorAll('span')];
+    if(!labels.length) continue;
+    labels.forEach((label,index)=>{
+      const ratio=labels.length===1?0:index/(labels.length-1);
+      label.textContent=formatFrequency(frequencyAtRatio(ratio,state));
+    });
+  }
+}
+
+function setEmpty(body,state){
   const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
   const magSvg=body.querySelector('.editor-foundation-trace--mag');
   const magFill=magSvg?.querySelector('.editor-foundation-fill');
@@ -92,26 +119,40 @@ function setEmpty(body){
   if(readouts[0]) readouts[0].textContent='No Pipeline input';
   if(readouts[1]) readouts[1].textContent='No Pipeline input';
 
+  updateXAxis(body,state);
   body.dataset.graphInput='empty';
 }
 
-function render(toolId,input){
+function currentInput(toolId){
   const body=document.querySelector('[data-tool-body="'+toolId+'"]');
+  const workspace=window.RaptorWorkspace?.getToolInput?.(toolId)||null;
+  return {
+    body,
+    entry:workspace?.entry||body?._raptorInput?.entry||null,
+    canonical:workspace?.canonical||body?._raptorInput?.canonical||null,
+    views:workspace?.views||body?._raptorInput?.views||null
+  };
+}
+
+function render(toolId,input=null){
+  const state=VIEW_STATES.get(toolId)||{v0:F0,v1:F1};
+  const body=input?.body||document.querySelector('[data-tool-body="'+toolId+'"]');
   if(!body) return;
 
-  const canonical=input?.canonical||body._raptorInput?.canonical||null;
-  const views=input?.views||body._raptorInput?.views||null;
-  const entry=input?.entry||body._raptorInput?.entry||null;
+  const fallback=currentInput(toolId);
+  const canonical=input?.canonical||fallback.canonical;
+  const views=input?.views||fallback.views;
+  const entry=input?.entry||fallback.entry;
 
   if(!canonical||!views){
-    setEmpty(body);
+    setEmpty(body,state);
     return;
   }
 
   try{
     window.RaptorMeasurementCanonicalV1?.validate?.(canonical);
   }catch(error){
-    setEmpty(body);
+    setEmpty(body,state);
     body.dataset.graphInput='error';
     return;
   }
@@ -120,20 +161,20 @@ function render(toolId,input){
   const magnitude=views.magnitude_db;
   const phase=views.phase_deg;
   if(!frequency||!magnitude||!phase){
-    setEmpty(body);
+    setEmpty(body,state);
     return;
   }
 
-  const indices=pointsInDisplayRange(frequency);
+  const indices=pointsInDisplayRange(frequency,state);
   if(!indices.length){
-    setEmpty(body);
+    setEmpty(body,state);
     body.dataset.graphInput='out-of-range';
     return;
   }
 
-  const pPath=phasePath(frequency,phase,indices);
-  const mPath=magnitudePath(frequency,magnitude,indices);
-  const mFill=fillPath(mPath,frequency,indices);
+  const pPath=phasePath(frequency,phase,indices,state);
+  const mPath=magnitudePath(frequency,magnitude,indices,state);
+  const mFill=fillPath(mPath,frequency,indices,state);
 
   const phasePathEl=body.querySelector('.editor-foundation-trace--phase path');
   const magSvg=body.querySelector('.editor-foundation-trace--mag');
@@ -146,16 +187,79 @@ function render(toolId,input){
 
   const readouts=[...body.querySelectorAll('.matching-readout')];
   const name=entry?.name||canonical.source_name||'Pipeline measurement';
-  if(readouts[0]) readouts[0].textContent=name+' · '+canonical.points+' pts';
-  if(readouts[1]) readouts[1].textContent=name+' · '+canonical.points+' pts';
+  const range=formatFrequency(state.v0)+'–'+formatFrequency(state.v1)+' Hz';
+  if(readouts[0]) readouts[0].textContent=name+' · '+range;
+  if(readouts[1]) readouts[1].textContent=name+' · '+range;
 
+  updateXAxis(body,state);
   body.dataset.graphInput='canonical-v1';
   body.dataset.displayPoints=String(indices.length);
+  body.dataset.viewMin=String(state.v0);
+  body.dataset.viewMax=String(state.v1);
 }
 
-function renderFromWorkspace(toolId){
-  const input=window.RaptorWorkspace?.getToolInput?.(toolId)||null;
-  render(toolId,input);
+function fit(toolId){
+  const state=VIEW_STATES.get(toolId);
+  if(!state) return;
+  state.v0=F0;
+  state.v1=F1;
+  render(toolId);
+}
+
+function zoom(toolId,ratio,deltaY){
+  const state=VIEW_STATES.get(toolId);
+  if(!state) return;
+
+  const anchor=frequencyAtRatio(ratio,state);
+  const scale=Math.exp(deltaY*.0012);
+  const la=Math.log(state.v0);
+  const lb=Math.log(state.v1);
+  const lp=Math.log(anchor);
+
+  let next0=Math.exp(lp+(la-lp)*scale);
+  let next1=Math.exp(lp+(lb-lp)*scale);
+  if(next1/next0<1.06) return;
+
+  const spanRatio=next1/next0;
+  if(next0<F0){
+    next0=F0;
+    next1=Math.min(F1,next0*spanRatio);
+  }
+  if(next1>F1){
+    next1=F1;
+    next0=Math.max(F0,next1/spanRatio);
+  }
+
+  state.v0=next0;
+  state.v1=next1;
+  render(toolId);
+}
+
+function bindGraphInteraction(toolId){
+  const body=document.querySelector('[data-tool-body="'+toolId+'"]');
+  if(!body||body.dataset.graphInteractionBound==='1') return;
+  body.dataset.graphInteractionBound='1';
+
+  body.querySelectorAll('.editor-foundation-plot').forEach(plot=>{
+    plot.addEventListener('wheel',event=>{
+      event.preventDefault();
+      event.stopPropagation();
+
+      const rect=plot.getBoundingClientRect();
+      const left=30;
+      const right=7;
+      const usable=Math.max(1,rect.width-left-right);
+      const ratio=(event.clientX-rect.left-left)/usable;
+      zoom(toolId,ratio,event.deltaY);
+    },{passive:false});
+
+    plot.addEventListener('dblclick',event=>{
+      event.preventDefault();
+      fit(toolId);
+    });
+  });
+
+  body.querySelector('[data-editor-action="fit"]')?.addEventListener('click',()=>fit(toolId));
 }
 
 document.addEventListener('raptor:toolinput',event=>{
@@ -163,16 +267,24 @@ document.addEventListener('raptor:toolinput',event=>{
   if(!TOOL_IDS.includes(toolId)) return;
   const body=document.querySelector('[data-tool-body="'+toolId+'"]');
   render(toolId,{
-    context:event.detail,
+    body,
     entry:body?._raptorInput?.entry||null,
     canonical:event.detail?.canonical||body?._raptorInput?.canonical||null,
     views:event.detail?.views||body?._raptorInput?.views||null
   });
 });
 
-for(const toolId of TOOL_IDS) renderFromWorkspace(toolId);
+for(const toolId of TOOL_IDS){
+  bindGraphInteraction(toolId);
+  render(toolId);
+}
 
 window.RaptorEditorGraphs=Object.freeze({
-  render:renderFromWorkspace
+  render,
+  fit,
+  getView(toolId){
+    const state=VIEW_STATES.get(toolId);
+    return state?{...state}:null;
+  }
 });
 })();
