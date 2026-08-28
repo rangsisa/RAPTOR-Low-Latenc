@@ -1,5 +1,5 @@
 (()=>{
-const FILE_COLORS=['#2f6f9f','#e86f17','#2e8b57','#8b5cf6','#d14b4b','#0f8b8d','#b7791f','#5b6770'];
+const FILE_COLORS=['#4DA3FF','#FF9F43','#55D187','#A78BFA','#FF6B6B','#36CFC9','#F6C85F','#8FA6B8'];
 const canonicalV1=window.RaptorMeasurementCanonicalV1;
 if(!canonicalV1) throw new Error('measurement-canonical-v1.js must load before pipeline.js');
 const COMMON_SAMPLE_RATES=[44100,48000,88200,96000,176400,192000];
