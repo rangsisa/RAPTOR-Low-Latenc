@@ -598,7 +598,6 @@ function startWire(event,entry,handle){
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
     wirePath.removeAttribute('d');
-    wireEnd.hidden=true;
     measurementNode.classList.remove('is-wiring');
     row?.classList.remove('is-wiring');
     handle.classList.remove('is-wiring');
