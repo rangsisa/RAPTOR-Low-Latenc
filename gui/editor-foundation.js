@@ -8,6 +8,12 @@ const WIDTH=1000;
 const HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
 const SVG_NS='http://www.w3.org/2000/svg';
+const FREQ_TICKS=[
+  20,40,80,
+  100,200,300,400,500,600,700,800,900,
+  1000,2000,3000,4000,5000,6000,7000,8000,9000,
+  10000,15000
+];
 
 const VIEW_STATES=new Map(TOOL_IDS.map(id=>[id,{v0:F0,v1:F1}]));
 const UI_STATES=new Map(TOOL_IDS.map(id=>[id,{
@@ -49,8 +55,8 @@ function yPhase(value){
 }
 
 function yMagnitude(value){
-  const v=Math.max(-12,Math.min(12,value));
-  return HEIGHT-((v+12)/24)*HEIGHT;
+  const v=Math.max(-40,Math.min(40,value));
+  return HEIGHT-((v+40)/80)*HEIGHT;
 }
 
 function pointsInDisplayRange(frequency,state){
@@ -117,14 +123,40 @@ function currentInput(toolId){
   };
 }
 
+function formatGridFrequency(value){
+  return value>=1000?(value/1000)+'k':String(value);
+}
+
+function updateFrequencyGrid(body,state){
+  for(const grid of body.querySelectorAll('.editor-foundation-axis')){
+    grid.querySelectorAll('.editor-frequency-grid-line').forEach(node=>node.remove());
+    for(const frequency of FREQ_TICKS){
+      if(frequency<state.v0||frequency>state.v1) continue;
+      const pct=xOf(frequency,state)/WIDTH*100;
+      const line=document.createElement('span');
+      line.className='editor-frequency-grid-line';
+      line.style.left=pct+'%';
+      line.setAttribute('aria-hidden','true');
+      grid.appendChild(line);
+    }
+  }
+}
+
 function updateXAxis(body,state){
   for(const axis of body.querySelectorAll('.editor-foundation-x')){
-    const labels=[...axis.querySelectorAll('span')];
-    labels.forEach((label,index)=>{
-      const ratio=labels.length===1?0:index/(labels.length-1);
-      label.textContent=formatFrequency(frequencyAtRatio(ratio,state));
-    });
+    axis.replaceChildren();
+    for(const frequency of FREQ_TICKS){
+      if(frequency<state.v0||frequency>state.v1) continue;
+      const pct=xOf(frequency,state)/WIDTH*100;
+      const label=document.createElement('span');
+      label.textContent=formatGridFrequency(frequency);
+      label.style.left=pct+'%';
+      if(pct<1.5) label.style.transform='translateX(2px)';
+      else if(pct>98.5) label.style.transform='translateX(calc(-100% - 2px))';
+      axis.appendChild(label);
+    }
   }
+  updateFrequencyGrid(body,state);
 }
 
 function updateTraceVisibility(body,ui){
