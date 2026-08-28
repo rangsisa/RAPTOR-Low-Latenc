@@ -695,9 +695,10 @@
 }
 
 /* Measurement uncertainty needles.
-   Imported coherence is mapped only for display:
-   loss = 1 - coherence. Each sample is a separate bottom-up needle.
-   No connecting trace, no blanking, no data mutation. */
+   Imported coherence remains the measurement-confidence authority:
+   loss = 1 - coherence. Needle prominence is visually relieved as the
+   edited/derived Magnitude approaches 0 dB, but a floor is retained so
+   poor confidence never disappears. No connecting trace or data mutation. */
 .editor-foundation-trace--mag .editor-foundation-uncertainty-needles{
   display:block!important;
   fill:none!important;
