@@ -601,3 +601,62 @@
 .editor-foundation--with-bottom{
   grid-template-rows:minmax(0,1fr)
 }
+
+
+/* 2026-08-28 graph visual authority:
+   white plots, no decorative 25/50/75 background grid,
+   permanent custom log-frequency grid rendered by JS. */
+.editor-foundation-plot{
+  background:#fff!important;
+  background-image:none!important
+}
+
+.editor-foundation-plot--phase,
+.editor-foundation-plot--mag{
+  background:#fff!important
+}
+
+.editor-foundation-trace--mag .editor-foundation-fill{
+  display:none!important
+}
+
+.editor-foundation-axis{
+  inset:4px;
+  overflow:hidden;
+  background:transparent;
+  border:1px solid #8f989f
+}
+
+.editor-frequency-grid-line{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:1px;
+  transform:translateX(-.5px);
+  background:#d2d6d9;
+  opacity:.82
+}
+
+.editor-foundation-x{
+  left:4px;
+  right:4px;
+  bottom:7px;
+  height:12px;
+  display:block;
+  overflow:visible
+}
+
+.editor-foundation-x span{
+  position:absolute;
+  bottom:0;
+  transform:translateX(-50%);
+  color:#555f67;
+  font-size:7.5px;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+  text-shadow:0 1px 2px #fff,1px 0 2px #fff,-1px 0 2px #fff
+}
+
+.editor-foundation-y{
+  color:#555f67
+}
