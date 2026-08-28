@@ -466,3 +466,15 @@
 .matching-toolbar--toggles-only .matching-checks{
   justify-content:flex-start
 }
+
+
+@media(max-height:760px){
+  .matching-toolbar--toggles-only{
+    height:31px;
+    min-height:31px
+  }
+
+  .matching-toolbar--toggles-only .matching-toolbar-bottom{
+    padding:3px 6px
+  }
+}
