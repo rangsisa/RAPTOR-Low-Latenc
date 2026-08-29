@@ -1394,7 +1394,8 @@ function renderBandMarkers(filter,win,views){
     marker.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
     marker.style.top=((kind==='phase'?yPhase(value):yMagnitude(value))/GRAPH_HEIGHT*100)+'%';
     marker.style.setProperty('--band-color',BAND_COLORS[index%BAND_COLORS.length]);
-    marker.textContent=String(index+1);
+    marker.dataset.bandNumber=String(index+1);
+    marker.textContent='';
     marker.addEventListener('pointerdown',event=>beginBandGainDrag(event,filter,win,band));
     marker.addEventListener('wheel',event=>adjustBandQFromWheel(event,filter,win,band),{passive:false});
     marker.addEventListener('dblclick',event=>{
