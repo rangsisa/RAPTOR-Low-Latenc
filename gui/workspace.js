@@ -36,10 +36,8 @@ function activate(page){
   canvas.dataset.page=page;
 }
 
-const TOOL_PAGES=new Set(['raptor-editor','nga-editor','nga-auto-zero']);
+const TOOL_PAGES=new Set(['nga-auto-zero']);
 const TOOL_SLOTS=Object.freeze({
-  'raptor-editor':'raptor',
-  'nga-editor':'nga',
   'nga-auto-zero':'autoZero'
 });
 const toolContexts=new Map();
@@ -70,18 +68,17 @@ function hasExplicitPipelineContext(detail={}){
 function resolvePipelineToolInput(toolId,detail={}){
   const slot=detail.slot||TOOL_SLOTS[toolId];
   const activeLine=window.RaptorPipeline?.getActiveLine?.()||null;
-  const processorState=window.RaptorProcessorNode?.getActiveState?.()||null;
 
   let lineId=detail.lineId!==undefined?detail.lineId:(activeLine?.id??null);
   let lineName=detail.lineName!==undefined?detail.lineName:(activeLine?.name||'');
-  let fileId=detail.fileId!==undefined?detail.fileId:(processorState?.inputs?.[slot]||null);
+  let fileId=detail.fileId!==undefined?detail.fileId:null;
 
-  // If a remembered context belongs to a different loaded Pipeline,
-  // the currently loaded Pipeline becomes authoritative.
+  // Deleted Target Editor/Node 2 no longer supplies tool inputs implicitly.
+  // Only an explicit Pipeline handoff may bind a measurement to a tool page.
   if(activeLine&&lineId!==null&&String(lineId)!==String(activeLine.id)){
     lineId=activeLine.id;
     lineName=activeLine.name||'';
-    fileId=processorState?.inputs?.[slot]||null;
+    fileId=null;
   }
 
   const entry=fileId?window.RaptorPipeline?.getMeasurement?.(fileId):null;
