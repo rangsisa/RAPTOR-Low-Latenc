@@ -1397,3 +1397,38 @@
   }
   .mpgd-band-rack-head{min-height:36px}
 }
+
+
+/* 2026-08-29 Phase Branch Reader.
+   Hovering a readable wrapped branch highlights the actual branch and overlays
+   its Phase-vs-Frequency linear fit. */
+.mpgd-filter-svg--phase .phase-branch-highlight{
+  fill:none;
+  stroke:#7b61b2;
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.34;
+  vector-effect:non-scaling-stroke;
+  pointer-events:none
+}
+.mpgd-filter-svg--phase .phase-branch-fit{
+  fill:none;
+  stroke:#7b61b2;
+  stroke-width:1.6;
+  stroke-dasharray:6 4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.95;
+  vector-effect:non-scaling-stroke;
+  pointer-events:none
+}
+.mpgd-filter-value-pill--delay.is-unreadable,
+.mpgd-filter-value-pill--phase.is-unreadable{
+  color:#8a6233;
+  border-color:#d4b88e;
+  background:#fff8ed
+}
+
+/* Retire the old point-inspector visual if an older cached DOM still carries it. */
+.mpgd-filter-svg--phase .phase-inspect-marker{display:none!important}
