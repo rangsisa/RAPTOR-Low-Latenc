@@ -985,11 +985,11 @@ function clearPhaseBranchInspect(win){
   const highlight=win.querySelector('.mpgd-filter-svg--phase .phase-branch-highlight');
   const fitPath=win.querySelector('.mpgd-filter-svg--phase .phase-branch-fit');
   if(delayEl){
-    delayEl.textContent='Delay —';
+    delayEl.textContent='—';
     delayEl.classList.remove('is-unreadable');
   }
   if(phaseEl){
-    phaseEl.textContent='ΔPhase —';
+    phaseEl.textContent='—';
     phaseEl.classList.remove('is-unreadable');
   }
   if(highlight) highlight.setAttribute('d','');
@@ -1104,12 +1104,12 @@ function buildGraph(kind){
   const readout=document.createElement('div');
   readout.className='mpgd-filter-readout';
   readout.dataset.kind=kind;
-  readout.textContent='No input';
+  readout.textContent='—';
 
   const pointer=document.createElement('div');
   pointer.className='mpgd-filter-pointer-readout';
   pointer.dataset.kind=kind;
-  pointer.textContent=kind==='phase'?'— Hz · —°':'— Hz · — dB';
+  pointer.textContent='—';
 
   const unit=document.createElement('span');
   unit.className='mpgd-filter-unit';
@@ -1119,13 +1119,13 @@ function buildGraph(kind){
     const delay=document.createElement('span');
     delay.className='mpgd-filter-value-pill mpgd-filter-value-pill--delay';
     delay.dataset.phaseInspectDelay='';
-    delay.textContent='Delay —';
+    delay.textContent='—';
     delay.title='Delay from a readable linear Phase-vs-Frequency branch fit';
 
     const angle=document.createElement('span');
     angle.className='mpgd-filter-value-pill mpgd-filter-value-pill--phase';
     angle.dataset.phaseInspectAngle='';
-    angle.textContent='ΔPhase —';
+    angle.textContent='—';
     angle.title='Total fitted phase rotation across the selected readable branch';
 
     head.append(title,readout,pointer,delay,angle,unit);
@@ -1423,11 +1423,10 @@ function bindPlot(win,filter,plot){
   });
 
   plot.addEventListener('pointerleave',()=>{
-    const entry=sourceEntry(filter);
     const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
-    if(readout) readout.textContent=entry?.name||'No input';
+    if(readout) readout.textContent='—';
     const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
-    if(pointer) pointer.textContent=kind==='phase'?'— Hz · —°':'— Hz · — dB';
+    if(pointer) pointer.textContent='—';
     win.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
     if(kind==='phase') clearPhaseBranchInspect(win);
   });
@@ -1590,6 +1589,7 @@ function beginBandGainDrag(event,filter,win,band){
 
   const startY=event.clientY;
   const startGain=Number(band.gainDb)||0;
+  win._activeRippleBandId=band.id;
   const pointerId=event.pointerId;
   const marker=event.currentTarget;
   marker.classList.add('is-gain-dragging');
@@ -1610,7 +1610,9 @@ function beginBandGainDrag(event,filter,win,band){
     window.removeEventListener('pointermove',move);
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
+    win._activeRippleBandId=null;
     win.querySelector('.mpgd-band-marker[data-band-id="'+band.id+'"]')?.classList.remove('is-gain-dragging');
+    win.querySelector('.mpgd-band-zone-ripple[data-band-id="'+band.id+'"]')?.classList.remove('is-active');
   };
 
   window.addEventListener('pointermove',move,{passive:false});
@@ -1647,6 +1649,14 @@ function renderBandMarkers(filter,win,views){
     const value=kind==='phase'?views.phase_deg[i]:views.magnitude_db[i];
     if(!(Number.isFinite(f)&&Number.isFinite(value))) return;
 
+    const ripple=document.createElement('span');
+    ripple.className='mpgd-band-zone-ripple';
+    ripple.dataset.bandId=band.id;
+    ripple.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
+    ripple.style.setProperty('--band-color',BAND_COLORS[index%BAND_COLORS.length]);
+    if(win._activeRippleBandId===band.id) ripple.classList.add('is-active');
+    layer.appendChild(ripple);
+
     const marker=document.createElement('button');
     marker.type='button';
     marker.className='mpgd-band-marker';
@@ -1658,8 +1668,20 @@ function renderBandMarkers(filter,win,views){
     marker.style.setProperty('--band-color',BAND_COLORS[index%BAND_COLORS.length]);
     marker.dataset.bandNumber=String(index+1);
     marker.textContent='';
-    marker.addEventListener('pointerdown',event=>beginBandGainDrag(event,filter,win,band));
-    marker.addEventListener('wheel',event=>adjustBandQFromWheel(event,filter,win,band),{passive:false});
+    marker.addEventListener('pointerenter',()=>{
+      ripple.classList.add('is-active');
+    });
+    marker.addEventListener('pointerleave',()=>{
+      if(win._activeRippleBandId!==band.id) ripple.classList.remove('is-active');
+    });
+    marker.addEventListener('pointerdown',event=>{
+      ripple.classList.add('is-active');
+      beginBandGainDrag(event,filter,win,band);
+    });
+    marker.addEventListener('wheel',event=>{
+      ripple.classList.add('is-active');
+      adjustBandQFromWheel(event,filter,win,band);
+    },{passive:false});
     marker.addEventListener('dblclick',event=>{
       event.preventDefault();
       event.stopPropagation();
@@ -1785,7 +1807,8 @@ function renderWindow(filter,win){
     magTrace?.setAttribute('d','');
     magFill?.setAttribute('d','');
     uncertainty?.setAttribute('d','');
-    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='No input');
+    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='—');
+    win.querySelectorAll('.mpgd-filter-pointer-readout').forEach(el=>el.textContent='—');
   }else{
     const indices=pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence);
     const magPath=magnitudePathFromViews(views,indices);
@@ -1795,8 +1818,8 @@ function renderWindow(filter,win){
     magFill?.setAttribute('d',magnitudeFillPath(magPath,views,indices));
     uncertainty?.setAttribute('d',uncertaintyNeedlePath(views,indices));
 
-    const name=entry?.name||'Measurement';
-    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent=name);
+    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='—');
+    win.querySelectorAll('.mpgd-filter-pointer-readout').forEach(el=>el.textContent='—');
   }
 
   const phaseCard=win.querySelector('.mpgd-filter-card[data-filter-card="phase"]');
@@ -1806,6 +1829,13 @@ function renderWindow(filter,win){
 
   const bandCount=win.querySelector('[data-filter-band-count]');
   if(bandCount) bandCount.textContent=filter.bands.length+' band'+(filter.bands.length===1?'':'s');
+
+  const windowTitle=win.querySelector('.mpgd-filter-window-title strong');
+  if(windowTitle){
+    windowTitle.textContent=entry?.name
+      ?'Mag-Phase-GD Filter · '+entry.name
+      :'Mag-Phase-GD Filter';
+  }
 
   const chip=win.querySelector('.mpgd-filter-idchip');
   if(chip){
