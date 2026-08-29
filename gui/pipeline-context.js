@@ -138,7 +138,7 @@ canvas.addEventListener('contextmenu',event=>{
     return;
   }
 
-  if(event.target.closest?.('.measurement-node,.mpgd-filter-node,.pipeline-context-menu')) return;
+  if(event.target.closest?.('.measurement-node,.mpgd-filter-node,.xo-filter-node,.pipeline-context-menu')) return;
   openCanvasMenu(event);
 });
 
