@@ -7,6 +7,7 @@ const wireSvg=document.querySelector('.pipeline-wire-layer');
 const measurementNode=document.getElementById('measurementNode');
 const measurementList=document.getElementById('measurementList');
 const rbj=window.RaptorEqGeometryRBJ||null;
+const responseHost=window.RaptorResponseHostV1||null;
 if(!api||!canvas||!wireSvg||!measurementNode||!measurementList) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
@@ -44,6 +45,8 @@ let bandContextMenu=null;
 let bandContextRequest=null;
 let persistentWireGroup=null;
 let graphSequence=1;
+let hostSequence=1;
+const hostCache=new Map();
 
 function makeFilterId(){
   return 'mpgd-'+Date.now().toString(36)+'-'+(filterSequence++);
@@ -191,6 +194,95 @@ function sourceColor(filter){
   return sourceEntry(filter)?.color||'#8FA6B8';
 }
 
+function hostSignature(filter,entry){
+  const bands=filter.bands.map(band=>[
+    band.id,
+    band.graphKind,
+    Number(band.frequencyHz),
+    Number(band.gainDb),
+    Number(band.q)
+  ]);
+  return JSON.stringify([
+    entry?.id||null,
+    filter.bypass===true,
+    Number(filter.sampleRateHz)||null,
+    bands
+  ]);
+}
+
+function invalidateResponseHost(filter,reason='processing-change'){
+  if(!filter) return;
+  hostCache.delete(filter.id);
+  document.dispatchEvent(new CustomEvent('raptor:filteroutputchange',{
+    detail:{
+      filterId:filter.id,
+      filterType:FILTER_TYPE,
+      reason,
+      outputs:['phase','magnitude']
+    }
+  }));
+}
+
+function responseHostForFilter(filter){
+  if(!filter||!responseHost) return null;
+  const entry=sourceEntry(filter);
+  if(!entry) return null;
+  const views=displayViewsForFilter(filter);
+  if(!views?.frequency_hz) return null;
+
+  const signature=hostSignature(filter,entry);
+  const cached=hostCache.get(filter.id);
+  if(cached?.signature===signature) return cached.host;
+
+  const line=api.getActiveLine?.()||null;
+  const host=responseHost.create({
+    id:filter.id+':response:'+(hostSequence++),
+    name:(entry.name||'Measurement')+' → '+filter.label,
+    views,
+    sampleRateHz:filter.sampleRateHz||entry.sampleRate||entry.canonical?.sample_rate_hz||null,
+    color:entry.color||null,
+    source:{
+      kind:'measurement',
+      measurementId:entry.id,
+      measurementName:entry.name||null,
+      canonicalFormat:entry.canonical?.format||null,
+      lineId:line?.id||null,
+      lineName:line?.name||null
+    },
+    processing:{
+      filterId:filter.id,
+      filterType:FILTER_TYPE,
+      bypass:filter.bypass===true,
+      frequencyDomainApplied:filter.bypass!==true,
+      phaseBandRule:'PHASE_ONLY_UNIT_MAGNITUDE',
+      magnitudeBandRule:'RBJ_MAGNITUDE_PLUS_COUPLED_PHASE',
+      bands:filter.bands.map(band=>({
+        id:band.id,
+        type:'peaking',
+        graphKind:band.graphKind,
+        frequencyHz:Number(band.frequencyHz),
+        gainDb:Number(band.gainDb),
+        q:Number(band.q)
+      }))
+    },
+    provenance:{
+      canonicalMutated:false,
+      resampled:false,
+      interpolated:false,
+      fftGrid:false,
+      sourceFrequencyCoordinatesPreserved:true
+    }
+  });
+
+  hostCache.set(filter.id,{signature,host});
+  return host;
+}
+
+function outputProjection(filter,kind){
+  const host=responseHostForFilter(filter);
+  return host?responseHost.project(host,kind):null;
+}
+
 function hexTint(hex,alpha=.10){
   const value=String(hex||'').replace('#','');
   const full=value.length===3?value.split('').map(c=>c+c).join(''):value;
@@ -276,6 +368,7 @@ function connectInput(filter,entry){
   if(!filter||!entry||filter.input?.id) return false;
   filter.input={kind:'measurement',id:entry.id};
   filter.sampleRateHz=Number(entry.sampleRate??entry.canonical?.sample_rate_hz)||null;
+  invalidateResponseHost(filter,'input-connect');
   renderNodes();
   const win=windows.get(filter.id);
   if(win&&!win.hidden) renderWindow(filter,win);
@@ -290,6 +383,7 @@ function disconnectInput(filter){
   const sourceId=filter.input.id;
   filter.input=null;
   filter.sampleRateHz=null;
+  invalidateResponseHost(filter,'input-disconnect');
   renderNodes();
   const win=windows.get(filter.id);
   if(win&&!win.hidden) renderWindow(filter,win);
@@ -313,6 +407,7 @@ function deleteFilter(filterId){
     win.remove();
   }
   windows.delete(filterId);
+  hostCache.delete(filterId);
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterdeleted',{
     detail:{filterId,filterType:FILTER_TYPE}
@@ -441,13 +536,20 @@ function buildNode(filter,index){
     handle.setAttribute('aria-label',label+' output from '+filter.id);
     handle.addEventListener('pointerdown',event=>{
       event.stopPropagation();
+      const host=responseHostForFilter(filter);
+      const projection=host?responseHost.project(host,kind):null;
       document.dispatchEvent(new CustomEvent('raptor:filteroutputwirestart',{
         detail:{
           filterId:filter.id,
           outputKind:kind,
           bypass:filter.bypass===true,
           sourceMeasurementId:filter.input?.id||null,
-          color:sourceColor(filter)
+          color:sourceColor(filter),
+          hostFormat:host?.format||null,
+          hostId:host?.id||null,
+          pairId:projection?.pairId||null,
+          host,
+          projection
         }
       }));
     });
@@ -470,6 +572,7 @@ function buildNode(filter,index){
   bypass.addEventListener('change',event=>{
     event.stopPropagation();
     filter.bypass=bypass.checked;
+    invalidateResponseHost(filter,'bypass-change');
     applyNodeLineage(node,filter);
     const win=windows.get(filter.id);
     if(win&&!win.hidden) renderWindow(filter,win);
@@ -1311,6 +1414,7 @@ function ensureBandContext(){
       graphKind:request.graphKind==='phase'?'phase':'magnitude'
     };
     filter.bands.push(band);
+    invalidateResponseHost(filter,'band-add');
 
     const win=windows.get(filter.id);
     if(win&&!win.hidden){
@@ -1544,6 +1648,7 @@ function openBandEditor(win,filter,bandId){
     band.frequencyHz=frequencyHz;
     band.gainDb=gainDb;
     band.q=q;
+    invalidateResponseHost(filter,'band-edit');
     renderWindow(filter,win);
     renderNodes();
   };
@@ -1559,6 +1664,7 @@ function openBandEditor(win,filter,bandId){
   panel.querySelector('[data-band-delete]').addEventListener('click',()=>{
     const index=filter.bands.findIndex(item=>item.id===band.id);
     if(index>=0) filter.bands.splice(index,1);
+    invalidateResponseHost(filter,'band-delete');
     win._activeBandId=null;
     removeBandEditor(win);
     renderWindow(filter,win);
@@ -1608,6 +1714,7 @@ function beginBandGainDrag(event,filter,win,band){
     // Vertical movement controls Gain only. Frequency is intentionally locked.
     const deltaY=moveEvent.clientY-startY;
     band.gainDb=clampBandGain(startGain-deltaY*.12);
+    invalidateResponseHost(filter,'band-gain');
     renderWindow(filter,win);
     renderNodes();
   };
@@ -1634,6 +1741,7 @@ function adjustBandQFromWheel(event,filter,win,band){
   const normalized=Math.max(-3,Math.min(3,-raw/100));
   const factor=Math.exp(normalized*.10);
   band.q=clampBandQ((Number(band.q)||1.41421356)*factor);
+  invalidateResponseHost(filter,'band-q');
   renderWindow(filter,win);
   renderNodes();
 }
@@ -1761,6 +1869,7 @@ function renderBandRack(filter,win){
         const removeIndex=filter.bands.findIndex(item=>item.id===band.id);
         if(removeIndex<0) return;
         filter.bands.splice(removeIndex,1);
+        invalidateResponseHost(filter,'band-delete');
         if(win._activeBandId===band.id){
           win._activeBandId=null;
           removeBandEditor(win);
@@ -1993,6 +2102,7 @@ function setBands(filterId,bands,sampleRateHz=null){
 
   filter.bands=next;
   filter.sampleRateHz=fs||null;
+  invalidateResponseHost(filter,'set-bands');
   renderNodes();
   const win=windows.get(filterId);
   if(win&&!win.hidden) renderWindow(filter,win);
@@ -2144,29 +2254,42 @@ window.RaptorMagPhaseGdFilter=Object.freeze({
     const filter=filterById(filterId);
     if(!filter) return false;
     filter.bypass=!!bypass;
+    invalidateResponseHost(filter,'bypass-change');
     renderNodes();
     const win=windows.get(filterId);
     if(win&&!win.hidden) renderWindow(filter,win);
     return true;
   },
+  getHost(filterId){
+    const filter=filterById(filterId);
+    return filter?responseHostForFilter(filter):null;
+  },
   getOutput(filterId,outputKind){
     const filter=filterById(filterId);
     if(!filter||!['phase','magnitude'].includes(outputKind)) return null;
-    const entry=sourceEntry(filter);
-    const views=displayViewsForFilter(filter);
-    if(!entry||!views) return null;
-    return {
+    const projection=outputProjection(filter,outputKind);
+    if(!projection) return null;
+    return Object.freeze({
       filterId,
       outputKind,
       bypass:filter.bypass===true,
-      sourceMeasurementId:entry.id,
-      color:entry.color||null,
-      frequency_hz:views.frequency_hz,
-      values:outputKind==='phase'?views.phase_deg:views.magnitude_db,
-      coherence:views.coherence||null,
-      sampleRateHz:filter.sampleRateHz||entry.sampleRate||entry.canonical?.sample_rate_hz||null,
+      sourceMeasurementId:filter.input?.id||null,
+      color:projection.color,
+      hostFormat:projection.hostFormat,
+      hostId:projection.hostId,
+      pairId:projection.pairId,
+      frequency_hz:projection.frequency_hz,
+      values:projection.values,
+      magnitude_db:projection.magnitude_db,
+      phase_deg:projection.phase_deg,
+      complex_real:projection.complex_real,
+      complex_imag:projection.complex_imag,
+      coherence:projection.coherence,
+      sampleRateHz:projection.sampleRateHz,
+      processing:projection.processing,
+      provenance:projection.provenance,
       canonicalMutated:false
-    };
+    });
   },
   refresh:renderNodes,
   refreshConnections:renderConnections
