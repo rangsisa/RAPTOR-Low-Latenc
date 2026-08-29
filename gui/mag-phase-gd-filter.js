@@ -149,7 +149,7 @@ function filterById(id){
 
 function closeBandContext(){
   if(!bandContextMenu) return;
-  bandContextMenu.hidden=true;
+  if(bandContextMenu.isConnected) bandContextMenu.hidden=true;
   bandContextRequest=null;
 }
 
@@ -1020,7 +1020,8 @@ function startWindowDrag(event,win,filter){
 }
 
 function ensureBandContext(){
-  if(bandContextMenu) return bandContextMenu;
+  if(bandContextMenu?.isConnected) return bandContextMenu;
+  bandContextMenu=null;
   const menu=document.createElement('div');
   menu.className='mpgd-filter-context';
   menu.hidden=true;
@@ -1080,6 +1081,7 @@ function openBandContext(event,filter,kind){
   });
 
   const menu=ensureBandContext();
+  menu.style.zIndex=String(Math.max(2600,windowZ+120));
   const add=menu.querySelector('button');
   if(add){
     add.disabled=!sourceEntry(filter);
@@ -1311,6 +1313,62 @@ function openBandEditor(win,filter,bandId){
 }
 
 
+function clampBandGain(value){
+  return Math.max(-24,Math.min(24,Number(value)));
+}
+
+function clampBandQ(value){
+  return Math.max(.05,Math.min(50,Number(value)));
+}
+
+function beginBandGainDrag(event,filter,win,band){
+  if(event.button!==undefined&&event.button!==0) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  const startY=event.clientY;
+  const startGain=Number(band.gainDb)||0;
+  const pointerId=event.pointerId;
+  const marker=event.currentTarget;
+  marker.classList.add('is-gain-dragging');
+
+  const move=moveEvent=>{
+    if(moveEvent.pointerId!==pointerId) return;
+    if(moveEvent.cancelable) moveEvent.preventDefault();
+
+    // Vertical movement controls Gain only. Frequency is intentionally locked.
+    const deltaY=moveEvent.clientY-startY;
+    band.gainDb=clampBandGain(startGain-deltaY*.12);
+    renderWindow(filter,win);
+    renderNodes();
+  };
+
+  const end=endEvent=>{
+    if(endEvent.pointerId!==pointerId) return;
+    window.removeEventListener('pointermove',move);
+    window.removeEventListener('pointerup',end);
+    window.removeEventListener('pointercancel',end);
+    win.querySelector('.mpgd-band-marker[data-band-id="'+band.id+'"]')?.classList.remove('is-gain-dragging');
+  };
+
+  window.addEventListener('pointermove',move,{passive:false});
+  window.addEventListener('pointerup',end);
+  window.addEventListener('pointercancel',end);
+}
+
+function adjustBandQFromWheel(event,filter,win,band){
+  event.preventDefault();
+  event.stopPropagation();
+
+  const raw=Number(event.deltaY)||0;
+  if(raw===0) return;
+  const normalized=Math.max(-3,Math.min(3,-raw/100));
+  const factor=Math.exp(normalized*.10);
+  band.q=clampBandQ((Number(band.q)||1.41421356)*factor);
+  renderWindow(filter,win);
+  renderNodes();
+}
+
 function renderBandMarkers(filter,win,views){
   for(const layer of win.querySelectorAll('.mpgd-band-markers')){
     layer.replaceChildren();
@@ -1331,14 +1389,16 @@ function renderBandMarkers(filter,win,views){
     marker.type='button';
     marker.className='mpgd-band-marker';
     marker.dataset.bandId=band.id;
-    marker.title='Band '+(index+1)+' · '+formatFrequency(band.frequencyHz);
+    marker.title='Band '+(index+1)+' · '+formatFrequency(band.frequencyHz)+' · Drag ↑↓ Gain · Wheel Q · Double-click Edit';
     marker.setAttribute('aria-label','Edit Band '+(index+1));
     marker.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
     marker.style.top=((kind==='phase'?yPhase(value):yMagnitude(value))/GRAPH_HEIGHT*100)+'%';
     marker.style.setProperty('--band-color',BAND_COLORS[index%BAND_COLORS.length]);
     marker.textContent=String(index+1);
-    marker.addEventListener('pointerdown',event=>event.stopPropagation());
-    marker.addEventListener('click',event=>{
+    marker.addEventListener('pointerdown',event=>beginBandGainDrag(event,filter,win,band));
+    marker.addEventListener('wheel',event=>adjustBandQFromWheel(event,filter,win,band),{passive:false});
+    marker.addEventListener('dblclick',event=>{
+      event.preventDefault();
       event.stopPropagation();
       win._activeBandId=band.id;
       openBandEditor(win,filter,band.id);
