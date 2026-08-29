@@ -54,7 +54,10 @@ function cloneFilter(filter,rekey=false){
       x:Number(filter?.position?.x)||390,
       y:Number(filter?.position?.y)||150
     },
-    input:filter?.input?.id?{kind:'measurement',id:String(filter.input.id)}:null,
+    input:filter?.input?.id?{
+      kind:filter.input.kind==='filter'?'filter':'measurement',
+      id:String(filter.input.id)
+    }:null,
     bypass:filter?.bypass===true,
     slopeDbOct:slope,
     frequencyHz:frequency,
@@ -80,23 +83,89 @@ function ensureFilters(card){
 }
 function activeFilters(){return activeCard?ensureFilters(activeCard):[];}
 function filterById(id){return activeFilters().find(filter=>filter.id===id)||null;}
-function sourceEntry(filter){
-  return filter.input?.id?api.getMeasurement?.(filter.input.id)||null:null;
+function sourceRef(filter){
+  if(!filter?.input?.id) return null;
+  return {
+    kind:filter.input.kind==='filter'?'filter':'measurement',
+    id:String(filter.input.id)
+  };
 }
-function sourceColor(filter){return sourceEntry(filter)?.color||'#8FA6B8';}
+function sourceExists(filter){
+  const ref=sourceRef(filter);
+  if(!ref) return false;
+  return ref.kind==='filter'?!!filterById(ref.id):!!api.getMeasurement?.(ref.id);
+}
+function sourceColor(filter,visiting=new Set()){
+  const ref=sourceRef(filter);
+  if(!ref) return '#8FA6B8';
+  if(ref.kind==='measurement') return api.getMeasurement?.(ref.id)?.color||'#8FA6B8';
+  if(visiting.has(ref.id)) return '#8FA6B8';
+  const upstream=filterById(ref.id);
+  if(!upstream) return '#8FA6B8';
+  const next=new Set(visiting);
+  next.add(ref.id);
+  return sourceColor(upstream,next);
+}
+function sourceName(filter){
+  const ref=sourceRef(filter);
+  if(!ref) return null;
+  if(ref.kind==='measurement') return api.getMeasurement?.(ref.id)?.name||null;
+  const upstream=filterById(ref.id);
+  return upstream?upstream.label+' · '+upstream.id:null;
+}
 function sampleRateFor(filter){
-  const entry=sourceEntry(filter);
-  const value=Number(filter.sampleRateHz??entry?.sampleRate??entry?.canonical?.sample_rate_hz);
+  const ref=sourceRef(filter);
+  let value=Number(filter.sampleRateHz);
+  if(ref?.kind==='measurement'){
+    const entry=api.getMeasurement?.(ref.id)||null;
+    value=Number(entry?.sampleRate??entry?.canonical?.sample_rate_hz??value);
+  }else if(ref?.kind==='filter'){
+    const upstream=filterById(ref.id);
+    value=Number(upstream?.sampleRateHz??value);
+  }
   return Number.isFinite(value)&&value>0?value:null;
 }
-function sourceCanonical(filter){
-  const canonical=sourceEntry(filter)?.canonical||null;
-  if(!canonical) return null;
+function sourceCanonical(filter,visiting=new Set()){
+  const ref=sourceRef(filter);
+  if(!ref) return null;
+  if(ref.kind==='measurement'){
+    const canonical=api.getMeasurement?.(ref.id)?.canonical||null;
+    if(!canonical) return null;
+    try{
+      canonicalApi.validate(canonical);
+      return canonical;
+    }catch{
+      return null;
+    }
+  }
+  const upstream=filterById(ref.id);
+  if(!upstream||visiting.has(upstream.id)) return null;
+  return processedCanonical(upstream,visiting);
+}
+function wouldCreateCycle(targetFilterId,source){
+  if(source?.kind!=='filter') return false;
+  let currentId=String(source.id||'');
+  const seen=new Set();
+  while(currentId){
+    if(currentId===targetFilterId) return true;
+    if(seen.has(currentId)) return true;
+    seen.add(currentId);
+    const current=filterById(currentId);
+    const ref=sourceRef(current);
+    if(!ref||ref.kind!=='filter') return false;
+    currentId=ref.id;
+  }
+  return false;
+}
+function canConnectInput(filter,source){
+  if(!filter||filter.input?.id||!source?.id) return false;
+  const kind=source.kind==='filter'?'filter':'measurement';
+  if(kind==='filter'&&wouldCreateCycle(filter.id,{kind,id:String(source.id)})) return false;
   try{
-    canonicalApi.validate(canonical);
-    return canonical;
+    canonicalApi.validate(source.canonical);
+    return true;
   }catch{
-    return null;
+    return false;
   }
 }
 function principalRad(value){return Math.atan2(Math.sin(value),Math.cos(value));}
@@ -148,8 +217,11 @@ function linkwitzRileyDelta(type,frequencyHz,cutoffHz,slopeDbOct,sampleRateHz){
   };
 }
 
-function processedCanonical(filter){
-  const source=sourceCanonical(filter);
+function processedCanonical(filter,visiting=new Set()){
+  if(!filter||visiting.has(filter.id)) return null;
+  const next=new Set(visiting);
+  next.add(filter.id);
+  const source=sourceCanonical(filter,next);
   if(!source) return null;
 
   // LP/HP is intentionally a file/response processor only:
@@ -157,7 +229,8 @@ function processedCanonical(filter){
   const output=canonicalApi.clone(source);
   if(filter.bypass) return output;
 
-  const fs=sampleRateFor(filter);
+  const fsValue=Number(source.sample_rate_hz??sampleRateFor(filter));
+  const fs=Number.isFinite(fsValue)&&fsValue>0?fsValue:null;
   if(!fs||!(filter.frequencyHz<fs/2)) return null;
 
   const views=canonicalApi.views(output);
@@ -180,14 +253,14 @@ function processedCanonical(filter){
   // A later serialization/export stage may compute a fresh hash if required.
   output.payload_sha256=null;
   output.measurement_id=filter.id;
-  output.source_name=(source.source_name||sourceEntry(filter)?.name||'Measurement')+' -> '+labelFor(filter.type);
+  output.source_name=(source.source_name||sourceName(filter)||'Canonical V1')+' -> '+labelFor(filter.type);
   canonicalApi.validate(output);
   return output;
 }
 
 function getOutput(filterId){
   const filter=filterById(filterId);
-  return filter?processedCanonical(filter):null;
+  return filter?processedCanonical(filter,new Set()):null;
 }
 
 function hexTint(hex,alpha=.10){
@@ -265,21 +338,21 @@ function normalizeFrequencyForSource(filter){
   ,options[0]);
 }
 function applyLineage(node,filter){
-  const entry=sourceEntry(filter);
-  const color=entry?.color||'#8FA6B8';
-  node.classList.toggle('has-lineage',!!entry);
+  const connected=sourceExists(filter);
+  const color=sourceColor(filter);
+  node.classList.toggle('has-lineage',connected);
   node.classList.toggle('is-bypassed',filter.bypass===true);
   node.style.setProperty('--lineage-color',color);
   node.style.setProperty('--lineage-tint',hexTint(color,.12));
   node.style.setProperty('--lineage-tint-soft',hexTint(color,.055));
 
   const inputName=node.querySelector('[data-xo-input-name]');
-  if(inputName) inputName.textContent=entry?.name||'Not connected';
+  if(inputName) inputName.textContent=sourceName(filter)||'Not connected';
 
   const input=node.querySelector('.xo-filter-input');
   const output=node.querySelector('.xo-filter-output');
   if(input){
-    input.classList.toggle('is-connected',!!entry);
+    input.classList.toggle('is-connected',connected);
     input.style.setProperty('--port-color',color);
   }
   if(output) output.style.setProperty('--port-color',color);
@@ -380,14 +453,26 @@ function buildNode(filter,index){
   output.addEventListener('pointerdown',event=>{
     event.stopPropagation();
     const canonical=getOutput(filter.id);
+    const color=sourceColor(filter);
+    if(canonical){
+      api.startCanonicalWire?.(event,{
+        kind:'filter',
+        id:filter.id,
+        name:filter.label,
+        color,
+        sampleRate:canonical.sample_rate_hz,
+        canonical
+      },output);
+    }
     document.dispatchEvent(new CustomEvent('raptor:filteroutputwirestart',{
       detail:{
         filterId:filter.id,
         filterType:filter.type,
         outputKind:'canonical',
         bypass:filter.bypass===true,
-        sourceMeasurementId:filter.input?.id||null,
-        color:sourceColor(filter),
+        sourceKind:'filter',
+        sourceId:filter.id,
+        color,
         format:canonical?.format||null,
         canonical,
         hasData:!!canonical
@@ -457,7 +542,7 @@ function renderNodes(){
   }
 
   activeFilters().forEach((filter,index)=>{
-    if(filter.input?.id&&!api.getMeasurement?.(filter.input.id)){
+    if(filter.input?.id&&!sourceExists(filter)){
       filter.input=null;
       filter.sampleRateHz=null;
     }
@@ -467,8 +552,9 @@ function renderNodes(){
     const input=node.querySelector('.xo-filter-input');
     api.registerInput?.('xo:'+filter.id+':input',input,{
       radius:50,
-      canAccept:entry=>!!entry&&!filter.input?.id,
-      onConnect:entry=>connectInput(filter,entry)
+      acceptCanonical:true,
+      canAccept:source=>canConnectInput(filter,source),
+      onConnect:(source,meta)=>connectInput(filter,source,meta)
     });
   });
 
@@ -504,14 +590,33 @@ function deleteFilter(filterId){
   }));
   return true;
 }
-function connectInput(filter,entry){
-  if(!filter||!entry||filter.input?.id) return false;
-  filter.input={kind:'measurement',id:entry.id};
-  filter.sampleRateHz=Number(entry.sampleRate??entry.canonical?.sample_rate_hz)||null;
+function connectInput(filter,source,meta={}){
+  if(!filter||!source||filter.input?.id) return false;
+  const kind=meta.sourceKind==='filter'||source.kind==='filter'?'filter':'measurement';
+  const sourceId=String(meta.sourceId??source.id??'');
+  if(!sourceId) return false;
+  if(kind==='filter'&&wouldCreateCycle(filter.id,{kind,id:sourceId})) return false;
+
+  let canonical=source.canonical||null;
+  if(!canonical){
+    canonical=kind==='filter'?getOutput(sourceId):api.getMeasurementCanonical?.(sourceId)||null;
+  }
+  try{canonicalApi.validate(canonical)}catch{return false;}
+
+  filter.input={kind,id:sourceId};
+  const sourceRate=Number(source.sampleRate??canonical.sample_rate_hz);
+  filter.sampleRateHz=Number.isFinite(sourceRate)&&sourceRate>0?sourceRate:null;
   normalizeFrequencyForSource(filter);
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
-    detail:{filterId:filter.id,filterType:filter.type,sourceId:entry.id,connected:true,color:entry.color||null}
+    detail:{
+      filterId:filter.id,
+      filterType:filter.type,
+      sourceKind:kind,
+      sourceId,
+      connected:true,
+      color:meta.color||source.color||sourceColor(filter)
+    }
   }));
   return true;
 }
@@ -545,6 +650,16 @@ function measurementHandle(fileId){
   if(index<0) return null;
   return [...measurementList.querySelectorAll('.measurement-file')][index]?.querySelector('.measurement-output')||null;
 }
+function filterHandle(filterId){
+  const node=[...canvas.querySelectorAll('.xo-filter-node')]
+    .find(candidate=>candidate.dataset.filterId===String(filterId));
+  return node?.querySelector('.xo-filter-output')||null;
+}
+function sourceHandle(filter){
+  const ref=sourceRef(filter);
+  if(!ref) return null;
+  return ref.kind==='filter'?filterHandle(ref.id):measurementHandle(ref.id);
+}
 function canvasPointFor(element){
   const canvasRect=canvas.getBoundingClientRect();
   const rect=element.getBoundingClientRect();
@@ -563,22 +678,24 @@ function renderConnections(){
   if(!activeCard) return;
 
   for(const filter of activeFilters()){
-    const entry=sourceEntry(filter);
-    const source=entry?measurementHandle(entry.id):null;
+    const ref=sourceRef(filter);
+    const source=sourceHandle(filter);
     const target=canvas.querySelector('.xo-filter-node[data-filter-id="'+filter.id+'"] .xo-filter-input');
-    if(!entry||!source||!target) continue;
+    if(!ref||!source||!target) continue;
 
+    const color=sourceColor(filter);
     const d=wireCurve(canvasPointFor(source),canvasPointFor(target));
     const hit=document.createElementNS(SVG_NS,'path');
     hit.setAttribute('class','pipeline-persistent-wire-hit');
     hit.setAttribute('d',d);
     hit.dataset.wireId='xo-input:'+filter.id;
-    hit.dataset.sourceId=entry.id;
+    hit.dataset.sourceKind=ref.kind;
+    hit.dataset.sourceId=ref.id;
     hit.dataset.targetId=filter.id;
 
     const path=document.createElementNS(SVG_NS,'path');
     path.setAttribute('class','pipeline-persistent-wire');
-    path.setAttribute('stroke',entry.color||'#8FA6B8');
+    path.setAttribute('stroke',color);
     path.setAttribute('d',d);
 
     const flow=document.createElementNS(SVG_NS,'path');
@@ -617,9 +734,22 @@ if(baseClone){
   api.cloneState=state=>{
     const clone=baseClone(state);
     if(!clone.nodes) clone.nodes={};
-    clone.nodes.crossoverFilters=Array.isArray(state?.nodes?.crossoverFilters)
-      ?state.nodes.crossoverFilters.map(filter=>cloneFilter(filter,true))
+    const sourceFilters=Array.isArray(state?.nodes?.crossoverFilters)
+      ?state.nodes.crossoverFilters
       :[];
+    const idMap=new Map();
+    for(const filter of sourceFilters){
+      const type=TYPES.has(filter?.type)?filter.type:'lowpass';
+      idMap.set(String(filter?.id||''),makeId(type));
+    }
+    clone.nodes.crossoverFilters=sourceFilters.map(filter=>{
+      const copy=cloneFilter(filter,false);
+      copy.id=idMap.get(String(filter?.id||''))||makeId(copy.type);
+      if(copy.input?.kind==='filter'&&idMap.has(copy.input.id)){
+        copy.input.id=idMap.get(copy.input.id);
+      }
+      return copy;
+    });
     return clone;
   };
 }
@@ -647,6 +777,10 @@ if(baseDelete){
 new MutationObserver(()=>{
   if(!activeCard) return;
   for(const filter of activeFilters()){
+    if(filter.input?.id&&!sourceExists(filter)){
+      filter.input=null;
+      filter.sampleRateHz=null;
+    }
     const node=canvas.querySelector('.xo-filter-node[data-filter-id="'+filter.id+'"]');
     if(node) applyLineage(node,filter);
   }

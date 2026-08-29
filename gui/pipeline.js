@@ -692,6 +692,94 @@ function startWire(event,entry,handle){
   window.addEventListener('pointercancel',end);
 }
 
+
+function startCanonicalWire(event,source,handle){
+  if(!source||!handle||handle.disabled) return false;
+  const sourceId=String(source.id||'');
+  const sourceKind=source.kind==='filter'?'filter':'measurement';
+  if(!sourceId) return false;
+
+  try{canonicalV1.validate(source.canonical)}catch{return false;}
+
+  const eligible=()=>eligibleRegisteredInputs(source)
+    .filter(input=>input.acceptCanonical===true);
+  const nearest=(clientX,clientY)=>{
+    let best=null;
+    for(const input of eligible()){
+      const rect=input.element.getBoundingClientRect();
+      const x=rect.left+rect.width/2;
+      const y=rect.top+rect.height/2;
+      const distance=Math.hypot(clientX-x,clientY-y);
+      const radius=Number.isFinite(input.radius)?input.radius:48;
+      if(distance<=radius&&(!best||distance<best.distance)){
+        best={input,distance,x,y};
+      }
+    }
+    return best;
+  };
+
+  event.preventDefault();
+  closePreview();
+  closeColorMenu();
+  const pointerId=event.pointerId;
+  const canvasRect=nodeCanvas.getBoundingClientRect();
+  const handleRect=handle.getBoundingClientRect();
+  const startX=handleRect.left+handleRect.width/2-canvasRect.left+nodeCanvas.scrollLeft;
+  const startY=handleRect.top+handleRect.height/2-canvasRect.top+nodeCanvas.scrollTop;
+  const color=source.color||'#8FA6B8';
+  wirePath.setAttribute('stroke',color);
+  handle.classList.add('is-wiring');
+
+  clearRegisteredInputHighlights();
+  for(const candidate of eligible()) candidate.element.classList.add('is-wire-available');
+
+  try{handle.setPointerCapture(pointerId)}catch{}
+  const move=moveEvent=>{
+    if(moveEvent.pointerId!==pointerId) return;
+    clearRegisteredInputHighlights();
+    for(const candidate of eligible()) candidate.element.classList.add('is-wire-available');
+
+    const magnet=nearest(moveEvent.clientX,moveEvent.clientY);
+    let endX=moveEvent.clientX-canvasRect.left+nodeCanvas.scrollLeft;
+    let endY=moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop;
+    if(magnet){
+      magnet.input.element.classList.add('is-wire-magnet');
+      const point=registeredInputCanvasPoint(magnet.input);
+      endX=point.x;
+      endY=point.y;
+    }
+
+    const bend=Math.max(48,Math.abs(endX-startX)*.38);
+    wirePath.setAttribute('d','M '+startX+' '+startY+' C '+(startX+bend)+' '+startY+', '+(endX-bend)+' '+endY+', '+endX+' '+endY);
+  };
+  const end=endEvent=>{
+    if(endEvent.pointerId!==pointerId) return;
+    const magnet=nearest(endEvent.clientX,endEvent.clientY);
+    if(magnet&&typeof magnet.input.onConnect==='function'){
+      magnet.input.onConnect(source,{
+        inputId:magnet.input.id,
+        sourceKind,
+        sourceId,
+        color
+      });
+    }
+
+    wirePath.removeAttribute('d');
+    clearRegisteredInputHighlights();
+    handle.classList.remove('is-wiring');
+    window.removeEventListener('pointermove',move);
+    window.removeEventListener('pointerup',end);
+    window.removeEventListener('pointercancel',end);
+    try{if(handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId)}catch{}
+  };
+
+  move(event);
+  window.addEventListener('pointermove',move,{passive:true});
+  window.addEventListener('pointerup',end);
+  window.addEventListener('pointercancel',end);
+  return true;
+}
+
 function startNodeDrag(event){
   if(!activeCard||measurementNode.hidden) return;
   if(event.button!==undefined&&event.button!==0) return;
@@ -799,6 +887,7 @@ window.RaptorPipeline={
   refresh:renderFiles,
   registerInput,
   unregisterInput,
+  startCanonicalWire,
   getMeasurement,
   getMeasurementCanonical,
   getActiveLine
