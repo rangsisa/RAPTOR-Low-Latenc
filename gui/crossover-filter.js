@@ -370,7 +370,7 @@ function buildNode(filter,index){
   outputPane.className='xo-filter-output-pane';
   const outputCopy=document.createElement('div');
   outputCopy.className='xo-filter-output-copy';
-  outputCopy.innerHTML='<span>OUTPUT</span><strong>Response</strong>';
+  outputCopy.innerHTML='<span>OUTPUT</span><strong>Canonical V1</strong>';
   const output=document.createElement('button');
   output.type='button';
   output.className='xo-filter-output';
