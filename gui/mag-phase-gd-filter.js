@@ -1141,6 +1141,12 @@ function buildGraph(kind){
   grid.className='mpgd-filter-grid';
   buildFrequencyGrid(grid);
 
+  const zeroLine=document.createElement('span');
+  zeroLine.className='mpgd-filter-zero-line';
+  zeroLine.dataset.zeroKind=kind;
+  zeroLine.title=kind==='phase'?'0° reference':'0 dB reference';
+  grid.appendChild(zeroLine);
+
   const svg=document.createElementNS(SVG_NS,'svg');
   svg.setAttribute('class','mpgd-filter-svg mpgd-filter-svg--'+(kind==='phase'?'phase':'mag'));
   svg.setAttribute('viewBox','0 0 '+GRAPH_WIDTH+' '+GRAPH_HEIGHT);
@@ -1590,7 +1596,6 @@ function beginBandGainDrag(event,filter,win,band){
 
   const startY=event.clientY;
   const startGain=Number(band.gainDb)||0;
-  win._activeRippleBandId=band.id;
   const pointerId=event.pointerId;
   const marker=event.currentTarget;
   marker.classList.add('is-gain-dragging');
@@ -1611,9 +1616,7 @@ function beginBandGainDrag(event,filter,win,band){
     window.removeEventListener('pointermove',move);
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
-    win._activeRippleBandId=null;
     win.querySelector('.mpgd-band-marker[data-band-id="'+band.id+'"]')?.classList.remove('is-gain-dragging');
-    win.querySelector('.mpgd-band-zone-ripple[data-band-id="'+band.id+'"]')?.classList.remove('is-active');
   };
 
   window.addEventListener('pointermove',move,{passive:false});
@@ -1650,14 +1653,6 @@ function renderBandMarkers(filter,win,views){
     const value=kind==='phase'?views.phase_deg[i]:views.magnitude_db[i];
     if(!(Number.isFinite(f)&&Number.isFinite(value))) return;
 
-    const ripple=document.createElement('span');
-    ripple.className='mpgd-band-zone-ripple';
-    ripple.dataset.bandId=band.id;
-    ripple.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
-    ripple.style.setProperty('--band-color',BAND_COLORS[index%BAND_COLORS.length]);
-    if(win._activeRippleBandId===band.id) ripple.classList.add('is-active');
-    layer.appendChild(ripple);
-
     const marker=document.createElement('button');
     marker.type='button';
     marker.className='mpgd-band-marker';
@@ -1669,18 +1664,10 @@ function renderBandMarkers(filter,win,views){
     marker.style.setProperty('--band-color',BAND_COLORS[index%BAND_COLORS.length]);
     marker.dataset.bandNumber=String(index+1);
     marker.textContent='';
-    marker.addEventListener('pointerenter',()=>{
-      ripple.classList.add('is-active');
-    });
-    marker.addEventListener('pointerleave',()=>{
-      if(win._activeRippleBandId!==band.id) ripple.classList.remove('is-active');
-    });
     marker.addEventListener('pointerdown',event=>{
-      ripple.classList.add('is-active');
       beginBandGainDrag(event,filter,win,band);
     });
     marker.addEventListener('wheel',event=>{
-      ripple.classList.add('is-active');
       adjustBandQFromWheel(event,filter,win,band);
     },{passive:false});
     marker.addEventListener('dblclick',event=>{
