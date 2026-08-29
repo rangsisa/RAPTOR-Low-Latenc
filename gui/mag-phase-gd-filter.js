@@ -14,7 +14,16 @@ const F0=20;
 const F1=20000;
 const GRAPH_WIDTH=1000;
 const GRAPH_HEIGHT=220;
-const FREQ_TICKS=[20,100,1000,10000,20000];
+const MAX_DISPLAY_POINTS=1800;
+const UNCERTAINTY_NEEDLE_MAX_HEIGHT=GRAPH_HEIGHT*.30;
+const UNCERTAINTY_MAG_RELIEF_DB=6;
+const UNCERTAINTY_CONFIDENCE_FLOOR=.25;
+const FREQ_TICKS=[
+  20,40,80,
+  100,200,300,400,500,600,700,800,900,
+  1000,2000,3000,4000,5000,6000,7000,8000,9000,
+  10000,15000,20000
+];
 const FILTER_TYPE='mag-phase-gd';
 
 let activeCard=null;
@@ -235,8 +244,6 @@ function applyNodeLineage(node,filter){
 
   const inputName=node.querySelector('[data-filter-input-name]');
   if(inputName) inputName.textContent=entry?.name||'Not connected';
-  const state=node.querySelector('.mpgd-filter-state');
-  if(state) state.textContent=filter.bypass?'PASS THROUGH':'FILTER ACTIVE';
   const input=node.querySelector('.mpgd-filter-input');
   if(input){
     input.classList.toggle('is-connected',!!entry);
@@ -371,19 +378,7 @@ function buildNode(filter,index){
     openFilterWindow(filter.id);
   });
 
-  const remove=document.createElement('button');
-  remove.className='mpgd-filter-delete';
-  remove.type='button';
-  remove.title='Delete filter';
-  remove.setAttribute('aria-label','Delete '+filter.id);
-  remove.textContent='×';
-  remove.addEventListener('click',event=>{
-    event.stopPropagation();
-    const ok=window.confirm('Delete Mag-Phase-GD Filter '+filter.id+'?\n\nThis filter and its local band state will be removed.');
-    if(ok) deleteFilter(filter.id);
-  });
-
-  actions.append(play,remove);
+  actions.append(play);
   head.append(title,actions);
 
   const body=document.createElement('div');
@@ -462,15 +457,23 @@ function buildNode(filter,index){
   bypassText.textContent='Bypass';
   bypassLabel.append(bypass,bypassText);
 
-  const state=document.createElement('span');
-  state.className='mpgd-filter-state';
-  state.textContent=filter.bypass?'PASS THROUGH':'FILTER ACTIVE';
-
   const count=document.createElement('span');
   count.className='mpgd-filter-band-count';
   count.textContent=filter.bands.length+' band'+(filter.bands.length===1?'':'s');
 
-  foot.append(bypassLabel,state,count);
+  const remove=document.createElement('button');
+  remove.className='mpgd-filter-delete mpgd-filter-delete--footer';
+  remove.type='button';
+  remove.title='Delete filter';
+  remove.setAttribute('aria-label','Delete '+filter.id);
+  remove.textContent='Delete';
+  remove.addEventListener('click',event=>{
+    event.stopPropagation();
+    const ok=window.confirm('Delete Mag-Phase-GD Filter '+filter.id+'?\n\nThis filter and its local band state will be removed.');
+    if(ok) deleteFilter(filter.id);
+  });
+
+  foot.append(bypassLabel,count,remove);
 
   node.append(head,body,foot);
   node.addEventListener('pointerdown',event=>startNodeDrag(event,node,filter));
@@ -526,114 +529,175 @@ function createFilterAt(x,y){
 
 function log10(value){return Math.log(value)/Math.LN10;}
 function xOf(f){return (log10(f)-log10(F0))/(log10(F1)-log10(F0))*GRAPH_WIDTH;}
-function yPhase(v){return GRAPH_HEIGHT-((Math.max(-180,Math.min(180,v))+180)/360)*GRAPH_HEIGHT;}
-function yMagnitude(v){return GRAPH_HEIGHT-((Math.max(-40,Math.min(40,v))+40)/80)*GRAPH_HEIGHT;}
-function wrapDeg(v){return ((v+180)%360+360)%360-180;}
-
 function frequencyAtRatio(ratio){
   return Math.exp(Math.log(F0)+Math.max(0,Math.min(1,ratio))*Math.log(F1/F0));
 }
-
-function formatFrequency(value){
-  if(value>=1000) return (value/1000).toFixed(value<10000?2:1).replace(/\.0+$|(?<=\.[0-9])0$/,'')+' kHz';
-  return value.toFixed(value<100?1:0)+' Hz';
+function yPhase(value){
+  const v=Math.max(-180,Math.min(180,value));
+  return GRAPH_HEIGHT-((v+180)/360)*GRAPH_HEIGHT;
+}
+function yMagnitude(value){
+  const v=Math.max(-40,Math.min(40,value));
+  return GRAPH_HEIGHT-((v+40)/80)*GRAPH_HEIGHT;
+}
+function formatFrequency(value,withUnit=true){
+  if(!Number.isFinite(value)||value<=0) return '—';
+  let text='';
+  if(value>=1000){
+    const k=value/1000;
+    text=(k<10?k.toFixed(2):k.toFixed(1)).replace(/\.?0+$/,'')+'k';
+  }else{
+    text=(value<100?value.toFixed(1):value.toFixed(0)).replace(/\.0$/,'');
+  }
+  return withUnit?text+' Hz':text;
+}
+function formatGridFrequency(value){
+  return value>=1000?(value/1000)+'k':String(value);
 }
 
-function responseForFilter(filter,count=480){
-  const frequency=new Float64Array(count);
-  const magnitudeDb=new Float64Array(count);
-  const phaseDeg=new Float64Array(count);
-  const groupDelayMs=new Float64Array(count);
-  const rawPhase=new Float64Array(count);
-  const fs=filter.sampleRateHz;
-  const usableBands=rbj&&fs?filter.bands.filter(band=>
-    Number.isFinite(band.frequencyHz)&&band.frequencyHz>0&&band.frequencyHz<fs/2&&
-    Number.isFinite(band.gainDb)&&Number.isFinite(band.q)&&band.q>0
-  ):[];
-
-  for(let i=0;i<count;i++){
-    const f=F0*Math.pow(F1/F0,i/(count-1));
-    frequency[i]=f;
-    let real=1,imag=0;
-    let mag=0;
-
-    for(const band of usableBands){
-      const h=rbj.responseAt(f,band,fs);
-      const nr=real*h.real-imag*h.imag;
-      const ni=real*h.imag+imag*h.real;
-      real=nr;imag=ni;
-      mag+=h.magnitudeDb;
-    }
-
-    magnitudeDb[i]=mag;
-    rawPhase[i]=Math.atan2(imag,real);
-    phaseDeg[i]=rawPhase[i]*180/Math.PI;
+function baseViewsForFilter(filter){
+  const entry=sourceEntry(filter);
+  const canonical=entry?.canonical||null;
+  const canonicalApi=window.RaptorMeasurementCanonicalV1;
+  if(!canonical||!canonicalApi) return null;
+  try{
+    canonicalApi.validate(canonical);
+    return canonicalApi.views(canonical);
+  }catch{
+    return null;
   }
-
-  // Filter-generated phase has explicit realization provenance, so deriving a
-  // continuous local branch for GD is valid here and does not alter measurement authority.
-  const unwrapped=new Float64Array(count);
-  unwrapped[0]=rawPhase[0];
-  for(let i=1;i<count;i++){
-    let delta=rawPhase[i]-rawPhase[i-1];
-    while(delta>Math.PI) delta-=2*Math.PI;
-    while(delta<-Math.PI) delta+=2*Math.PI;
-    unwrapped[i]=unwrapped[i-1]+delta;
-  }
-
-  if(fs){
-    for(let i=0;i<count;i++){
-      const lo=Math.max(0,i-1);
-      const hi=Math.min(count-1,i+1);
-      const dw=2*Math.PI*(frequency[hi]-frequency[lo])/fs;
-      const gdSamples=dw!==0?-(unwrapped[hi]-unwrapped[lo])/dw:0;
-      groupDelayMs[i]=gdSamples/fs*1000;
-    }
-  }
-
-  return {frequency,magnitudeDb,phaseDeg,groupDelayMs,activeBands:usableBands.length};
 }
 
-function phasePath(response){
-  let d='';
-  let previous=null;
-  for(let i=0;i<response.frequency.length;i++){
-    const f=response.frequency[i],phase=response.phaseDeg[i];
-    const x=xOf(f),y=yPhase(phase);
-    if(previous===null){
-      d+='M'+x.toFixed(2)+' '+y.toFixed(2)+' ';
-    }else{
-      const p0=response.phaseDeg[previous];
-      const x0=xOf(response.frequency[previous]);
-      const delta=phase-p0;
-      if(Math.abs(delta)>180){
-        let adjusted=phase,boundary=180,opposite=-180;
-        if(delta>180){adjusted=phase-360;boundary=-180;opposite=180;}
-        else{adjusted=phase+360;boundary=180;opposite=-180;}
-        const den=adjusted-p0;
-        let t=den===0?0:(boundary-p0)/den;
-        t=Math.max(0,Math.min(1,t));
-        const xc=x0+(x-x0)*t;
-        d+='L'+xc.toFixed(2)+' '+yPhase(boundary).toFixed(2)+' ';
-        d+='M'+xc.toFixed(2)+' '+yPhase(opposite).toFixed(2)+' ';
-        d+='L'+x.toFixed(2)+' '+y.toFixed(2)+' ';
-      }else{
-        d+='L'+x.toFixed(2)+' '+y.toFixed(2)+' ';
+function displayViewsForFilter(filter){
+  const base=baseViewsForFilter(filter);
+  if(!base) return null;
+  if(filter.bypass||!filter.bands.length) return base;
+
+  const fs=Number(filter.sampleRateHz??sourceEntry(filter)?.sampleRate??sourceEntry(filter)?.canonical?.sample_rate_hz);
+  if(!rbj||!Number.isFinite(fs)||fs<=0) return base;
+  try{
+    return rbj.deriveViews(base,filter.bands,fs);
+  }catch{
+    return base;
+  }
+}
+
+function pointsInDisplayRange(frequency,phase=null,coherence=null){
+  const indices=[];
+  for(let i=0;i<frequency.length;i++){
+    const f=frequency[i];
+    if(Number.isFinite(f)&&f>=F0&&f<=F1) indices.push(i);
+  }
+  if(indices.length<=MAX_DISPLAY_POINTS) return indices;
+
+  const selected=new Set();
+  const stride=(indices.length-1)/(MAX_DISPLAY_POINTS-1);
+  for(let n=0;n<MAX_DISPLAY_POINTS;n++){
+    selected.add(indices[Math.min(indices.length-1,Math.round(n*stride))]);
+  }
+
+  if(phase){
+    for(let n=1;n<indices.length;n++){
+      const a=indices[n-1],b=indices[n];
+      if(Number.isFinite(phase[a])&&Number.isFinite(phase[b])&&Math.abs(phase[b]-phase[a])>180){
+        selected.add(a);selected.add(b);
       }
     }
-    previous=i;
   }
-  return d.trim();
+
+  if(coherence){
+    const bucketCount=Math.min(MAX_DISPLAY_POINTS,indices.length);
+    for(let bucket=0;bucket<bucketCount;bucket++){
+      const a=Math.floor(bucket*indices.length/bucketCount);
+      const b=Math.min(indices.length,Math.max(a+1,Math.floor((bucket+1)*indices.length/bucketCount)));
+      let worstIndex=null,worstValue=Infinity;
+      for(let n=a;n<b;n++){
+        const i=indices[n],value=coherence[i];
+        if(Number.isFinite(value)&&value<worstValue){
+          worstValue=value;worstIndex=i;
+        }
+      }
+      if(worstIndex!==null) selected.add(worstIndex);
+    }
+  }
+  return [...selected].sort((a,b)=>a-b);
 }
 
-function magnitudePath(response){
-  let d='';
-  for(let i=0;i<response.frequency.length;i++){
-    const x=xOf(response.frequency[i]);
-    const y=yMagnitude(response.magnitudeDb[i]);
-    d+=(i?'L':'M')+x.toFixed(2)+' '+y.toFixed(2)+' ';
+function phasePathFromViews(views,indices){
+  const frequency=views.frequency_hz;
+  const phase=views.phase_deg;
+  let path='';
+  let previousIndex=null;
+
+  for(const i of indices){
+    const f1=frequency[i],p1=phase[i];
+    if(!Number.isFinite(f1)||!Number.isFinite(p1)) continue;
+    const x1=xOf(f1),y1=yPhase(p1);
+    if(previousIndex===null){
+      path+='M'+x1.toFixed(2)+' '+y1.toFixed(2)+' ';
+      previousIndex=i;
+      continue;
+    }
+
+    const f0=frequency[previousIndex],p0=phase[previousIndex];
+    const x0=xOf(f0);
+    const delta=p1-p0;
+    if(Number.isFinite(f0)&&Number.isFinite(p0)&&Math.abs(delta)>180){
+      let adjustedP1=p1,boundary=180,opposite=-180;
+      if(delta>180){adjustedP1=p1-360;boundary=-180;opposite=180;}
+      else{adjustedP1=p1+360;boundary=180;opposite=-180;}
+      const den=adjustedP1-p0;
+      let t=den===0?0:(boundary-p0)/den;
+      t=Math.max(0,Math.min(1,t));
+      const xCross=x0+(x1-x0)*t;
+      path+='L'+xCross.toFixed(2)+' '+yPhase(boundary).toFixed(2)+' ';
+      path+='M'+xCross.toFixed(2)+' '+yPhase(opposite).toFixed(2)+' ';
+      path+='L'+x1.toFixed(2)+' '+y1.toFixed(2)+' ';
+    }else{
+      path+='L'+x1.toFixed(2)+' '+y1.toFixed(2)+' ';
+    }
+    previousIndex=i;
   }
-  return d.trim();
+  return path.trim();
+}
+
+function magnitudePathFromViews(views,indices){
+  const frequency=views.frequency_hz;
+  const magnitude=views.magnitude_db;
+  let path='';
+  for(const i of indices){
+    const f=frequency[i],value=magnitude[i];
+    if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
+    const x=xOf(f),y=yMagnitude(value);
+    path+=(path?'L':'M')+x.toFixed(2)+' '+y.toFixed(2)+' ';
+  }
+  return path.trim();
+}
+
+function uncertaintyMagnitudeRelief(magnitudeDb){
+  if(!Number.isFinite(magnitudeDb)) return 1;
+  const t=Math.max(0,Math.min(1,Math.abs(magnitudeDb)/UNCERTAINTY_MAG_RELIEF_DB));
+  const smooth=t*t*(3-2*t);
+  return UNCERTAINTY_CONFIDENCE_FLOOR+(1-UNCERTAINTY_CONFIDENCE_FLOOR)*smooth;
+}
+
+function uncertaintyNeedlePath(views,indices){
+  const frequency=views.frequency_hz;
+  const coherence=views.coherence;
+  const magnitude=views.magnitude_db;
+  if(!coherence) return '';
+  let path='';
+  for(const i of indices){
+    const f=frequency[i],c0=coherence[i],mag=magnitude[i];
+    if(!Number.isFinite(f)||!Number.isFinite(c0)) continue;
+    const loss=1-Math.max(0,Math.min(1,c0));
+    if(loss<=0) continue;
+    const relief=uncertaintyMagnitudeRelief(mag);
+    const x=xOf(f);
+    const yTop=GRAPH_HEIGHT-loss*relief*UNCERTAINTY_NEEDLE_MAX_HEIGHT;
+    path+='M'+x.toFixed(2)+' '+GRAPH_HEIGHT+' L'+x.toFixed(2)+' '+yTop.toFixed(2)+' ';
+  }
+  return path.trim();
 }
 
 function nearestIndex(array,target){
@@ -652,9 +716,22 @@ function buildAxisLabels(container){
   container.replaceChildren();
   for(const f of FREQ_TICKS){
     const span=document.createElement('span');
-    span.textContent=f>=1000?(f/1000)+'k':String(f);
-    span.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
+    span.textContent=formatGridFrequency(f);
+    const pct=xOf(f)/GRAPH_WIDTH*100;
+    span.style.left=pct+'%';
+    if(pct<1.5) span.style.transform='translateX(2px)';
+    else if(pct>98.5) span.style.transform='translateX(calc(-100% - 2px))';
     container.appendChild(span);
+  }
+}
+
+function buildFrequencyGrid(grid){
+  grid.replaceChildren();
+  for(const f of FREQ_TICKS){
+    const line=document.createElement('span');
+    line.className='mpgd-filter-grid-line';
+    line.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
+    grid.appendChild(line);
   }
 }
 
@@ -664,16 +741,24 @@ function buildGraph(kind){
 
   const head=document.createElement('header');
   head.className='mpgd-filter-card-head';
+
   const title=document.createElement('strong');
   title.textContent=kind==='phase'?'Phase':'Magnitude';
+
   const readout=document.createElement('div');
   readout.className='mpgd-filter-readout';
   readout.dataset.kind=kind;
-  readout.textContent=kind==='phase'?'— Hz · —°':'— Hz · — dB';
+  readout.textContent='No input';
+
+  const pointer=document.createElement('div');
+  pointer.className='mpgd-filter-pointer-readout';
+  pointer.dataset.kind=kind;
+  pointer.textContent=kind==='phase'?'— Hz · —°':'— Hz · — dB';
+
   const unit=document.createElement('span');
   unit.className='mpgd-filter-unit';
   unit.textContent=kind==='phase'?'deg':'dB';
-  head.append(title,readout,unit);
+  head.append(title,readout,pointer,unit);
 
   const plot=document.createElement('div');
   plot.className='mpgd-filter-plot';
@@ -681,11 +766,19 @@ function buildGraph(kind){
 
   const grid=document.createElement('div');
   grid.className='mpgd-filter-grid';
+  buildFrequencyGrid(grid);
 
   const svg=document.createElementNS(SVG_NS,'svg');
   svg.setAttribute('class','mpgd-filter-svg mpgd-filter-svg--'+(kind==='phase'?'phase':'mag'));
   svg.setAttribute('viewBox','0 0 '+GRAPH_WIDTH+' '+GRAPH_HEIGHT);
   svg.setAttribute('preserveAspectRatio','none');
+
+  if(kind==='magnitude'){
+    const uncertainty=document.createElementNS(SVG_NS,'path');
+    uncertainty.setAttribute('class','uncertainty-needles');
+    svg.appendChild(uncertainty);
+  }
+
   const trace=document.createElementNS(SVG_NS,'path');
   trace.setAttribute('class','trace');
   svg.appendChild(trace);
@@ -693,8 +786,8 @@ function buildGraph(kind){
   const y=document.createElement('div');
   y.className='mpgd-filter-ylabels';
   y.innerHTML=kind==='phase'
-    ?'<span>180°</span><span>0°</span><span>-180°</span>'
-    :'<span>40</span><span>0</span><span>-40</span>';
+    ?'<span>180°</span><span>90°</span><span>0°</span><span>-90°</span><span>-180°</span>'
+    :'<span>40</span><span>20</span><span>0</span><span>-20</span><span>-40</span>';
 
   const x=document.createElement('div');
   x.className='mpgd-filter-xlabels';
@@ -765,7 +858,31 @@ function ensureBandContext(){
     const request=bandContextRequest;
     closeBandContext();
     if(!request) return;
-    document.dispatchEvent(new CustomEvent('raptor:filteraddbandrequest',{detail:{...request}}));
+    const filter=filterById(request.filterId);
+    if(!filter||!sourceEntry(filter)) return;
+
+    const fs=Number(filter.sampleRateHz??sourceEntry(filter)?.sampleRate??sourceEntry(filter)?.canonical?.sample_rate_hz);
+    const maxFrequency=Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
+    const frequencyHz=Math.max(F0,Math.min(maxFrequency,request.frequencyHz));
+    const band={
+      id:'band-'+Date.now().toString(36)+'-'+(filter.bands.length+1),
+      type:'peaking',
+      frequencyHz,
+      gainDb:0,
+      q:1.41421356
+    };
+    filter.bands.push(band);
+
+    const win=windows.get(filter.id);
+    if(win&&!win.hidden){
+      win._activeBandId=band.id;
+      renderWindow(filter,win);
+      openBandEditor(win,filter,band.id);
+    }
+    renderNodes();
+    document.dispatchEvent(new CustomEvent('raptor:filteraddband',{
+      detail:{filterId:filter.id,bandId:band.id,frequencyHz}
+    }));
   });
   menu.appendChild(add);
   document.body.appendChild(menu);
@@ -798,84 +915,196 @@ function openBandContext(event,filter,kind){
   menu.style.top=Math.max(5,Math.min(window.innerHeight-mr.height-5,event.clientY))+'px';
 }
 
+function ensureCursor(svg){
+  let v=svg.querySelector('.cursor-v');
+  let h=svg.querySelector('.cursor-h');
+  let p=svg.querySelector('.cursor-point');
+  if(!v){
+    v=document.createElementNS(SVG_NS,'line');
+    v.setAttribute('class','cursor cursor-v');
+    v.setAttribute('y1','0');v.setAttribute('y2',String(GRAPH_HEIGHT));
+    h=document.createElementNS(SVG_NS,'line');
+    h.setAttribute('class','cursor cursor-h');
+    h.setAttribute('x1','0');h.setAttribute('x2',String(GRAPH_WIDTH));
+    p=document.createElementNS(SVG_NS,'circle');
+    p.setAttribute('class','cursor-point');
+    p.setAttribute('r','3');
+    svg.append(v,h,p);
+  }
+  return {v,h,p};
+}
+
+function setCursor(cursor,x,y,visible){
+  cursor.v.hidden=cursor.h.hidden=cursor.p.hidden=!visible;
+  if(!visible) return;
+  cursor.v.setAttribute('x1',x);cursor.v.setAttribute('x2',x);
+  cursor.h.setAttribute('y1',y);cursor.h.setAttribute('y2',y);
+  cursor.p.setAttribute('cx',x);cursor.p.setAttribute('cy',y);
+}
+
 function bindPlot(win,filter,plot){
   const kind=plot.dataset.kind;
   plot.addEventListener('pointermove',event=>{
-    const response=win._mpgdResponse||responseForFilter(filter);
+    const views=win._mpgdDisplayViews||displayViewsForFilter(filter);
+    if(!views?.frequency_hz) return;
     const rect=plot.getBoundingClientRect();
     const ratio=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));
-    const f=frequencyAtRatio(ratio);
-    const i=nearestIndex(response.frequency,f);
-    const phase=response.phaseDeg[i];
-    const mag=response.magnitudeDb[i];
-    const gd=response.groupDelayMs[i];
-    const value=kind==='phase'?phase:mag;
+    const target=frequencyAtRatio(ratio);
+    const i=nearestIndex(views.frequency_hz,target);
+    const f=views.frequency_hz[i];
+    const phase=views.phase_deg[i];
+    const mag=views.magnitude_db[i];
 
-    const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
-    if(readout) readout.textContent=kind==='phase'
-      ?formatFrequency(response.frequency[i])+' · '+phase.toFixed(2)+'°'
-      :formatFrequency(response.frequency[i])+' · '+mag.toFixed(3)+' dB';
-
-    const gdValue=win.querySelector('[data-filter-gd]');
-    if(gdValue) gdValue.textContent=Number.isFinite(gd)?gd.toFixed(4)+' ms':'—';
-
-    const svg=plot.querySelector('svg');
-    let v=svg.querySelector('.cursor-v');
-    let h=svg.querySelector('.cursor-h');
-    let p=svg.querySelector('.cursor-point');
-    if(!v){
-      v=document.createElementNS(SVG_NS,'line');v.setAttribute('class','cursor cursor-v');v.setAttribute('y1','0');v.setAttribute('y2',String(GRAPH_HEIGHT));
-      h=document.createElementNS(SVG_NS,'line');h.setAttribute('class','cursor cursor-h');h.setAttribute('x1','0');h.setAttribute('x2',String(GRAPH_WIDTH));
-      p=document.createElementNS(SVG_NS,'circle');p.setAttribute('class','cursor-point');p.setAttribute('r','3');
-      svg.append(v,h,p);
+    const lineReadout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
+    if(lineReadout){
+      lineReadout.textContent=kind==='phase'
+        ?formatFrequency(f)+' · '+phase.toFixed(1)+'°'
+        :formatFrequency(f)+' · '+mag.toFixed(2)+' dB';
     }
-    const xx=xOf(response.frequency[i]);
-    const yy=kind==='phase'?yPhase(value):yMagnitude(value);
-    v.setAttribute('x1',xx);v.setAttribute('x2',xx);
-    h.setAttribute('y1',yy);h.setAttribute('y2',yy);
-    p.setAttribute('cx',xx);p.setAttribute('cy',yy);
-    v.hidden=h.hidden=p.hidden=false;
+
+    const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top)/Math.max(1,rect.height)));
+    const rawValue=kind==='phase'?180-yRatio*360:40-yRatio*80;
+    const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
+    if(pointer){
+      pointer.textContent=kind==='phase'
+        ?formatFrequency(target)+' · '+rawValue.toFixed(1)+'°'
+        :formatFrequency(target)+' · '+rawValue.toFixed(2)+' dB';
+    }
+
+    const x=xOf(f);
+    const ui=filter.ui||{};
+    for(const targetKind of ['phase','magnitude']){
+      const targetPlot=win.querySelector('.mpgd-filter-plot[data-kind="'+targetKind+'"]');
+      const svg=targetPlot?.querySelector('svg');
+      if(!svg) continue;
+      const cursor=ensureCursor(svg);
+      const y=targetKind==='phase'?yPhase(phase):yMagnitude(mag);
+      setCursor(cursor,x,y,ui.sync!==false||targetKind===kind);
+    }
   });
 
   plot.addEventListener('pointerleave',()=>{
+    const entry=sourceEntry(filter);
     const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
-    if(readout) readout.textContent=kind==='phase'?'— Hz · —°':'— Hz · — dB';
-    plot.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
+    if(readout) readout.textContent=entry?.name||'No input';
+    const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
+    if(pointer) pointer.textContent=kind==='phase'?'— Hz · —°':'— Hz · — dB';
+    win.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
   });
 
   plot.addEventListener('contextmenu',event=>openBandContext(event,filter,kind));
 }
 
+function activeBand(filter,win){
+  if(!filter.bands.length) return null;
+  return filter.bands.find(b=>b.id===win._activeBandId)||filter.bands[filter.bands.length-1]||null;
+}
+
+function removeBandEditor(win){
+  win.querySelector('.mpgd-band-editor')?.remove();
+}
+
+function openBandEditor(win,filter,bandId){
+  const band=filter.bands.find(item=>item.id===bandId);
+  if(!band) return;
+  win._activeBandId=band.id;
+  removeBandEditor(win);
+
+  const panel=document.createElement('section');
+  panel.className='mpgd-band-editor';
+  panel.innerHTML=
+    '<header><strong>Band Editor</strong><span data-band-id></span><button type="button" data-band-close aria-label="Close">×</button></header>'+
+    '<div class="mpgd-band-editor-fields">'+
+      '<label><span>Frequency</span><input type="number" step="1" min="20" max="20000" data-band-frequency><b>Hz</b></label>'+
+      '<label><span>Gain</span><input type="number" step="0.1" min="-24" max="24" data-band-gain><b>dB</b></label>'+
+      '<label><span>Q</span><input type="number" step="0.01" min="0.05" max="50" data-band-q><b>Q</b></label>'+
+      '<button type="button" class="mpgd-band-delete" data-band-delete>Delete Band</button>'+
+    '</div>';
+
+  panel.querySelector('[data-band-id]').textContent=band.id;
+  const fInput=panel.querySelector('[data-band-frequency]');
+  const gInput=panel.querySelector('[data-band-gain]');
+  const qInput=panel.querySelector('[data-band-q]');
+  fInput.value=String(Math.round(band.frequencyHz*100)/100);
+  gInput.value=String(Math.round(band.gainDb*100)/100);
+  qInput.value=String(Math.round(band.q*10000)/10000);
+
+  const apply=()=>{
+    const fs=Number(filter.sampleRateHz??sourceEntry(filter)?.sampleRate??sourceEntry(filter)?.canonical?.sample_rate_hz);
+    const maxF=Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
+    const frequencyHz=Math.max(F0,Math.min(maxF,Number(fInput.value)));
+    const gainDb=Math.max(-24,Math.min(24,Number(gInput.value)));
+    const q=Math.max(.05,Math.min(50,Number(qInput.value)));
+    if(!(Number.isFinite(frequencyHz)&&Number.isFinite(gainDb)&&Number.isFinite(q))) return;
+    band.frequencyHz=frequencyHz;
+    band.gainDb=gainDb;
+    band.q=q;
+    renderWindow(filter,win);
+    renderNodes();
+  };
+
+  for(const input of [fInput,gInput,qInput]){
+    input.addEventListener('input',apply);
+    input.addEventListener('change',apply);
+  }
+
+  panel.querySelector('[data-band-close]').addEventListener('click',()=>removeBandEditor(win));
+  panel.querySelector('[data-band-delete]').addEventListener('click',()=>{
+    const index=filter.bands.findIndex(item=>item.id===band.id);
+    if(index>=0) filter.bands.splice(index,1);
+    win._activeBandId=null;
+    removeBandEditor(win);
+    renderWindow(filter,win);
+    renderNodes();
+  });
+
+  win.querySelector('.mpgd-filter-main')?.appendChild(panel);
+}
+
+
 function renderWindow(filter,win){
-  const response=responseForFilter(filter);
-  win._mpgdResponse=response;
+  const entry=sourceEntry(filter);
+  const views=displayViewsForFilter(filter);
+  win._mpgdDisplayViews=views;
 
   const phaseTrace=win.querySelector('.mpgd-filter-svg--phase .trace');
   const magTrace=win.querySelector('.mpgd-filter-svg--mag .trace');
-  if(phaseTrace) phaseTrace.setAttribute('d',phasePath(response));
-  if(magTrace) magTrace.setAttribute('d',magnitudePath(response));
+  const uncertainty=win.querySelector('.mpgd-filter-svg--mag .uncertainty-needles');
+
+  if(!views?.frequency_hz){
+    phaseTrace?.setAttribute('d','');
+    magTrace?.setAttribute('d','');
+    uncertainty?.setAttribute('d','');
+    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='No input');
+  }else{
+    const indices=pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence);
+    phaseTrace?.setAttribute('d',phasePathFromViews(views,indices));
+    magTrace?.setAttribute('d',magnitudePathFromViews(views,indices));
+    uncertainty?.setAttribute('d',uncertaintyNeedlePath(views,indices));
+
+    const name=entry?.name||'Measurement';
+    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent=name);
+  }
 
   const phaseCard=win.querySelector('.mpgd-filter-card[data-filter-card="phase"]');
   const magCard=win.querySelector('.mpgd-filter-card[data-filter-card="magnitude"]');
   if(phaseCard) phaseCard.style.opacity=filter.ui.phase?'1':'.20';
   if(magCard) magCard.style.opacity=filter.ui.magnitude?'1':'.20';
 
-  const bands=win.querySelector('[data-filter-band-count]');
-  if(bands) bands.textContent=filter.bands.length+' band'+(filter.bands.length===1?'':'s');
+  const bandCount=win.querySelector('[data-filter-band-count]');
+  if(bandCount) bandCount.textContent=filter.bands.length+' band'+(filter.bands.length===1?'':'s');
 
-  const sr=win.querySelector('[data-filter-sr]');
-  if(sr) sr.textContent=filter.sampleRateHz?((filter.sampleRateHz/1000).toFixed(1).replace(/\.0$/,'')+' kHz'):'Not bound';
+  const chip=win.querySelector('.mpgd-filter-idchip');
+  if(chip){
+    const mode=filter.bypass?'BYPASS':'FILTER';
+    chip.textContent=filter.id+' · '+mode;
+  }
 
-  const status=win.querySelector('[data-filter-status]');
-  if(status){
-    status.textContent=filter.bypass
-      ?'BYPASS · pass-through'
-      :(filter.bands.length===0
-        ?'FILTER ACTIVE · neutral transfer'
-        :(filter.sampleRateHz?response.activeBands+' active band'+(response.activeBands===1?'':'s'):'Waiting for Sample Rate'));
+  if(win._activeBandId&&!filter.bands.some(b=>b.id===win._activeBandId)){
+    win._activeBandId=null;
+    removeBandEditor(win);
   }
 }
-
 function buildFilterWindow(filter){
   const win=document.createElement('section');
   win.className='mpgd-filter-window';
@@ -929,10 +1158,19 @@ function buildFilterWindow(filter){
     item.append(input,text);
     toolbar.appendChild(item);
   }
+  const bandButton=document.createElement('button');
+  bandButton.className='mpgd-filter-band-button';
+  bandButton.type='button';
+  bandButton.textContent='Bands';
+  bandButton.addEventListener('click',()=>{
+    const band=activeBand(filter,win);
+    if(band) openBandEditor(win,filter,band.id);
+  });
+
   const chip=document.createElement('span');
   chip.className='mpgd-filter-idchip';
   chip.textContent=filter.id;
-  toolbar.appendChild(chip);
+  toolbar.append(bandButton,chip);
 
   const graphs=document.createElement('section');
   graphs.className='mpgd-filter-graphs';
@@ -944,19 +1182,7 @@ function buildFilterWindow(filter){
 
   main.append(toolbar,graphs);
 
-  const tools=document.createElement('aside');
-  tools.className='mpgd-filter-tools';
-  tools.innerHTML=
-    '<header class="mpgd-filter-tools-head"><div><strong>FILTER TOOLS</strong><span>Per-instance workspace</span></div></header>'+
-    '<div class="mpgd-filter-tools-body">'+
-      '<div class="mpgd-filter-metric"><span>Group Delay @ cursor</span><strong data-filter-gd>0.0000 ms</strong></div>'+
-      '<div class="mpgd-filter-metric"><span>Sample Rate</span><strong data-filter-sr>Not bound</strong></div>'+
-      '<div class="mpgd-filter-metric"><span>Band state</span><strong data-filter-band-count>0 bands</strong></div>'+
-      '<div class="mpgd-filter-metric"><span>Status</span><strong data-filter-status>Neutral transfer</strong></div>'+
-      '<div class="mpgd-filter-note">This filter owns its own ID and band state. Right-click Phase or Magnitude to request Add Band.</div>'+
-    '</div>';
-
-  body.append(main,tools);
+  body.append(main);
   win.append(head,body);
   document.body.appendChild(win);
 
@@ -1160,12 +1386,19 @@ window.RaptorMagPhaseGdFilter=Object.freeze({
     const filter=filterById(filterId);
     if(!filter||!['phase','magnitude'].includes(outputKind)) return null;
     const entry=sourceEntry(filter);
+    const views=displayViewsForFilter(filter);
+    if(!entry||!views) return null;
     return {
       filterId,
       outputKind,
       bypass:filter.bypass===true,
-      sourceMeasurementId:entry?.id||null,
-      color:entry?.color||null
+      sourceMeasurementId:entry.id,
+      color:entry.color||null,
+      frequency_hz:views.frequency_hz,
+      values:outputKind==='phase'?views.phase_deg:views.magnitude_db,
+      coherence:views.coherence||null,
+      sampleRateHz:filter.sampleRateHz||entry.sampleRate||entry.canonical?.sample_rate_hz||null,
+      canonicalMutated:false
     };
   },
   refresh:renderNodes,
