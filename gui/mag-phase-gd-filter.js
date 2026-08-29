@@ -1158,16 +1158,17 @@ function buildGraph(kind){
     gradient.setAttribute('gradientUnits','objectBoundingBox');
 
     const stops=[
-      ['0%','#52C98A','.30'],
-      ['28%','#63D59B','.20'],
-      ['62%','#7BE1AD','.095'],
-      ['100%','#A8EDC9','0']
+      ['0%','.34'],
+      ['28%','.23'],
+      ['62%','.10'],
+      ['100%','0']
     ];
-    for(const [offset,color,opacity] of stops){
+    for(const [offset,opacity] of stops){
       const stop=document.createElementNS(SVG_NS,'stop');
       stop.setAttribute('offset',offset);
-      stop.setAttribute('stop-color',color);
+      stop.setAttribute('stop-color','#8FA6B8');
       stop.setAttribute('stop-opacity',opacity);
+      stop.setAttribute('class','mpgd-mag-lineage-stop');
       gradient.appendChild(stop);
     }
     defs.appendChild(gradient);
@@ -1787,6 +1788,14 @@ function renderBandRack(filter,win){
   }
 }
 
+function applyMagnitudeLineageFill(win,filter){
+  const color=sourceColor(filter);
+  win.style.setProperty('--source-lineage-color',color);
+  win.querySelectorAll('.mpgd-mag-lineage-stop').forEach(stop=>{
+    stop.setAttribute('stop-color',color);
+  });
+}
+
 function renderWindow(filter,win){
   const entry=sourceEntry(filter);
   const views=displayViewsForFilter(filter);
@@ -1797,6 +1806,8 @@ function renderWindow(filter,win){
   const magTrace=win.querySelector('.mpgd-filter-svg--mag .trace');
   const magFill=win.querySelector('.mpgd-filter-svg--mag .mag-fill');
   const uncertainty=win.querySelector('.mpgd-filter-svg--mag .uncertainty-needles');
+
+  applyMagnitudeLineageFill(win,filter);
 
   win._phaseBranches=views?.frequency_hz?buildPhaseBranches(views):[];
   clearPhaseBranchInspect(win);
@@ -2115,6 +2126,9 @@ new MutationObserver(()=>{
   for(const filter of activeFilters()){
     const node=canvas.querySelector('.mpgd-filter-node[data-filter-id="'+filter.id+'"]');
     if(node) applyNodeLineage(node,filter);
+
+    const win=windows.get(filter.id);
+    if(win?.isConnected&&!win.hidden) applyMagnitudeLineageFill(win,filter);
   }
   requestAnimationFrame(renderConnections);
 }).observe(measurementList,{childList:true,subtree:false});
