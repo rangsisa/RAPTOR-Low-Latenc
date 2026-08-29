@@ -3,8 +3,11 @@
 
 const api=window.RaptorPipeline;
 const canvas=document.getElementById('pipelineNodeCanvas');
+const wireSvg=document.querySelector('.pipeline-wire-layer');
+const measurementNode=document.getElementById('measurementNode');
+const measurementList=document.getElementById('measurementList');
 const rbj=window.RaptorEqGeometryRBJ||null;
-if(!api||!canvas) return;
+if(!api||!canvas||!wireSvg||!measurementNode||!measurementList) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
 const F0=20;
@@ -20,6 +23,7 @@ let windowZ=2460;
 const windows=new Map();
 let bandContextMenu=null;
 let bandContextRequest=null;
+let persistentWireGroup=null;
 
 function makeFilterId(){
   return 'mpgd-'+Date.now().toString(36)+'-'+(filterSequence++);
@@ -35,6 +39,8 @@ function defaultFilterState(position={x:360,y:120}){
       y:Number.isFinite(position.y)?position.y:120
     },
     windowPosition:null,
+    input:null,
+    bypass:false,
     sampleRateHz:null,
     bands:[],
     ui:{phase:true,magnitude:true,wrap:false,sync:true}
@@ -53,6 +59,8 @@ function cloneFilter(filter,rekey=false){
     windowPosition:filter.windowPosition&&Number.isFinite(filter.windowPosition.x)&&Number.isFinite(filter.windowPosition.y)
       ?{x:filter.windowPosition.x,y:filter.windowPosition.y}
       :null,
+    input:filter.input?.id?{kind:'measurement',id:String(filter.input.id)}:null,
+    bypass:filter.bypass===true,
     sampleRateHz:Number.isFinite(Number(filter.sampleRateHz))&&Number(filter.sampleRateHz)>0?Number(filter.sampleRateHz):null,
     bands:Array.isArray(filter.bands)?filter.bands.map(band=>({
       id:String(band.id||('band-'+Math.random().toString(36).slice(2,8))),
@@ -70,6 +78,29 @@ function cloneFilter(filter,rekey=false){
   };
 }
 
+function normalizeFilterInPlace(filter){
+  if(!filter||typeof filter!=='object') return defaultFilterState();
+  if(!filter.id) filter.id=makeFilterId();
+  filter.type=FILTER_TYPE;
+  filter.label='Mag-Phase-GD Filter';
+  if(!filter.position||!Number.isFinite(Number(filter.position.x))||!Number.isFinite(Number(filter.position.y))){
+    filter.position={x:360,y:120};
+  }
+  if(filter.windowPosition&&(!Number.isFinite(Number(filter.windowPosition.x))||!Number.isFinite(Number(filter.windowPosition.y)))){
+    filter.windowPosition=null;
+  }
+  filter.input=filter.input?.id?{kind:'measurement',id:String(filter.input.id)}:null;
+  filter.bypass=filter.bypass===true;
+  filter.sampleRateHz=Number.isFinite(Number(filter.sampleRateHz))&&Number(filter.sampleRateHz)>0?Number(filter.sampleRateHz):null;
+  if(!Array.isArray(filter.bands)) filter.bands=[];
+  if(!filter.ui) filter.ui={phase:true,magnitude:true,wrap:false,sync:true};
+  if(filter.ui.phase===undefined) filter.ui.phase=true;
+  if(filter.ui.magnitude===undefined) filter.ui.magnitude=true;
+  if(filter.ui.wrap===undefined) filter.ui.wrap=false;
+  if(filter.ui.sync===undefined) filter.ui.sync=true;
+  return filter;
+}
+
 function ensureFilters(card){
   if(!card) return [];
   if(!card._raptorLineState) card._raptorLineState={version:1,nodes:{}};
@@ -77,9 +108,9 @@ function ensureFilters(card){
   if(!Array.isArray(card._raptorLineState.nodes.magPhaseGdFilters)){
     card._raptorLineState.nodes.magPhaseGdFilters=[];
   }
-  card._raptorLineState.nodes.magPhaseGdFilters=
-    card._raptorLineState.nodes.magPhaseGdFilters.map(filter=>cloneFilter(filter,false));
-  return card._raptorLineState.nodes.magPhaseGdFilters;
+  const filters=card._raptorLineState.nodes.magPhaseGdFilters;
+  for(let i=0;i<filters.length;i++) filters[i]=normalizeFilterInPlace(filters[i]);
+  return filters;
 }
 
 function activeFilters(){
@@ -103,12 +134,163 @@ function closeAllWindows(){
 }
 
 function removeRenderedNodes(){
-  canvas.querySelectorAll('.mpgd-filter-node').forEach(node=>node.remove());
+  canvas.querySelectorAll('.mpgd-filter-node').forEach(node=>{
+    const filterId=node.dataset.filterId;
+    if(filterId) api.unregisterInput?.('mpgd:'+filterId+':input');
+    node.remove();
+  });
+}
+
+function ensurePersistentWireGroup(){
+  if(persistentWireGroup?.isConnected) return persistentWireGroup;
+  persistentWireGroup=wireSvg.querySelector('.mpgd-persistent-wires');
+  if(!persistentWireGroup){
+    persistentWireGroup=document.createElementNS(SVG_NS,'g');
+    persistentWireGroup.setAttribute('class','pipeline-persistent-wires mpgd-persistent-wires');
+    const preview=document.getElementById('pipelineWirePreview');
+    if(preview) wireSvg.insertBefore(persistentWireGroup,preview);
+    else wireSvg.appendChild(persistentWireGroup);
+  }
+  return persistentWireGroup;
+}
+
+function sourceEntry(filter){
+  return filter.input?.id?api.getMeasurement?.(filter.input.id)||null:null;
+}
+
+function sourceColor(filter){
+  return sourceEntry(filter)?.color||'#8FA6B8';
+}
+
+function hexTint(hex,alpha=.10){
+  const value=String(hex||'').replace('#','');
+  const full=value.length===3?value.split('').map(c=>c+c).join(''):value;
+  if(!/^[0-9a-f]{6}$/i.test(full)) return 'rgba(143,166,184,'+alpha+')';
+  const n=parseInt(full,16);
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+alpha+')';
+}
+
+function measurementHandle(fileId){
+  const files=(activeCard?activeCard._raptorLineState?.nodes?.measurement?.files:[])||[];
+  const index=files.findIndex(file=>file.id===fileId);
+  if(index<0) return null;
+  return [...measurementList.querySelectorAll('.measurement-file')][index]?.querySelector('.measurement-output')||null;
+}
+
+function canvasPointFor(element){
+  const canvasRect=canvas.getBoundingClientRect();
+  const rect=element.getBoundingClientRect();
+  return {
+    x:rect.left+rect.width/2-canvasRect.left+canvas.scrollLeft,
+    y:rect.top+rect.height/2-canvasRect.top+canvas.scrollTop
+  };
+}
+
+function wireCurve(start,end){
+  const bend=Math.max(52,Math.abs(end.x-start.x)*.38);
+  return 'M '+start.x+' '+start.y+' C '+(start.x+bend)+' '+start.y+', '+(end.x-bend)+' '+end.y+', '+end.x+' '+end.y;
+}
+
+function renderConnections(){
+  const group=ensurePersistentWireGroup();
+  group.replaceChildren();
+  if(!activeCard) return;
+
+  for(const filter of activeFilters()){
+    const entry=sourceEntry(filter);
+    const source=entry?measurementHandle(entry.id):null;
+    const target=canvas.querySelector('.mpgd-filter-node[data-filter-id="'+filter.id+'"] .mpgd-filter-input');
+    if(!entry||!source||!target) continue;
+
+    const d=wireCurve(canvasPointFor(source),canvasPointFor(target));
+    const hit=document.createElementNS(SVG_NS,'path');
+    hit.setAttribute('class','pipeline-persistent-wire-hit');
+    hit.setAttribute('d',d);
+    hit.dataset.wireId='mpgd-input:'+filter.id;
+    hit.dataset.sourceId=entry.id;
+    hit.dataset.targetId=filter.id;
+
+    const path=document.createElementNS(SVG_NS,'path');
+    path.setAttribute('class','pipeline-persistent-wire');
+    path.setAttribute('stroke',entry.color||'#8FA6B8');
+    path.setAttribute('d',d);
+
+    const flow=document.createElementNS(SVG_NS,'path');
+    flow.setAttribute('class','pipeline-wire-flow');
+    flow.setAttribute('d',d);
+
+    group.append(hit,path,flow);
+  }
+}
+
+function applyNodeLineage(node,filter){
+  const entry=sourceEntry(filter);
+  const color=entry?.color||'#8FA6B8';
+  node.classList.toggle('has-lineage',!!entry);
+  node.classList.toggle('is-bypassed',filter.bypass===true);
+  node.classList.toggle('is-filtering',filter.bypass!==true);
+  node.style.setProperty('--lineage-color',color);
+  node.style.setProperty('--lineage-tint',hexTint(color,.12));
+  node.style.setProperty('--lineage-tint-soft',hexTint(color,.055));
+
+  const inputName=node.querySelector('[data-filter-input-name]');
+  if(inputName) inputName.textContent=entry?.name||'Not connected';
+  const input=node.querySelector('.mpgd-filter-input');
+  if(input){
+    input.classList.toggle('is-connected',!!entry);
+    input.style.setProperty('--port-color',color);
+  }
+  node.querySelectorAll('.mpgd-filter-output').forEach(output=>output.style.setProperty('--port-color',color));
+}
+
+function connectInput(filter,entry){
+  if(!filter||!entry||filter.input?.id) return false;
+  filter.input={kind:'measurement',id:entry.id};
+  filter.sampleRateHz=Number(entry.sampleRate??entry.canonical?.sample_rate_hz)||null;
+  renderNodes();
+  const win=windows.get(filter.id);
+  if(win&&!win.hidden) renderWindow(filter,win);
+  document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
+    detail:{filterId:filter.id,sourceId:entry.id,connected:true,color:entry.color||null}
+  }));
+  return true;
+}
+
+function disconnectInput(filter){
+  if(!filter?.input?.id) return false;
+  const sourceId=filter.input.id;
+  filter.input=null;
+  filter.sampleRateHz=null;
+  renderNodes();
+  const win=windows.get(filter.id);
+  if(win&&!win.hidden) renderWindow(filter,win);
+  document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
+    detail:{filterId:filter.id,sourceId,connected:false}
+  }));
+  return true;
+}
+
+function deleteFilter(filterId){
+  if(!activeCard) return false;
+  const filters=ensureFilters(activeCard);
+  const index=filters.findIndex(filter=>filter.id===filterId);
+  if(index<0) return false;
+  const filter=filters[index];
+  filters.splice(index,1);
+  api.unregisterInput?.('mpgd:'+filterId+':input');
+  const win=windows.get(filterId);
+  if(win) win.remove();
+  windows.delete(filterId);
+  renderNodes();
+  document.dispatchEvent(new CustomEvent('raptor:filterdeleted',{
+    detail:{filterId,filterType:FILTER_TYPE}
+  }));
+  return true;
 }
 
 function clampNodePosition(position,node=null){
-  const width=node?.offsetWidth||178;
-  const height=node?.offsetHeight||82;
+  const width=node?.offsetWidth||222;
+  const height=node?.offsetHeight||128;
   const maxX=Math.max(8,canvas.scrollWidth-width-12);
   const maxY=Math.max(8,canvas.scrollHeight-height-12);
   return {
@@ -138,6 +320,7 @@ function startNodeDrag(event,node,filter){
     filter.position=next;
     node.style.left=next.x+'px';
     node.style.top=next.y+'px';
+    renderConnections();
   };
 
   const end=endEvent=>{
@@ -172,47 +355,153 @@ function buildNode(filter,index){
   title.className='mpgd-filter-node-title';
   title.innerHTML='<strong>Mag-Phase-GD Filter</strong><span>'+filter.id+'</span>';
 
-  const open=document.createElement('button');
-  open.className='mpgd-filter-open';
-  open.type='button';
-  open.title='Open filter editor';
-  open.setAttribute('aria-label','Open '+filter.id);
-  open.textContent='↗';
-  open.addEventListener('click',event=>{
+  const actions=document.createElement('div');
+  actions.className='mpgd-filter-node-actions';
+
+  const play=document.createElement('button');
+  play.className='mpgd-filter-play';
+  play.type='button';
+  play.title='Open filter workspace';
+  play.setAttribute('aria-label','Open '+filter.id);
+  play.textContent='▶';
+  play.addEventListener('click',event=>{
     event.stopPropagation();
     openFilterWindow(filter.id);
   });
 
-  head.append(title,open);
+  const remove=document.createElement('button');
+  remove.className='mpgd-filter-delete';
+  remove.type='button';
+  remove.title='Delete filter';
+  remove.setAttribute('aria-label','Delete '+filter.id);
+  remove.textContent='×';
+  remove.addEventListener('click',event=>{
+    event.stopPropagation();
+    const ok=window.confirm('Delete Mag-Phase-GD Filter '+filter.id+'?\n\nThis filter and its local band state will be removed.');
+    if(ok) deleteFilter(filter.id);
+  });
+
+  actions.append(play,remove);
+  head.append(title,actions);
 
   const body=document.createElement('div');
   body.className='mpgd-filter-node-body';
-  body.innerHTML='<span class="mpgd-filter-port mpgd-filter-port--in" aria-hidden="true"></span><strong>MAG · PHASE · GD</strong><span class="mpgd-filter-port mpgd-filter-port--out" aria-hidden="true"></span>';
+
+  const inputPane=document.createElement('div');
+  inputPane.className='mpgd-filter-input-pane';
+  const input=document.createElement('button');
+  input.className='mpgd-filter-input';
+  input.type='button';
+  input.dataset.filterInput=filter.id;
+  input.title='1 input';
+  input.setAttribute('aria-label','Input for '+filter.id);
+  const inputCopy=document.createElement('div');
+  inputCopy.className='mpgd-filter-input-copy';
+  inputCopy.innerHTML='<span>INPUT</span><strong data-filter-input-name>Not connected</strong>';
+  inputPane.append(input,inputCopy);
+
+  const outputs=document.createElement('div');
+  outputs.className='mpgd-filter-outputs';
+
+  for(const [kind,label] of [['phase','Phase'],['magnitude','Magnitude']]){
+    const row=document.createElement('div');
+    row.className='mpgd-filter-output-row';
+    row.dataset.outputKind=kind;
+    const copy=document.createElement('div');
+    copy.className='mpgd-filter-output-copy';
+    copy.innerHTML='<span>OUTPUT</span><strong>'+label+'</strong>';
+
+    const handle=document.createElement('button');
+    handle.className='mpgd-filter-output';
+    handle.type='button';
+    handle.dataset.filterId=filter.id;
+    handle.dataset.outputKind=kind;
+    handle.title=label+' output';
+    handle.setAttribute('aria-label',label+' output from '+filter.id);
+    handle.addEventListener('pointerdown',event=>{
+      event.stopPropagation();
+      document.dispatchEvent(new CustomEvent('raptor:filteroutputwirestart',{
+        detail:{
+          filterId:filter.id,
+          outputKind:kind,
+          bypass:filter.bypass===true,
+          sourceMeasurementId:filter.input?.id||null,
+          color:sourceColor(filter)
+        }
+      }));
+    });
+
+    row.append(copy,handle);
+    outputs.appendChild(row);
+  }
+
+  body.append(inputPane,outputs);
 
   const foot=document.createElement('footer');
   foot.className='mpgd-filter-node-foot';
-  const bands=document.createElement('span');
-  bands.textContent=filter.bands.length+' band'+(filter.bands.length===1?'':'s');
-  const number=document.createElement('span');
-  number.textContent='#'+String(index+1).padStart(2,'0');
-  foot.append(bands,number);
+
+  const bypassLabel=document.createElement('label');
+  bypassLabel.className='mpgd-filter-bypass';
+  const bypass=document.createElement('input');
+  bypass.type='checkbox';
+  bypass.checked=filter.bypass===true;
+  bypass.setAttribute('aria-label','Bypass '+filter.id);
+  bypass.addEventListener('change',event=>{
+    event.stopPropagation();
+    filter.bypass=bypass.checked;
+    applyNodeLineage(node,filter);
+    const win=windows.get(filter.id);
+    if(win&&!win.hidden) renderWindow(filter,win);
+    document.dispatchEvent(new CustomEvent('raptor:filterbypasschange',{
+      detail:{filterId:filter.id,bypass:filter.bypass}
+    }));
+  });
+  const bypassText=document.createElement('span');
+  bypassText.textContent='Bypass';
+  bypassLabel.append(bypass,bypassText);
+
+  const state=document.createElement('span');
+  state.className='mpgd-filter-state';
+  state.textContent=filter.bypass?'PASS THROUGH':'FILTER ACTIVE';
+
+  const count=document.createElement('span');
+  count.className='mpgd-filter-band-count';
+  count.textContent=filter.bands.length+' band'+(filter.bands.length===1?'':'s');
+
+  foot.append(bypassLabel,state,count);
 
   node.append(head,body,foot);
   node.addEventListener('pointerdown',event=>startNodeDrag(event,node,filter));
   node.addEventListener('contextmenu',event=>event.stopPropagation());
+  applyNodeLineage(node,filter);
   return node;
 }
 
 function renderNodes(){
   removeRenderedNodes();
-  if(!activeCard) return;
-  activeFilters().forEach((filter,index)=>canvas.appendChild(buildNode(filter,index)));
+  if(!activeCard){
+    ensurePersistentWireGroup().replaceChildren();
+    return;
+  }
+
+  activeFilters().forEach((filter,index)=>{
+    const node=buildNode(filter,index);
+    canvas.appendChild(node);
+    const input=node.querySelector('.mpgd-filter-input');
+    api.registerInput?.('mpgd:'+filter.id+':input',input,{
+      radius:50,
+      canAccept:entry=>!!entry&&!filter.input?.id,
+      onConnect:entry=>connectInput(filter,entry)
+    });
+  });
+
+  requestAnimationFrame(renderConnections);
 }
 
 function createFilterAt(x,y){
   if(!activeCard) return null;
   const filters=ensureFilters(activeCard);
-  const filter=defaultFilterState(clampNodePosition({x:x-88,y:y-40}));
+  const filter=defaultFilterState(clampNodePosition({x:x-111,y:y-64}));
   filters.push(filter);
   renderNodes();
 
@@ -573,9 +862,11 @@ function renderWindow(filter,win){
 
   const status=win.querySelector('[data-filter-status]');
   if(status){
-    status.textContent=filter.bands.length===0
-      ?'Neutral transfer'
-      :(filter.sampleRateHz?response.activeBands+' active band'+(response.activeBands===1?'':'s'):'Waiting for Sample Rate');
+    status.textContent=filter.bypass
+      ?'BYPASS · pass-through'
+      :(filter.bands.length===0
+        ?'FILTER ACTIVE · neutral transfer'
+        :(filter.sampleRateHz?response.activeBands+' active band'+(response.activeBands===1?'':'s'):'Waiting for Sample Rate'));
   }
 }
 
@@ -740,6 +1031,16 @@ document.addEventListener('raptor:pipelinefilterrequest',event=>{
   createFilterAt(Number(event.detail.x)||360,Number(event.detail.y)||120);
 });
 
+document.addEventListener('raptor:pipelinedisconnectrequest',event=>{
+  const wireId=String(event.detail?.wireId||'');
+  if(!wireId.startsWith('mpgd-input:')) return;
+  const filterId=wireId.slice('mpgd-input:'.length);
+  const filter=filterById(filterId);
+  if(!filter) return;
+  if(event.detail?.sourceId&&String(event.detail.sourceId)!==String(filter.input?.id||'')) return;
+  disconnectInput(filter);
+});
+
 document.addEventListener('pointerdown',event=>{
   if(bandContextMenu&&!bandContextMenu.hidden&&!bandContextMenu.contains(event.target)) closeBandContext();
 });
@@ -754,6 +1055,7 @@ document.addEventListener('keydown',event=>{
 
 window.addEventListener('resize',()=>{
   closeBandContext();
+  renderConnections();
   for(const [id,win] of windows){
     if(win.hidden) continue;
     const filter=filterById(id);
@@ -806,10 +1108,26 @@ if(baseDelete){
       closeAllWindows();
       activeCard=null;
       removeRenderedNodes();
+      ensurePersistentWireGroup().replaceChildren();
     }
     baseDelete(card);
   };
 }
+
+new MutationObserver(()=>{
+  if(!activeCard) return;
+  for(const filter of activeFilters()){
+    const node=canvas.querySelector('.mpgd-filter-node[data-filter-id="'+filter.id+'"]');
+    if(node) applyNodeLineage(node,filter);
+  }
+  requestAnimationFrame(renderConnections);
+}).observe(measurementList,{childList:true,subtree:false});
+
+new MutationObserver(()=>requestAnimationFrame(renderConnections))
+  .observe(measurementNode,{attributes:true,attributeFilter:['style']});
+
+new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode);
+canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
 
 window.RaptorMagPhaseGdFilter=Object.freeze({
   type:FILTER_TYPE,
@@ -818,6 +1136,33 @@ window.RaptorMagPhaseGdFilter=Object.freeze({
   list:listFilters,
   get:getFilter,
   setBands,
-  refresh:renderNodes
+  delete:deleteFilter,
+  disconnectInput(filterId){
+    const filter=filterById(filterId);
+    return filter?disconnectInput(filter):false;
+  },
+  setBypass(filterId,bypass){
+    const filter=filterById(filterId);
+    if(!filter) return false;
+    filter.bypass=!!bypass;
+    renderNodes();
+    const win=windows.get(filterId);
+    if(win&&!win.hidden) renderWindow(filter,win);
+    return true;
+  },
+  getOutput(filterId,outputKind){
+    const filter=filterById(filterId);
+    if(!filter||!['phase','magnitude'].includes(outputKind)) return null;
+    const entry=sourceEntry(filter);
+    return {
+      filterId,
+      outputKind,
+      bypass:filter.bypass===true,
+      sourceMeasurementId:entry?.id||null,
+      color:entry?.color||null
+    };
+  },
+  refresh:renderNodes,
+  refreshConnections:renderConnections
 });
 })();
