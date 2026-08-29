@@ -1561,3 +1561,48 @@
   .mpgd-band-rack-info span{font-size:7.8px!important}
   .mpgd-band-rack-row{min-height:41px}
 }
+
+
+/* 2026-08-29 static Band Points + stronger zero references. */
+
+/* Band Points are intentionally calm: no ripple, pulse, scale, or hover animation.
+   The invisible hit area remains for Gain drag / Q wheel interaction. */
+.mpgd-band-zone-ripple{
+  display:none!important
+}
+.mpgd-band-marker,
+.mpgd-band-marker::before,
+.mpgd-band-marker::after{
+  transition:none!important;
+  animation:none!important
+}
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus-visible,
+.mpgd-band-marker:active,
+.mpgd-band-marker.is-gain-dragging{
+  transform:translate(-50%,-50%)!important
+}
+.mpgd-band-marker:hover::before,
+.mpgd-band-marker:focus-visible::before,
+.mpgd-band-marker:active::before,
+.mpgd-band-marker.is-gain-dragging::before{
+  transform:translate(-50%,-50%)!important;
+  box-shadow:
+    0 0 0 1.5px var(--band-color),
+    0 2px 5px rgba(20,30,40,.24)!important
+}
+
+/* 0° / 0 dB reference.
+   Same 1 px geometry as the existing graph grid, but black for clear authority. */
+.mpgd-filter-zero-line{
+  position:absolute;
+  z-index:3;
+  left:0;
+  right:0;
+  top:50%;
+  height:1px;
+  transform:translateY(-.5px);
+  background:#111;
+  opacity:.92;
+  pointer-events:none
+}
