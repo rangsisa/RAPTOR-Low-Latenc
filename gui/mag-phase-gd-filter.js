@@ -1089,10 +1089,12 @@ function clearPhaseBranchInspect(win){
   const fitPath=win.querySelector('.mpgd-filter-svg--phase .phase-branch-fit');
   if(delayEl){
     delayEl.textContent='—';
+    delayEl.title='';
     delayEl.classList.remove('is-unreadable');
   }
   if(phaseEl){
     phaseEl.textContent='—';
+    phaseEl.title='';
     phaseEl.classList.remove('is-unreadable');
   }
   if(highlight) highlight.setAttribute('d','');
@@ -1135,6 +1137,38 @@ function showPhaseBranchInspect(win,views,branch){
   if(fitPath) fitPath.setAttribute('d',phaseBranchPath(views,branch,true));
 }
 
+function phaseBranchScreenYAtFrequency(views,branch,targetFrequency,plotHeight){
+  const frequency=views?.frequency_hz;
+  const phase=views?.phase_deg;
+  if(!frequency||!phase||!branch) return null;
+
+  let nearest=nearestIndex(frequency,targetFrequency);
+  nearest=Math.max(branch.start,Math.min(branch.end,nearest));
+
+  let a=nearest;
+  let b=nearest;
+  const fNearest=Number(frequency[nearest]);
+  if(Number.isFinite(fNearest)){
+    if(fNearest<=targetFrequency&&nearest<branch.end) b=nearest+1;
+    else if(fNearest>targetFrequency&&nearest>branch.start) a=nearest-1;
+  }
+
+  const f0=Number(frequency[a]),p0=Number(phase[a]);
+  const f1=Number(frequency[b]),p1=Number(phase[b]);
+  if(!(Number.isFinite(f0)&&Number.isFinite(p0))) return null;
+
+  let graphY=yPhase(p0);
+  if(a!==b&&Number.isFinite(f1)&&Number.isFinite(p1)){
+    const x0=xOf(f0),x1=xOf(f1),xTarget=xOf(targetFrequency);
+    if(Number.isFinite(x0)&&Number.isFinite(x1)&&x1!==x0){
+      const t=Math.max(0,Math.min(1,(xTarget-x0)/(x1-x0)));
+      graphY=yPhase(p0)+(yPhase(p1)-yPhase(p0))*t;
+    }
+  }
+
+  return 4+(graphY/GRAPH_HEIGHT)*plotHeight;
+}
+
 function inspectPhaseBranchAtPointer(win,plot,event,views){
   const branches=win._phaseBranches||[];
   if(!branches.length||!views?.frequency_hz||!views?.phase_deg){
@@ -1153,11 +1187,10 @@ function inspectPhaseBranchAtPointer(win,plot,event,views){
   let best=null;
   for(const branch of branches){
     if(targetFrequency<branch.fStart||targetFrequency>branch.fEnd) continue;
-    let index=nearestIndex(views.frequency_hz,targetFrequency);
-    index=Math.max(branch.start,Math.min(branch.end,index));
-    const p=Number(views.phase_deg[index]);
-    if(!Number.isFinite(p)) continue;
-    const y=4+(yPhase(p)/GRAPH_HEIGHT)*plotHeight;
+    // Hit-test against the rendered phase segment in screen geometry.
+    // Branch fitting itself remains strictly phase_deg vs frequency_hz.
+    const y=phaseBranchScreenYAtFrequency(views,branch,targetFrequency,plotHeight);
+    if(!Number.isFinite(y)) continue;
     const distance=Math.abs(pointerY-y);
     if(!best||distance<best.distance) best={branch,distance};
   }
