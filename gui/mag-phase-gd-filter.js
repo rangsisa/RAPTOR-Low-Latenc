@@ -674,6 +674,39 @@ function magnitudePathFromViews(views,indices){
   return path.trim();
 }
 
+function magnitudeFillPath(linePath,views,indices){
+  if(!linePath||!indices.length) return '';
+  const frequency=views.frequency_hz;
+  const first=frequency[indices[0]];
+  const last=frequency[indices[indices.length-1]];
+  if(!(Number.isFinite(first)&&Number.isFinite(last))) return '';
+  return linePath+
+    ' L'+xOf(last).toFixed(2)+' '+GRAPH_HEIGHT+
+    ' L'+xOf(first).toFixed(2)+' '+GRAPH_HEIGHT+' Z';
+}
+
+function wrapMarkerPath(views,indices){
+  const frequency=views.frequency_hz;
+  const phase=views.phase_deg;
+  let path='';
+  for(let n=1;n<indices.length;n++){
+    const a=indices[n-1],b=indices[n];
+    const p0=phase[a],p1=phase[b];
+    if(!(Number.isFinite(p0)&&Number.isFinite(p1))||Math.abs(p1-p0)<=180) continue;
+
+    const f0=frequency[a],f1=frequency[b];
+    let adjustedP1=p1,boundary=180;
+    if(p1-p0>180){adjustedP1=p1-360;boundary=-180;}
+    else{adjustedP1=p1+360;boundary=180;}
+    const den=adjustedP1-p0;
+    let t=den===0?0:(boundary-p0)/den;
+    t=Math.max(0,Math.min(1,t));
+    const x=xOf(f0)+(xOf(f1)-xOf(f0))*t;
+    path+='M'+x.toFixed(2)+' 0 L'+x.toFixed(2)+' '+GRAPH_HEIGHT+' ';
+  }
+  return path.trim();
+}
+
 function uncertaintyMagnitudeRelief(magnitudeDb){
   if(!Number.isFinite(magnitudeDb)) return 1;
   const t=Math.max(0,Math.min(1,Math.abs(magnitudeDb)/UNCERTAINTY_MAG_RELIEF_DB));
@@ -774,9 +807,19 @@ function buildGraph(kind){
   svg.setAttribute('preserveAspectRatio','none');
 
   if(kind==='magnitude'){
+    const fill=document.createElementNS(SVG_NS,'path');
+    fill.setAttribute('class','mag-fill');
+    svg.appendChild(fill);
+
     const uncertainty=document.createElementNS(SVG_NS,'path');
     uncertainty.setAttribute('class','uncertainty-needles');
     svg.appendChild(uncertainty);
+  }
+
+  if(kind==='phase'){
+    const markers=document.createElementNS(SVG_NS,'path');
+    markers.setAttribute('class','wrap-markers');
+    svg.appendChild(markers);
   }
 
   const trace=document.createElementNS(SVG_NS,'path');
@@ -1073,18 +1116,25 @@ function renderWindow(filter,win){
   win._mpgdDisplayViews=views;
 
   const phaseTrace=win.querySelector('.mpgd-filter-svg--phase .trace');
+  const phaseMarkers=win.querySelector('.mpgd-filter-svg--phase .wrap-markers');
   const magTrace=win.querySelector('.mpgd-filter-svg--mag .trace');
+  const magFill=win.querySelector('.mpgd-filter-svg--mag .mag-fill');
   const uncertainty=win.querySelector('.mpgd-filter-svg--mag .uncertainty-needles');
 
   if(!views?.frequency_hz){
     phaseTrace?.setAttribute('d','');
+    phaseMarkers?.setAttribute('d','');
     magTrace?.setAttribute('d','');
+    magFill?.setAttribute('d','');
     uncertainty?.setAttribute('d','');
     win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='No input');
   }else{
     const indices=pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence);
+    const magPath=magnitudePathFromViews(views,indices);
     phaseTrace?.setAttribute('d',phasePathFromViews(views,indices));
-    magTrace?.setAttribute('d',magnitudePathFromViews(views,indices));
+    phaseMarkers?.setAttribute('d',filter.ui.wrap?wrapMarkerPath(views,indices):'');
+    magTrace?.setAttribute('d',magPath);
+    magFill?.setAttribute('d',magnitudeFillPath(magPath,views,indices));
     uncertainty?.setAttribute('d',uncertaintyNeedlePath(views,indices));
 
     const name=entry?.name||'Measurement';
