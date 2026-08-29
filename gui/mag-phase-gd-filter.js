@@ -22,7 +22,7 @@ const FREQ_TICKS=[
   20,40,80,
   100,200,300,400,500,600,700,800,900,
   1000,2000,3000,4000,5000,6000,7000,8000,9000,
-  10000,15000,20000
+  10000,15000
 ];
 const FILTER_TYPE='mag-phase-gd';
 
@@ -907,6 +907,11 @@ function openBandContext(event,filter,kind){
   });
 
   const menu=ensureBandContext();
+  const add=menu.querySelector('button');
+  if(add){
+    add.disabled=!sourceEntry(filter);
+    add.title=sourceEntry(filter)?'Add a new editable EQ band here':'Connect a Measurement input first';
+  }
   menu.hidden=false;
   menu.style.left='0px';
   menu.style.top='0px';
