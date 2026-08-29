@@ -25,6 +25,16 @@ const FREQ_TICKS=[
   10000,15000
 ];
 const FILTER_TYPE='mag-phase-gd';
+const BAND_COLORS=Object.freeze([
+  '#FF1744',
+  '#00C853',
+  '#2979FF',
+  '#FF9100',
+  '#D500F9',
+  '#00B8D4',
+  '#FFD600',
+  '#F50057'
+]);
 
 let activeCard=null;
 let filterSequence=1;
@@ -76,7 +86,8 @@ function cloneFilter(filter,rekey=false){
       type:'peaking',
       frequencyHz:Number(band.frequencyHz),
       gainDb:Number(band.gainDb),
-      q:Number(band.q)
+      q:Number(band.q),
+      graphKind:band.graphKind==='phase'?'phase':'magnitude'
     })):[],
     ui:{
       phase:filter.ui?.phase!==false,
@@ -102,6 +113,9 @@ function normalizeFilterInPlace(filter){
   filter.bypass=filter.bypass===true;
   filter.sampleRateHz=Number.isFinite(Number(filter.sampleRateHz))&&Number(filter.sampleRateHz)>0?Number(filter.sampleRateHz):null;
   if(!Array.isArray(filter.bands)) filter.bands=[];
+  for(const band of filter.bands){
+    band.graphKind=band.graphKind==='phase'?'phase':'magnitude';
+  }
   if(!filter.ui) filter.ui={phase:true,magnitude:true,wrap:false,sync:true};
   if(filter.ui.phase===undefined) filter.ui.phase=true;
   if(filter.ui.magnitude===undefined) filter.ui.magnitude=true;
@@ -310,7 +324,7 @@ function clampNodePosition(position,node=null){
 
 function startNodeDrag(event,node,filter){
   if(event.button!==undefined&&event.button!==0) return;
-  if(event.target.closest('button')) return;
+  if(event.target.closest('button,input,label,select,textarea,a')) return;
   event.preventDefault();
   const pointerId=event.pointerId;
   const canvasRect=canvas.getBoundingClientRect();
@@ -322,6 +336,7 @@ function startNodeDrag(event,node,filter){
 
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
+    if(moveEvent.cancelable) moveEvent.preventDefault();
     const next=clampNodePosition({
       x:moveEvent.clientX-canvasRect.left+canvas.scrollLeft-grabX,
       y:moveEvent.clientY-canvasRect.top+canvas.scrollTop-grabY
@@ -341,7 +356,7 @@ function startNodeDrag(event,node,filter){
     try{if(node.hasPointerCapture(pointerId)) node.releasePointerCapture(pointerId)}catch{}
   };
 
-  window.addEventListener('pointermove',move,{passive:true});
+  window.addEventListener('pointermove',move,{passive:false});
   window.addEventListener('pointerup',end);
   window.addEventListener('pointercancel',end);
 }
@@ -836,7 +851,11 @@ function buildGraph(kind){
   x.className='mpgd-filter-xlabels';
   buildAxisLabels(x);
 
-  plot.append(grid,svg,y,x);
+  const bandMarkers=document.createElement('div');
+  bandMarkers.className='mpgd-band-markers';
+  bandMarkers.dataset.kind=kind;
+
+  plot.append(grid,svg,y,x,bandMarkers);
   card.append(head,plot);
   return card;
 }
@@ -912,7 +931,8 @@ function ensureBandContext(){
       type:'peaking',
       frequencyHz,
       gainDb:0,
-      q:1.41421356
+      q:1.41421356,
+      graphKind:request.graphKind==='phase'?'phase':'magnitude'
     };
     filter.bands.push(band);
 
@@ -1075,7 +1095,7 @@ function openBandEditor(win,filter,bandId){
   filter.bands.forEach((item,index)=>{
     const option=document.createElement('option');
     option.value=item.id;
-    option.textContent='Band '+(index+1)+' · '+formatFrequency(item.frequencyHz);
+    option.textContent='Band '+(index+1)+' · '+(item.graphKind==='phase'?'Phase':'Mag')+' · '+formatFrequency(item.frequencyHz);
     option.selected=item.id===band.id;
     select.appendChild(option);
   });
@@ -1121,6 +1141,42 @@ function openBandEditor(win,filter,bandId){
 }
 
 
+function renderBandMarkers(filter,win,views){
+  for(const layer of win.querySelectorAll('.mpgd-band-markers')){
+    layer.replaceChildren();
+  }
+  if(!views?.frequency_hz||!filter.bands.length) return;
+
+  filter.bands.forEach((band,index)=>{
+    const kind=band.graphKind==='phase'?'phase':'magnitude';
+    const layer=win.querySelector('.mpgd-band-markers[data-kind="'+kind+'"]');
+    if(!layer) return;
+
+    const i=nearestIndex(views.frequency_hz,band.frequencyHz);
+    const f=views.frequency_hz[i];
+    const value=kind==='phase'?views.phase_deg[i]:views.magnitude_db[i];
+    if(!(Number.isFinite(f)&&Number.isFinite(value))) return;
+
+    const marker=document.createElement('button');
+    marker.type='button';
+    marker.className='mpgd-band-marker';
+    marker.dataset.bandId=band.id;
+    marker.title='Band '+(index+1)+' · '+formatFrequency(band.frequencyHz);
+    marker.setAttribute('aria-label','Edit Band '+(index+1));
+    marker.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
+    marker.style.top=((kind==='phase'?yPhase(value):yMagnitude(value))/GRAPH_HEIGHT*100)+'%';
+    marker.style.setProperty('--band-color',BAND_COLORS[index%BAND_COLORS.length]);
+    marker.textContent=String(index+1);
+    marker.addEventListener('pointerdown',event=>event.stopPropagation());
+    marker.addEventListener('click',event=>{
+      event.stopPropagation();
+      win._activeBandId=band.id;
+      openBandEditor(win,filter,band.id);
+    });
+    layer.appendChild(marker);
+  });
+}
+
 function renderWindow(filter,win){
   const entry=sourceEntry(filter);
   const views=displayViewsForFilter(filter);
@@ -1165,6 +1221,8 @@ function renderWindow(filter,win){
     const mode=filter.bypass?'BYPASS':'FILTER';
     chip.textContent=filter.id+' · '+mode;
   }
+
+  renderBandMarkers(filter,win,views);
 
   if(win._activeBandId&&!filter.bands.some(b=>b.id===win._activeBandId)){
     win._activeBandId=null;
@@ -1299,7 +1357,8 @@ function setBands(filterId,bands,sampleRateHz=null){
     type:'peaking',
     frequencyHz:Number(band.frequencyHz??band.f0),
     gainDb:Number(band.gainDb??band.gain),
-    q:Number(band.q??band.Q)
+    q:Number(band.q??band.Q),
+    graphKind:band.graphKind==='phase'?'phase':'magnitude'
   }));
 
   if(fs&&rbj){
