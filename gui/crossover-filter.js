@@ -725,6 +725,15 @@ if(baseClone){
       }
       return copy;
     });
+
+    if(Array.isArray(clone.nodes.magPhaseGdFilters)){
+      for(const filter of clone.nodes.magPhaseGdFilters){
+        if(filter.input?.kind==='filter'&&idMap.has(filter.input.id)){
+          filter.input.id=idMap.get(filter.input.id);
+        }
+      }
+    }
+
     return clone;
   };
 }
