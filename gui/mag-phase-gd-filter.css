@@ -402,7 +402,7 @@
 
 /* Larger filter workspace. It deliberately has no permanent Filter Tools pane. */
 .mpgd-filter-window{
-  width:min(1040px,calc(100vw - 28px));
+  width:min(1196px,calc(100vw - 28px));
   height:min(760px,calc(100vh - 34px));
   grid-template-rows:38px minmax(0,1fr);
   border-radius:9px
@@ -569,7 +569,6 @@
 .mpgd-filter-svg--phase .trace{stroke:#1686d9}
 .mpgd-filter-svg--mag .trace{stroke:#e86f17}
 .mpgd-filter-svg--mag .mag-fill{
-  fill:rgba(232,111,23,.12);
   stroke:none
 }
 .mpgd-filter-svg--phase .wrap-markers{
@@ -849,7 +848,7 @@
   min-width:0;
   min-height:0;
   display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(220px,25%);
+  grid-template-columns:minmax(0,1fr) minmax(210px,24%);
   gap:6px
 }
 .mpgd-filter-graphs{
@@ -932,7 +931,7 @@
   min-width:0;
   min-height:37px;
   display:grid;
-  grid-template-columns:13px minmax(0,1fr) 38px;
+  grid-template-columns:13px minmax(0,1fr) auto;
   align-items:center;
   gap:5px;
   padding:4px 4px 4px 6px;
@@ -1077,4 +1076,54 @@
   .mpgd-band-editor{
     width:min(300px,calc(100vw - 10px))
   }
+}
+
+
+/* Band Rack actions: Edit + Delete are deliberately separate and compact. */
+.mpgd-band-rack-actions{
+  display:flex;
+  align-items:center;
+  gap:3px
+}
+.mpgd-band-rack-delete{
+  width:42px;
+  height:23px;
+  padding:0;
+  border:1px solid #c79a9a;
+  border-radius:4px;
+  background:#fff;
+  color:#963f3f;
+  font-size:6.8px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.mpgd-band-rack-delete:hover,
+.mpgd-band-rack-delete:focus-visible{
+  outline:none;
+  border-color:#b66f6f;
+  background:#fff3f3;
+  color:#8b3030
+}
+
+/* Band Edit readability +10% from the previous typography scale. */
+.mpgd-band-editor-head strong{font-size:10px}
+.mpgd-band-editor-head [data-band-id]{font-size:7.2px}
+.mpgd-band-editor-fields label{font-size:8.25px}
+.mpgd-band-editor-fields input,
+.mpgd-band-editor-fields select{font-size:9.35px}
+.mpgd-band-editor-fields b{font-size:7.7px}
+.mpgd-band-delete{font-size:8.8px}
+
+/* On narrow/mobile layouts give the graph materially more horizontal room. */
+@media(max-width:700px){
+  .mpgd-filter-workspace{
+    grid-template-columns:minmax(0,1fr) minmax(168px,25%);
+  }
+  .mpgd-band-rack-row{
+    grid-template-columns:10px minmax(0,1fr) auto;
+  }
+  .mpgd-band-rack-actions{gap:2px}
+  .mpgd-band-rack-edit{width:30px}
+  .mpgd-band-rack-delete{width:36px;font-size:6.2px}
 }
