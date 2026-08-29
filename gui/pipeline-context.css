@@ -1,0 +1,64 @@
+/* Pipeline blank-space / wire context menu, independent of any processor node. */
+.pipeline-context-menu{
+  position:fixed;
+  z-index:2200;
+  min-width:176px;
+  padding:4px;
+  border:1px solid #b9c3cb;
+  border-radius:7px;
+  background:#fff;
+  box-shadow:0 9px 24px rgba(25,36,46,.18);
+  color:#2d3943;
+  user-select:none
+}
+.pipeline-context-menu[hidden]{display:none!important}
+.pipeline-context-action{
+  width:100%;
+  min-height:28px;
+  display:flex;
+  align-items:center;
+  padding:0 9px;
+  border:0;
+  border-radius:5px;
+  background:transparent;
+  color:#34414b;
+  font-size:9.5px;
+  font-weight:700;
+  text-align:left;
+  white-space:nowrap;
+  cursor:pointer
+}
+.pipeline-context-action:hover,
+.pipeline-context-action:focus-visible{
+  outline:none;
+  background:var(--raptor-active-soft);
+  color:#a94a0b
+}
+.pipeline-context-action:disabled{
+  color:#a0a9b0;
+  background:transparent;
+  cursor:default
+}
+.pipeline-context-action--disconnect{color:#8f3f3f}
+.pipeline-context-action--disconnect:hover,
+.pipeline-context-action--disconnect:focus-visible{
+  background:#fff2f2;
+  color:#a23030
+}
+
+/* Reserved generic wire hit-area for dynamic Pipeline routing. */
+.pipeline-persistent-wires{pointer-events:visiblePainted}
+.pipeline-persistent-wire-hit{
+  fill:none;
+  stroke:transparent;
+  stroke-width:14;
+  pointer-events:stroke;
+  cursor:context-menu
+}
+.pipeline-persistent-wire,
+.pipeline-wire-flow{pointer-events:none}
+
+@media(max-width:700px){
+  .pipeline-context-menu{min-width:190px;padding:5px}
+  .pipeline-context-action{min-height:32px;font-size:10px}
+}
