@@ -56,6 +56,34 @@ Magnitude Band
     -> coupled phase consequence remains
 ```
 
+### Response Host V1
+
+Mag-Phase-GD Filter output is carried internally as an in-memory **Response Host V1**, not as a temporary disk file.
+
+```text
+Canonical Measurement
+    -> Mag-Phase-GD processing
+    -> Response Host V1
+    -> Phase / Magnitude output projections
+    -> downstream Monitor / processor
+```
+
+Response Host V1 preserves the source frequency coordinates and carries:
+
+- `frequency_hz`
+- `magnitude_db`
+- `phase_deg`
+- `complex_real / complex_imag`
+- coherence
+- Sample Rate metadata
+- source lineage
+- filter/band provenance
+- a shared `pairId` for Phase and Magnitude projections
+
+This is a **frequency-response transport object**. It is not silently re-labelled as a uniform FFT grid, and it is not a certified FIR/IIR deployment artifact.
+
+Magnitude RBJ sections can later be realized directly as SOS. Phase-only response geometry requires an explicit realization / engine / certification stage before DSP deployment.
+
 ---
 
 # 3. MONITOR / MULTIWAY — COMPLEX SUM PRIORITY LOCK
