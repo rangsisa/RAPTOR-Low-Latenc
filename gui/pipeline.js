@@ -63,6 +63,13 @@ function cloneState(state){
 function ensureState(card){
   if(!card._raptorLineState) card._raptorLineState=createState();
   if(!card._raptorLineState.nodes) card._raptorLineState.nodes={};
+
+  // Target Editor / Node 2 was retired. Purge legacy runtime state whenever
+  // an older RAPTOR Line is loaded so the removed node cannot reappear.
+  if(Object.prototype.hasOwnProperty.call(card._raptorLineState.nodes,'processor')){
+    delete card._raptorLineState.nodes.processor;
+  }
+
   if(!card._raptorLineState.nodes.measurement) card._raptorLineState.nodes.measurement={files:[],position:null};
   const measurement=card._raptorLineState.nodes.measurement;
   if(!Array.isArray(measurement.files)) measurement.files=[];
