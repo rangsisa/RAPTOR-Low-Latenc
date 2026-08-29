@@ -95,16 +95,13 @@ function sourceExists(filter){
   if(!ref) return false;
   return ref.kind==='filter'?!!filterById(ref.id):!!api.getMeasurement?.(ref.id);
 }
-function sourceColor(filter,visiting=new Set()){
+function sourceColor(filter){
   const ref=sourceRef(filter);
   if(!ref) return '#8FA6B8';
   if(ref.kind==='measurement') return api.getMeasurement?.(ref.id)?.color||'#8FA6B8';
-  if(visiting.has(ref.id)) return '#8FA6B8';
-  const upstream=filterById(ref.id);
-  if(!upstream) return '#8FA6B8';
-  const next=new Set(visiting);
-  next.add(ref.id);
-  return sourceColor(upstream,next);
+  const upstreamNode=[...canvas.querySelectorAll('.xo-filter-node')]
+    .find(candidate=>candidate.dataset.filterId===ref.id);
+  return upstreamNode?.style.getPropertyValue('--lineage-color')||'#8FA6B8';
 }
 function sourceName(filter){
   const ref=sourceRef(filter);
@@ -125,7 +122,7 @@ function sampleRateFor(filter){
   }
   return Number.isFinite(value)&&value>0?value:null;
 }
-function sourceCanonical(filter,visiting=new Set()){
+function sourceCanonical(filter){
   const ref=sourceRef(filter);
   if(!ref) return null;
   if(ref.kind==='measurement'){
@@ -139,28 +136,10 @@ function sourceCanonical(filter,visiting=new Set()){
     }
   }
   const upstream=filterById(ref.id);
-  if(!upstream||visiting.has(upstream.id)) return null;
-  return processedCanonical(upstream,visiting);
-}
-function wouldCreateCycle(targetFilterId,source){
-  if(source?.kind!=='filter') return false;
-  let currentId=String(source.id||'');
-  const seen=new Set();
-  while(currentId){
-    if(currentId===targetFilterId) return true;
-    if(seen.has(currentId)) return true;
-    seen.add(currentId);
-    const current=filterById(currentId);
-    const ref=sourceRef(current);
-    if(!ref||ref.kind!=='filter') return false;
-    currentId=ref.id;
-  }
-  return false;
+  return upstream?processedCanonical(upstream):null;
 }
 function canConnectInput(filter,source){
   if(!filter||filter.input?.id||!source?.id) return false;
-  const kind=source.kind==='filter'?'filter':'measurement';
-  if(kind==='filter'&&wouldCreateCycle(filter.id,{kind,id:String(source.id)})) return false;
   try{
     canonicalApi.validate(source.canonical);
     return true;
@@ -217,11 +196,9 @@ function linkwitzRileyDelta(type,frequencyHz,cutoffHz,slopeDbOct,sampleRateHz){
   };
 }
 
-function processedCanonical(filter,visiting=new Set()){
-  if(!filter||visiting.has(filter.id)) return null;
-  const next=new Set(visiting);
-  next.add(filter.id);
-  const source=sourceCanonical(filter,next);
+function processedCanonical(filter){
+  if(!filter) return null;
+  const source=sourceCanonical(filter);
   if(!source) return null;
 
   // LP/HP is intentionally a file/response processor only:
@@ -260,7 +237,7 @@ function processedCanonical(filter,visiting=new Set()){
 
 function getOutput(filterId){
   const filter=filterById(filterId);
-  return filter?processedCanonical(filter,new Set()):null;
+  return filter?processedCanonical(filter):null;
 }
 
 function hexTint(hex,alpha=.10){
@@ -552,7 +529,6 @@ function renderNodes(){
     const input=node.querySelector('.xo-filter-input');
     api.registerInput?.('xo:'+filter.id+':input',input,{
       radius:50,
-      acceptCanonical:true,
       canAccept:source=>canConnectInput(filter,source),
       onConnect:(source,meta)=>connectInput(filter,source,meta)
     });
@@ -595,7 +571,6 @@ function connectInput(filter,source,meta={}){
   const kind=meta.sourceKind==='filter'||source.kind==='filter'?'filter':'measurement';
   const sourceId=String(meta.sourceId??source.id??'');
   if(!sourceId) return false;
-  if(kind==='filter'&&wouldCreateCycle(filter.id,{kind,id:sourceId})) return false;
 
   let canonical=source.canonical||null;
   if(!canonical){

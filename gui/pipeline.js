@@ -701,8 +701,7 @@ function startCanonicalWire(event,source,handle){
 
   try{canonicalV1.validate(source.canonical)}catch{return false;}
 
-  const eligible=()=>eligibleRegisteredInputs(source)
-    .filter(input=>input.acceptCanonical===true);
+  const eligible=()=>eligibleRegisteredInputs(source);
   const nearest=(clientX,clientY)=>{
     let best=null;
     for(const input of eligible()){
