@@ -565,6 +565,18 @@
 }
 .mpgd-filter-svg--phase .trace{stroke:#1686d9}
 .mpgd-filter-svg--mag .trace{stroke:#e86f17}
+.mpgd-filter-svg--mag .mag-fill{
+  fill:rgba(232,111,23,.12);
+  stroke:none
+}
+.mpgd-filter-svg--phase .wrap-markers{
+  fill:none;
+  stroke:#7e8b97;
+  stroke-width:1;
+  stroke-dasharray:5 5;
+  opacity:.72;
+  vector-effect:non-scaling-stroke
+}
 .mpgd-filter-svg--mag .uncertainty-needles{
   fill:none;
   stroke:rgba(220,72,72,.13);
