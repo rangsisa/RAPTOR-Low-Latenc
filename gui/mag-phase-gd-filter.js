@@ -62,7 +62,7 @@ function defaultFilterState(position={x:360,y:120}){
     bypass:false,
     sampleRateHz:null,
     bands:[],
-    ui:{phase:true,magnitude:true,wrap:false,sync:true}
+    ui:{phase:true,magnitude:true,wrap:false,sync:true,bandPoints:true}
   };
 }
 
@@ -93,7 +93,8 @@ function cloneFilter(filter,rekey=false){
       phase:filter.ui?.phase!==false,
       magnitude:filter.ui?.magnitude!==false,
       wrap:filter.ui?.wrap===true,
-      sync:filter.ui?.sync!==false
+      sync:filter.ui?.sync!==false,
+      bandPoints:filter.ui?.bandPoints!==false
     }
   };
 }
@@ -116,11 +117,12 @@ function normalizeFilterInPlace(filter){
   for(const band of filter.bands){
     band.graphKind=band.graphKind==='phase'?'phase':'magnitude';
   }
-  if(!filter.ui) filter.ui={phase:true,magnitude:true,wrap:false,sync:true};
+  if(!filter.ui) filter.ui={phase:true,magnitude:true,wrap:false,sync:true,bandPoints:true};
   if(filter.ui.phase===undefined) filter.ui.phase=true;
   if(filter.ui.magnitude===undefined) filter.ui.magnitude=true;
   if(filter.ui.wrap===undefined) filter.ui.wrap=false;
   if(filter.ui.sync===undefined) filter.ui.sync=true;
+  if(filter.ui.bandPoints===undefined) filter.ui.bandPoints=true;
   return filter;
 }
 
@@ -151,7 +153,10 @@ function closeBandContext(){
 }
 
 function closeAllWindows(){
-  for(const win of windows.values()) win.remove();
+  for(const win of windows.values()){
+    removeBandEditor(win);
+    win.remove();
+  }
   windows.clear();
   closeBandContext();
 }
@@ -590,8 +595,75 @@ function displayViewsForFilter(filter){
 
   const fs=Number(filter.sampleRateHz??sourceEntry(filter)?.sampleRate??sourceEntry(filter)?.canonical?.sample_rate_hz);
   if(!rbj||!Number.isFinite(fs)||fs<=0) return base;
+
+  const frequency=base.frequency_hz;
+  const magnitude=base.magnitude_db;
+  const phase=base.phase_deg;
+  if(!(frequency&&magnitude&&phase)) return base;
+
   try{
-    return rbj.deriveViews(base,filter.bands,fs);
+    const operations=filter.bands.map(band=>rbj.normalizeOperation(band,fs));
+    const outMagnitude=new Float64Array(frequency.length);
+    const outPhase=new Float64Array(frequency.length);
+    let phaseOnlyCount=0;
+    let magnitudeCount=0;
+    for(const band of filter.bands){
+      if(band.graphKind==='phase') phaseOnlyCount+=1;
+      else magnitudeCount+=1;
+    }
+
+    for(let i=0;i<frequency.length;i++){
+      const f=Number(frequency[i]);
+      if(!(Number.isFinite(f)&&f>0&&f<=fs/2)) return base;
+
+      let totalReal=1;
+      let totalImag=0;
+      let deltaMagnitudeDb=0;
+
+      for(let n=0;n<operations.length;n++){
+        const h=rbj.responseAt(f,operations[n],fs);
+        const hMagnitude=Math.hypot(h.real,h.imag);
+        if(!(hMagnitude>0)) continue;
+
+        // Both band families contribute their RBJ phase geometry.
+        // Phase bands are normalized to unity magnitude.
+        const ur=h.real/hMagnitude;
+        const ui=h.imag/hMagnitude;
+        const nr=totalReal*ur-totalImag*ui;
+        const ni=totalReal*ui+totalImag*ur;
+        totalReal=nr;
+        totalImag=ni;
+
+        // Only Magnitude bands are allowed to modify Magnitude.
+        if(filter.bands[n].graphKind!=='phase'){
+          deltaMagnitudeDb+=h.magnitudeDb;
+        }
+      }
+
+      const sourcePhase=Number(phase[i])*Math.PI/180;
+      const sr=Math.cos(sourcePhase);
+      const si=Math.sin(sourcePhase);
+      const rr=sr*totalReal-si*totalImag;
+      const ri=sr*totalImag+si*totalReal;
+
+      outMagnitude[i]=Number(magnitude[i])+deltaMagnitudeDb;
+      outPhase[i]=Math.atan2(ri,rr)*180/Math.PI;
+    }
+
+    return Object.freeze({
+      ...base,
+      magnitude_db:outMagnitude,
+      phase_deg:outPhase,
+      filter_geometry:Object.freeze({
+        model:'RAPTOR_MAG_PHASE_GD_SPLIT_GEOMETRY',
+        phase_band_rule:'PHASE_ONLY_UNIT_MAGNITUDE',
+        magnitude_band_rule:'RBJ_MAGNITUDE_PLUS_COUPLED_PHASE',
+        phase_only_count:phaseOnlyCount,
+        magnitude_count:magnitudeCount,
+        sample_rate_hz:fs,
+        canonical_mutated:false
+      })
+    });
   }catch{
     return base;
   }
@@ -870,25 +942,33 @@ function bringToFront(win){
 function clampWindowPosition(x,y,win){
   const width=win.offsetWidth||760;
   const height=win.offsetHeight||560;
+  const visibleEdge=72;
+  const headerVisible=38;
+  const minX=Math.min(4,visibleEdge-width);
+  const maxX=Math.max(4,window.innerWidth-visibleEdge);
+  const minY=4;
+  const maxY=Math.max(4,window.innerHeight-headerVisible);
   return {
-    x:Math.max(4,Math.min(window.innerWidth-width-4,x)),
-    y:Math.max(4,Math.min(window.innerHeight-height-4,y))
+    x:Math.max(minX,Math.min(maxX,x)),
+    y:Math.max(minY,Math.min(maxY,y))
   };
 }
 
 function startWindowDrag(event,win,filter){
   if(event.button!==undefined&&event.button!==0) return;
-  if(event.target.closest('button')) return;
+  if(event.target.closest('button,input,label,select,textarea,a')) return;
   event.preventDefault();
   bringToFront(win);
   const pointerId=event.pointerId;
+  const handle=event.currentTarget;
   const rect=win.getBoundingClientRect();
   const dx=event.clientX-rect.left;
   const dy=event.clientY-rect.top;
-  try{event.currentTarget.setPointerCapture(pointerId)}catch{}
+  try{handle.setPointerCapture(pointerId)}catch{}
 
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
+    if(moveEvent.cancelable) moveEvent.preventDefault();
     const pos=clampWindowPosition(moveEvent.clientX-dx,moveEvent.clientY-dy,win);
     win.style.left=pos.x+'px';
     win.style.top=pos.y+'px';
@@ -900,10 +980,10 @@ function startWindowDrag(event,win,filter){
     window.removeEventListener('pointermove',move);
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
-    try{if(event.currentTarget.hasPointerCapture(pointerId)) event.currentTarget.releasePointerCapture(pointerId)}catch{}
+    try{if(handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId)}catch{}
   };
 
-  window.addEventListener('pointermove',move,{passive:true});
+  window.addEventListener('pointermove',move,{passive:false});
   window.addEventListener('pointerup',end);
   window.addEventListener('pointercancel',end);
 }
@@ -940,7 +1020,6 @@ function ensureBandContext(){
     if(win&&!win.hidden){
       win._activeBandId=band.id;
       renderWindow(filter,win);
-      openBandEditor(win,filter,band.id);
     }
     renderNodes();
     document.dispatchEvent(new CustomEvent('raptor:filteraddband',{
@@ -1069,7 +1148,51 @@ function activeBand(filter,win){
 }
 
 function removeBandEditor(win){
-  win.querySelector('.mpgd-band-editor')?.remove();
+  const panel=win?._bandEditor||null;
+  if(panel?.isConnected) panel.remove();
+  if(win) win._bandEditor=null;
+}
+
+function clampBandEditorPosition(x,y,panel){
+  const width=panel.offsetWidth||300;
+  const height=panel.offsetHeight||210;
+  return {
+    x:Math.max(5,Math.min(window.innerWidth-width-5,x)),
+    y:Math.max(5,Math.min(window.innerHeight-height-5,y))
+  };
+}
+
+function startBandEditorDrag(event,panel,win){
+  if(event.button!==undefined&&event.button!==0) return;
+  if(event.target.closest('button,input,label,select,textarea,a')) return;
+  event.preventDefault();
+  const pointerId=event.pointerId;
+  const handle=event.currentTarget;
+  const rect=panel.getBoundingClientRect();
+  const dx=event.clientX-rect.left;
+  const dy=event.clientY-rect.top;
+  panel.style.zIndex=String(windowZ+30);
+  try{handle.setPointerCapture(pointerId)}catch{}
+
+  const move=moveEvent=>{
+    if(moveEvent.pointerId!==pointerId) return;
+    if(moveEvent.cancelable) moveEvent.preventDefault();
+    const pos=clampBandEditorPosition(moveEvent.clientX-dx,moveEvent.clientY-dy,panel);
+    panel.style.left=pos.x+'px';
+    panel.style.top=pos.y+'px';
+    win._bandEditorPosition=pos;
+  };
+  const end=endEvent=>{
+    if(endEvent.pointerId!==pointerId) return;
+    window.removeEventListener('pointermove',move);
+    window.removeEventListener('pointerup',end);
+    window.removeEventListener('pointercancel',end);
+    try{if(handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId)}catch{}
+  };
+
+  window.addEventListener('pointermove',move,{passive:false});
+  window.addEventListener('pointerup',end);
+  window.addEventListener('pointercancel',end);
 }
 
 function openBandEditor(win,filter,bandId){
@@ -1078,12 +1201,23 @@ function openBandEditor(win,filter,bandId){
   win._activeBandId=band.id;
   removeBandEditor(win);
 
+  const bandIndex=filter.bands.findIndex(item=>item.id===band.id);
+  const color=BAND_COLORS[Math.max(0,bandIndex)%BAND_COLORS.length];
+
   const panel=document.createElement('section');
   panel.className='mpgd-band-editor';
+  panel.dataset.filterId=filter.id;
+  panel.dataset.bandId=band.id;
+  panel.style.setProperty('--band-color',color);
+  panel.style.zIndex=String(windowZ+30);
   panel.innerHTML=
-    '<header><strong>Band Editor</strong><span data-band-id></span><button type="button" data-band-close aria-label="Close">×</button></header>'+
+    '<header class="mpgd-band-editor-head">'+
+      '<span class="mpgd-band-editor-dot"></span>'+
+      '<strong>'+(band.graphKind==='phase'?'Phase':'Magnitude')+' Band '+(bandIndex+1)+'</strong>'+
+      '<span data-band-id></span>'+
+      '<button type="button" data-band-close aria-label="Close">×</button>'+
+    '</header>'+
     '<div class="mpgd-band-editor-fields">'+
-      '<label><span>Band</span><select data-band-select></select><b>#</b></label>'+
       '<label><span>Frequency</span><input type="number" step="1" min="20" max="20000" data-band-frequency><b>Hz</b></label>'+
       '<label><span>Gain</span><input type="number" step="0.1" min="-24" max="24" data-band-gain><b>dB</b></label>'+
       '<label><span>Q</span><input type="number" step="0.01" min="0.05" max="50" data-band-q><b>Q</b></label>'+
@@ -1091,16 +1225,6 @@ function openBandEditor(win,filter,bandId){
     '</div>';
 
   panel.querySelector('[data-band-id]').textContent=band.id;
-  const select=panel.querySelector('[data-band-select]');
-  filter.bands.forEach((item,index)=>{
-    const option=document.createElement('option');
-    option.value=item.id;
-    option.textContent='Band '+(index+1)+' · '+(item.graphKind==='phase'?'Phase':'Mag')+' · '+formatFrequency(item.frequencyHz);
-    option.selected=item.id===band.id;
-    select.appendChild(option);
-  });
-  select.addEventListener('change',()=>openBandEditor(win,filter,select.value));
-
   const fInput=panel.querySelector('[data-band-frequency]');
   const gInput=panel.querySelector('[data-band-gain]');
   const qInput=panel.querySelector('[data-band-q]');
@@ -1127,6 +1251,8 @@ function openBandEditor(win,filter,bandId){
     input.addEventListener('change',apply);
   }
 
+  const head=panel.querySelector('.mpgd-band-editor-head');
+  head.addEventListener('pointerdown',event=>startBandEditorDrag(event,panel,win));
   panel.querySelector('[data-band-close]').addEventListener('click',()=>removeBandEditor(win));
   panel.querySelector('[data-band-delete]').addEventListener('click',()=>{
     const index=filter.bands.findIndex(item=>item.id===band.id);
@@ -1137,7 +1263,20 @@ function openBandEditor(win,filter,bandId){
     renderNodes();
   });
 
-  win.querySelector('.mpgd-filter-main')?.appendChild(panel);
+  document.body.appendChild(panel);
+  win._bandEditor=panel;
+
+  requestAnimationFrame(()=>{
+    const parentRect=win.getBoundingClientRect();
+    const initial=win._bandEditorPosition||{
+      x:Math.min(window.innerWidth-310,Math.max(8,parentRect.right-320)),
+      y:Math.min(window.innerHeight-220,Math.max(8,parentRect.top+68))
+    };
+    const pos=clampBandEditorPosition(initial.x,initial.y,panel);
+    panel.style.left=pos.x+'px';
+    panel.style.top=pos.y+'px';
+    win._bandEditorPosition=pos;
+  });
 }
 
 
@@ -1145,7 +1284,7 @@ function renderBandMarkers(filter,win,views){
   for(const layer of win.querySelectorAll('.mpgd-band-markers')){
     layer.replaceChildren();
   }
-  if(!views?.frequency_hz||!filter.bands.length) return;
+  if(filter.ui?.bandPoints===false||!views?.frequency_hz||!filter.bands.length) return;
 
   filter.bands.forEach((band,index)=>{
     const kind=band.graphKind==='phase'?'phase':'magnitude';
@@ -1175,6 +1314,81 @@ function renderBandMarkers(filter,win,views){
     });
     layer.appendChild(marker);
   });
+}
+
+function buildBandRackSection(kind){
+  const section=document.createElement('section');
+  section.className='mpgd-band-rack-section mpgd-band-rack-section--'+kind;
+  section.dataset.rackKind=kind;
+
+  const head=document.createElement('header');
+  head.className='mpgd-band-rack-head';
+  const title=document.createElement('strong');
+  title.textContent=kind==='phase'?'PHASE BANDS':'MAG BANDS';
+  const count=document.createElement('span');
+  count.dataset.rackCount=kind;
+  count.textContent='0';
+  head.append(title,count);
+
+  const list=document.createElement('div');
+  list.className='mpgd-band-rack-list';
+  list.dataset.rackList=kind;
+
+  section.append(head,list);
+  return section;
+}
+
+function renderBandRack(filter,win){
+  for(const kind of ['phase','magnitude']){
+    const list=win.querySelector('[data-rack-list="'+kind+'"]');
+    const count=win.querySelector('[data-rack-count="'+kind+'"]');
+    if(!list) continue;
+    list.replaceChildren();
+
+    const entries=filter.bands
+      .map((band,index)=>({band,index}))
+      .filter(item=>(item.band.graphKind==='phase'?'phase':'magnitude')===kind);
+
+    if(count) count.textContent=String(entries.length);
+
+    if(!entries.length){
+      const empty=document.createElement('div');
+      empty.className='mpgd-band-rack-empty';
+      empty.textContent='No '+(kind==='phase'?'phase':'magnitude')+' bands';
+      list.appendChild(empty);
+      continue;
+    }
+
+    for(const {band,index} of entries){
+      const color=BAND_COLORS[index%BAND_COLORS.length];
+      const row=document.createElement('div');
+      row.className='mpgd-band-rack-row';
+      row.style.setProperty('--band-color',color);
+
+      const dot=document.createElement('span');
+      dot.className='mpgd-band-rack-dot';
+
+      const info=document.createElement('div');
+      info.className='mpgd-band-rack-info';
+      const name=document.createElement('strong');
+      name.textContent='Band '+(index+1);
+      const meta=document.createElement('span');
+      meta.textContent=formatFrequency(band.frequencyHz)+' · G '+Number(band.gainDb).toFixed(1)+' · Q '+Number(band.q).toFixed(2);
+      info.append(name,meta);
+
+      const edit=document.createElement('button');
+      edit.className='mpgd-band-rack-edit';
+      edit.type='button';
+      edit.textContent='Edit';
+      edit.addEventListener('click',()=>{
+        win._activeBandId=band.id;
+        openBandEditor(win,filter,band.id);
+      });
+
+      row.append(dot,info,edit);
+      list.appendChild(row);
+    }
+  }
 }
 
 function renderWindow(filter,win){
@@ -1223,6 +1437,7 @@ function renderWindow(filter,win){
   }
 
   renderBandMarkers(filter,win,views);
+  renderBandRack(filter,win);
 
   if(win._activeBandId&&!filter.bands.some(b=>b.id===win._activeBandId)){
     win._activeBandId=null;
@@ -1248,7 +1463,11 @@ function buildFilterWindow(filter){
   close.type='button';
   close.setAttribute('aria-label','Close filter editor');
   close.textContent='×';
-  close.addEventListener('click',()=>{win.hidden=true;win.classList.remove('is-front');});
+  close.addEventListener('click',()=>{
+    removeBandEditor(win);
+    win.hidden=true;
+    win.classList.remove('is-front');
+  });
 
   head.append(title,close);
 
@@ -1265,7 +1484,8 @@ function buildFilterWindow(filter){
     ['phase','Phase'],
     ['magnitude','Magnitude'],
     ['wrap','Wrap phase'],
-    ['sync','Sync cursor']
+    ['sync','Sync cursor'],
+    ['bandPoints','Band Points']
   ];
   for(const [key,label] of controls){
     const item=document.createElement('label');
@@ -1282,19 +1502,10 @@ function buildFilterWindow(filter){
     item.append(input,text);
     toolbar.appendChild(item);
   }
-  const bandButton=document.createElement('button');
-  bandButton.className='mpgd-filter-band-button';
-  bandButton.type='button';
-  bandButton.textContent='Bands';
-  bandButton.addEventListener('click',()=>{
-    const band=activeBand(filter,win);
-    if(band) openBandEditor(win,filter,band.id);
-  });
-
   const chip=document.createElement('span');
   chip.className='mpgd-filter-idchip';
   chip.textContent=filter.id;
-  toolbar.append(bandButton,chip);
+  toolbar.appendChild(chip);
 
   const graphs=document.createElement('section');
   graphs.className='mpgd-filter-graphs';
@@ -1304,7 +1515,15 @@ function buildFilterWindow(filter){
   mag.dataset.filterCard='magnitude';
   graphs.append(phase,mag);
 
-  main.append(toolbar,graphs);
+  const rack=document.createElement('aside');
+  rack.className='mpgd-band-rack';
+  rack.append(buildBandRackSection('phase'),buildBandRackSection('magnitude'));
+
+  const workspace=document.createElement('section');
+  workspace.className='mpgd-filter-workspace';
+  workspace.append(graphs,rack);
+
+  main.append(toolbar,workspace);
 
   body.append(main);
   win.append(head,body);
@@ -1406,6 +1625,10 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Escape'){
     closeBandContext();
     const front=[...windows.values()].filter(win=>!win.hidden).sort((a,b)=>(Number(b.style.zIndex)||0)-(Number(a.style.zIndex)||0))[0];
+    if(front?._bandEditor){
+      removeBandEditor(front);
+      return;
+    }
     if(front) front.hidden=true;
   }
 });
