@@ -26,3 +26,12 @@ The authoritative WebApp working-measurement contract is:
 `docs/RAPTOR_MEASUREMENT_CANONICAL_V1_WEBAPP_IMPLEMENTATION_CONTRACT.md`
 
 RAPTOR Measurement Canonical V1 is the single source of truth from import through Editor, Graph, Pipeline, NGA, Matching, API, and Engine/Kernel.
+
+
+## Roadmap
+
+Active GUI / Pipeline roadmap:
+
+`docs/RAPTOR_GUI_ROADMAP.md`
+
+**Monitor / Multiway priority lock:** Overlay is not Multiway Sum. The Monitor milestone must include phase-aware **complex-domain summation** of multiple paths; drawing several curves together is not sufficient.
