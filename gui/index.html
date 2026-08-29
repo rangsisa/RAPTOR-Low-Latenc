@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./workspace.css" />
   <link rel="stylesheet" href="./pipeline.css" />
   <link rel="stylesheet" href="./pipeline-interactions.css" />
-  <link rel="stylesheet" href="./processor-node.css" />
+  <link rel="stylesheet" href="./pipeline-context.css" />
   <link rel="stylesheet" href="./matching/matching.css" />
   <link rel="stylesheet" href="./editor-foundation.css" />
   <link rel="stylesheet" href="./mag-phase-gd-filter.css" />
@@ -23,8 +23,6 @@
 
       <nav class="primary-nav" aria-label="RAPTOR workspace">
         <button class="nav-item" type="button" data-page="welcome">Welcome</button>
-        <button class="nav-item nav-item--tool nav-item--raptor" type="button" data-page="raptor-editor"><span class="tool-nav-dot"></span>RAPTOR Editor</button>
-        <button class="nav-item nav-item--tool nav-item--nga" type="button" data-page="nga-editor"><span class="tool-nav-dot"></span>NGA Editor</button>
         <button class="nav-item nav-item--tool nav-item--auto" type="button" data-page="nga-auto-zero"><span class="tool-nav-dot"></span>NGA Auto ZERO</button>
         <button class="nav-item nav-item--pipeline is-active" type="button" data-page="pipeline" aria-current="page"><span class="pipeline-dot"></span>Pipeline</button>
         <button class="nav-item" type="button" data-page="matching">Matching</button>
@@ -76,142 +74,6 @@
       </section>
 
       <section class="page-view" data-view="welcome" hidden></section>
-      <section class="page-view page-view--tool tool-page--raptor" data-view="raptor-editor" data-tool-view="raptor-editor" hidden>
-        <header class="tool-workspace-head">
-          <div class="tool-workspace-title"><strong>RAPTOR Editor</strong><span data-tool-context="raptor-editor">Pipeline context · no input connected</span></div>
-        </header>
-        <div class="tool-workspace-body" data-tool-body="raptor-editor">
-          <section class="matching-page editor-foundation" aria-label="RAPTOR Editor workspace foundation">
-            <main class="matching-app">
-              <section class="matching-left">
-                <header class="matching-toolbar matching-toolbar--toggles-only">
-                  <div class="matching-toolbar-bottom">
-                    <div class="matching-checks">
-                      <label class="matching-check"><input type="checkbox" checked><span>Phase</span></label>
-                      <label class="matching-check"><input type="checkbox" checked><span>Magnitude</span></label>
-                      <label class="matching-check"><input type="checkbox"><span>Wrap phase</span></label>
-                      <label class="matching-check"><input type="checkbox" checked><span>Sync cursor</span></label>
-                    </div>
-                  </div>
-                </header>
-
-                <section class="matching-graphs">
-                  <article class="matching-card">
-                    <header class="matching-head">
-                      <div class="matching-title"><span class="matching-dot"></span>Phase</div>
-                      <div class="matching-readout">— Hz · —°</div><span class="matching-unit">deg</span>
-                    </header>
-                    <div class="matching-plot">
-                      <div class="editor-foundation-plot editor-foundation-plot--phase">
-                        <div class="editor-foundation-axis"></div>
-                        <div class="editor-foundation-y"><span>180°</span><span>90°</span><span>0°</span><span>-90°</span><span>-180°</span></div>
-                        <svg class="editor-foundation-trace editor-foundation-trace--phase" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true"><path></path></svg>
-                        <div class="editor-foundation-x" data-axis="frequency"></div>
-                      </div>
-                    </div>
-                  </article>
-
-                  <article class="matching-card">
-                    <header class="matching-head">
-                      <div class="matching-title"><span class="matching-dot"></span>Magnitude</div>
-                      <div class="matching-readout">— Hz · — dB</div><span class="matching-unit">dB</span>
-                    </header>
-                    <div class="matching-plot">
-                      <div class="editor-foundation-plot editor-foundation-plot--mag">
-                        <div class="editor-foundation-axis"></div>
-                        <div class="editor-foundation-y"><span>40</span><span>20</span><span>0</span><span>-20</span><span>-40</span></div>
-                        <svg class="editor-foundation-trace editor-foundation-trace--mag" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-                          <path class="editor-foundation-fill"></path><path></path>
-                        </svg>
-                        <div class="editor-foundation-x" data-axis="frequency"></div>
-                      </div>
-                    </div>
-                  </article>
-                </section>
-              </section>
-
-              <aside class="matching-tools">
-                <header class="matching-tools-head"><div><strong>RAPTOR TOOLS</strong><span>Processing workspace</span></div></header>
-                <div class="matching-tools-body">
-                  <section class="matching-tools-empty">
-                    <div class="matching-tools-empty-mark">R</div>
-                    <strong>RAPTOR Editor</strong>
-                    <span>Tool controls will be added here step by step.</span>
-                  </section>
-                </div>
-              </aside>
-            </main>
-          </section>
-        </div>
-      </section>
-      <section class="page-view page-view--tool tool-page--nga" data-view="nga-editor" data-tool-view="nga-editor" hidden>
-        <header class="tool-workspace-head">
-          <div class="tool-workspace-title"><strong>NGA Editor</strong><span data-tool-context="nga-editor">Pipeline context · no input connected</span></div>
-        </header>
-        <div class="tool-workspace-body" data-tool-body="nga-editor">
-          <section class="matching-page editor-foundation" aria-label="NGA Editor workspace foundation">
-            <main class="matching-app">
-              <section class="matching-left">
-                <header class="matching-toolbar matching-toolbar--toggles-only">
-                  <div class="matching-toolbar-bottom">
-                    <div class="matching-checks">
-                      <label class="matching-check"><input type="checkbox" checked><span>Phase</span></label>
-                      <label class="matching-check"><input type="checkbox" checked><span>Magnitude</span></label>
-                      <label class="matching-check"><input type="checkbox"><span>Wrap phase</span></label>
-                      <label class="matching-check"><input type="checkbox" checked><span>Sync cursor</span></label>
-                    </div>
-                  </div>
-                </header>
-
-                <section class="matching-graphs">
-                  <article class="matching-card">
-                    <header class="matching-head">
-                      <div class="matching-title"><span class="matching-dot"></span>Phase</div>
-                      <div class="matching-readout">— Hz · —°</div><span class="matching-unit">deg</span>
-                    </header>
-                    <div class="matching-plot">
-                      <div class="editor-foundation-plot editor-foundation-plot--phase">
-                        <div class="editor-foundation-axis"></div>
-                        <div class="editor-foundation-y"><span>180°</span><span>90°</span><span>0°</span><span>-90°</span><span>-180°</span></div>
-                        <svg class="editor-foundation-trace editor-foundation-trace--phase" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true"><path></path></svg>
-                        <div class="editor-foundation-x" data-axis="frequency"></div>
-                      </div>
-                    </div>
-                  </article>
-
-                  <article class="matching-card">
-                    <header class="matching-head">
-                      <div class="matching-title"><span class="matching-dot"></span>Magnitude</div>
-                      <div class="matching-readout">— Hz · — dB</div><span class="matching-unit">dB</span>
-                    </header>
-                    <div class="matching-plot">
-                      <div class="editor-foundation-plot editor-foundation-plot--mag">
-                        <div class="editor-foundation-axis"></div>
-                        <div class="editor-foundation-y"><span>40</span><span>20</span><span>0</span><span>-20</span><span>-40</span></div>
-                        <svg class="editor-foundation-trace editor-foundation-trace--mag" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-                          <path class="editor-foundation-fill"></path><path></path>
-                        </svg>
-                        <div class="editor-foundation-x" data-axis="frequency"></div>
-                      </div>
-                    </div>
-                  </article>
-                </section>
-              </section>
-
-              <aside class="matching-tools">
-                <header class="matching-tools-head"><div><strong>NGA TOOLS</strong><span>Processing workspace</span></div></header>
-                <div class="matching-tools-body">
-                  <section class="matching-tools-empty">
-                    <div class="matching-tools-empty-mark">N</div>
-                    <strong>NGA Editor</strong>
-                    <span>Tool controls will be added here step by step.</span>
-                  </section>
-                </div>
-              </aside>
-            </main>
-          </section>
-        </div>
-      </section>
       <section class="page-view page-view--tool tool-page--auto" data-view="nga-auto-zero" data-tool-view="nga-auto-zero" hidden>
         <header class="tool-workspace-head">
           <div class="tool-workspace-title"><strong>NGA Auto ZERO</strong><span data-tool-context="nga-auto-zero">Pipeline context · no input connected</span></div>
@@ -370,11 +232,9 @@
   <script src="./measurement-canonical-v1.js"></script>
   <script src="./pipeline.js"></script>
   <script src="./pipeline-interactions.js"></script>
-  <script src="./processor-node.js"></script>
+  <script src="./pipeline-context.js"></script>
   <script src="./eq-geometry-rbj.js"></script>
   <script src="./mag-phase-gd-filter.js"></script>
-  <script src="./raptor-editor-eq-geometry.js"></script>
-  <script src="./nga-editor-eq-geometry.js"></script>
   <script src="./editor-foundation.js"></script>
   <script src="./matching/matching-dom.js"></script>
   <script src="./matching/matching.js"></script>
