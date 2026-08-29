@@ -43,6 +43,7 @@ const windows=new Map();
 let bandContextMenu=null;
 let bandContextRequest=null;
 let persistentWireGroup=null;
+let graphSequence=1;
 
 function makeFilterId(){
   return 'mpgd-'+Date.now().toString(36)+'-'+(filterSequence++);
@@ -897,8 +898,35 @@ function buildGraph(kind){
   svg.setAttribute('preserveAspectRatio','none');
 
   if(kind==='magnitude'){
+    const gradientId='mpgd-mag-fill-'+(graphSequence++);
+    const defs=document.createElementNS(SVG_NS,'defs');
+    const gradient=document.createElementNS(SVG_NS,'linearGradient');
+    gradient.setAttribute('id',gradientId);
+    gradient.setAttribute('x1','0');
+    gradient.setAttribute('x2','0');
+    gradient.setAttribute('y1','0');
+    gradient.setAttribute('y2','1');
+    gradient.setAttribute('gradientUnits','objectBoundingBox');
+
+    const stops=[
+      ['0%','#52C98A','.30'],
+      ['28%','#63D59B','.20'],
+      ['62%','#7BE1AD','.095'],
+      ['100%','#A8EDC9','0']
+    ];
+    for(const [offset,color,opacity] of stops){
+      const stop=document.createElementNS(SVG_NS,'stop');
+      stop.setAttribute('offset',offset);
+      stop.setAttribute('stop-color',color);
+      stop.setAttribute('stop-opacity',opacity);
+      gradient.appendChild(stop);
+    }
+    defs.appendChild(gradient);
+    svg.appendChild(defs);
+
     const fill=document.createElementNS(SVG_NS,'path');
     fill.setAttribute('class','mag-fill');
+    fill.setAttribute('fill','url(#'+gradientId+')');
     svg.appendChild(fill);
 
     const uncertainty=document.createElementNS(SVG_NS,'path');
@@ -1379,6 +1407,9 @@ function renderBandRack(filter,win){
       meta.textContent=formatFrequency(band.frequencyHz)+' · G '+Number(band.gainDb).toFixed(1)+' · Q '+Number(band.q).toFixed(2);
       info.append(name,meta);
 
+      const actions=document.createElement('div');
+      actions.className='mpgd-band-rack-actions';
+
       const edit=document.createElement('button');
       edit.className='mpgd-band-rack-edit';
       edit.type='button';
@@ -1388,7 +1419,24 @@ function renderBandRack(filter,win){
         openBandEditor(win,filter,band.id);
       });
 
-      row.append(dot,info,edit);
+      const remove=document.createElement('button');
+      remove.className='mpgd-band-rack-delete';
+      remove.type='button';
+      remove.textContent='Delete';
+      remove.addEventListener('click',()=>{
+        const removeIndex=filter.bands.findIndex(item=>item.id===band.id);
+        if(removeIndex<0) return;
+        filter.bands.splice(removeIndex,1);
+        if(win._activeBandId===band.id){
+          win._activeBandId=null;
+          removeBandEditor(win);
+        }
+        renderWindow(filter,win);
+        renderNodes();
+      });
+
+      actions.append(edit,remove);
+      row.append(dot,info,actions);
       list.appendChild(row);
     }
   }
