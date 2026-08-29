@@ -307,7 +307,10 @@ function deleteFilter(filterId){
   filters.splice(index,1);
   api.unregisterInput?.('mpgd:'+filterId+':input');
   const win=windows.get(filterId);
-  if(win) win.remove();
+  if(win){
+    removeBandEditor(win);
+    win.remove();
+  }
   windows.delete(filterId);
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterdeleted',{
@@ -1645,6 +1648,15 @@ window.addEventListener('resize',()=>{
     win.style.left=pos.x+'px';
     win.style.top=pos.y+'px';
     filter.windowPosition=pos;
+
+    const panel=win._bandEditor;
+    if(panel?.isConnected){
+      const panelRect=panel.getBoundingClientRect();
+      const panelPos=clampBandEditorPosition(panelRect.left,panelRect.top,panel);
+      panel.style.left=panelPos.x+'px';
+      panel.style.top=panelPos.y+'px';
+      win._bandEditorPosition=panelPos;
+    }
   }
 });
 
