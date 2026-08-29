@@ -372,3 +372,366 @@
   .mpgd-filter-main{padding:4px}
   .mpgd-filter-check{padding:0 4px;font-size:7px}
 }
+
+
+/* Node refinement: Bypass is the only processing-state control shown.
+   Delete is intentionally separated from Play and lives in the footer. */
+.mpgd-filter-delete--footer{
+  width:auto;
+  min-width:44px;
+  height:22px;
+  margin-left:2px;
+  padding:0 7px;
+  border:1px solid #bd8e8e;
+  border-radius:4px;
+  background:#fff;
+  color:#993f3f;
+  font-size:7.5px;
+  font-weight:800;
+  line-height:20px
+}
+.mpgd-filter-delete--footer:hover{
+  border-color:#b87676;
+  background:#fff4f4;
+  color:#8d3030
+}
+.mpgd-filter-band-count{margin-left:auto}
+
+/* Larger filter workspace. It deliberately has no permanent Filter Tools pane. */
+.mpgd-filter-window{
+  width:min(1040px,calc(100vw - 28px));
+  height:min(760px,calc(100vh - 34px));
+  grid-template-rows:38px minmax(0,1fr);
+  border-radius:9px
+}
+.mpgd-filter-window-head{min-height:38px}
+.mpgd-filter-window-title strong{font-size:11px}
+.mpgd-filter-window-title span{font-size:7.5px}
+.mpgd-filter-window-body{
+  min-height:0;
+  display:block;
+  background:#f2f4f5
+}
+.mpgd-filter-main{
+  position:relative;
+  box-sizing:border-box;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  display:grid;
+  grid-template-rows:42px minmax(0,1fr);
+  gap:6px;
+  padding:6px;
+  background:#f2f4f5
+}
+.mpgd-filter-toolbar{
+  min-height:42px;
+  padding:0 8px;
+  border:1px solid #acb7c0;
+  border-radius:6px;
+  box-shadow:0 1px 2px rgba(28,38,48,.035)
+}
+.mpgd-filter-check{
+  height:25px;
+  padding:0 7px;
+  font-size:8.5px
+}
+.mpgd-filter-check input{width:12px;height:12px}
+.mpgd-filter-band-button{
+  height:25px;
+  padding:0 8px;
+  border:1px solid #b6c1c9;
+  border-radius:4px;
+  background:#fff;
+  color:#46535e;
+  font-size:8.5px;
+  font-weight:800;
+  cursor:pointer
+}
+.mpgd-filter-band-button:hover{
+  border-color:var(--raptor-active-border);
+  background:var(--raptor-active-soft);
+  color:#a94a0b
+}
+.mpgd-filter-idchip{
+  margin-left:auto;
+  color:#6f7c86;
+  font-size:7.5px
+}
+
+.mpgd-filter-graphs{
+  min-height:0;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+  gap:6px
+}
+.mpgd-filter-card{
+  min-height:0;
+  display:grid;
+  grid-template-rows:31px minmax(0,1fr);
+  border:1px solid #9faab3;
+  border-radius:6px;
+  background:#fff;
+  box-shadow:0 1px 3px rgba(24,32,42,.035);
+  overflow:hidden
+}
+.mpgd-filter-card-head{
+  height:31px;
+  gap:7px;
+  padding:0 8px;
+  border-bottom:1px solid #c2cbd2;
+  background:#fafbfc
+}
+.mpgd-filter-card-head strong{
+  color:#33404b;
+  font-size:9.5px
+}
+.mpgd-filter-readout{
+  min-width:170px;
+  margin-left:auto;
+  padding:2px 6px;
+  border:1px solid #d0d7dc;
+  border-radius:4px;
+  background:#fff;
+  color:#53616c;
+  font-size:8px;
+  font-variant-numeric:tabular-nums;
+  text-align:right;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+.mpgd-filter-pointer-readout{
+  min-width:120px;
+  color:#3e9a59;
+  font-size:8px;
+  font-variant-numeric:tabular-nums;
+  text-align:right;
+  white-space:nowrap
+}
+.mpgd-filter-unit{
+  width:20px;
+  color:#7f8b94;
+  font-size:7px;
+  text-align:right
+}
+.mpgd-filter-plot{
+  position:relative;
+  min-height:0;
+  overflow:hidden;
+  background:#fff;
+  cursor:crosshair
+}
+
+/* NGA Auto ZERO / Matching graph language: full-edge axis, dense log grid,
+   in-plot y labels and precise wrapped phase geometry. */
+.mpgd-filter-grid{
+  position:absolute;
+  inset:4px;
+  overflow:hidden;
+  border:1px solid #8f989f;
+  pointer-events:none;
+  background:
+    linear-gradient(to bottom,transparent calc(25% - .5px),#dde1e4 calc(25% - .5px),#dde1e4 calc(25% + .5px),transparent calc(25% + .5px)),
+    linear-gradient(to bottom,transparent calc(50% - .5px),#cbd1d5 calc(50% - .5px),#cbd1d5 calc(50% + .5px),transparent calc(50% + .5px)),
+    linear-gradient(to bottom,transparent calc(75% - .5px),#dde1e4 calc(75% - .5px),#dde1e4 calc(75% + .5px),transparent calc(75% + .5px))
+}
+.mpgd-filter-grid::before,
+.mpgd-filter-grid::after{display:none}
+.mpgd-filter-grid-line{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:1px;
+  transform:translateX(-.5px);
+  background:#d2d6d9;
+  opacity:.82
+}
+.mpgd-filter-svg{
+  position:absolute;
+  inset:4px;
+  width:calc(100% - 8px);
+  height:calc(100% - 8px);
+  overflow:visible;
+  pointer-events:none
+}
+.mpgd-filter-svg .trace{
+  fill:none;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke
+}
+.mpgd-filter-svg--phase .trace{stroke:#1686d9}
+.mpgd-filter-svg--mag .trace{stroke:#e86f17}
+.mpgd-filter-svg--mag .uncertainty-needles{
+  fill:none;
+  stroke:rgba(220,72,72,.13);
+  stroke-width:1.15;
+  stroke-linecap:butt;
+  vector-effect:non-scaling-stroke
+}
+.mpgd-filter-svg .cursor{
+  stroke:#53616d;
+  stroke-width:1;
+  stroke-dasharray:3 3;
+  opacity:.78;
+  vector-effect:non-scaling-stroke
+}
+.mpgd-filter-svg .cursor-point{
+  stroke:#fff;
+  stroke-width:1.2;
+  vector-effect:non-scaling-stroke
+}
+.mpgd-filter-svg--phase .cursor-point{fill:#1686d9}
+.mpgd-filter-svg--mag .cursor-point{fill:#e86f17}
+
+.mpgd-filter-ylabels{
+  z-index:4;
+  position:absolute;
+  top:9px;
+  bottom:9px;
+  left:9px;
+  width:auto;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  align-items:flex-start;
+  color:#555f67;
+  font-size:7.5px;
+  font-variant-numeric:tabular-nums;
+  pointer-events:none;
+  text-shadow:0 1px 2px #fff,1px 0 2px #fff,-1px 0 2px #fff
+}
+.mpgd-filter-xlabels{
+  z-index:4;
+  position:absolute;
+  left:4px;
+  right:4px;
+  bottom:7px;
+  height:12px;
+  display:block;
+  overflow:visible;
+  pointer-events:none
+}
+.mpgd-filter-xlabels span{
+  position:absolute;
+  bottom:0;
+  transform:translateX(-50%);
+  color:#555f67;
+  font-size:7.5px;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+  text-shadow:0 1px 2px #fff,1px 0 2px #fff,-1px 0 2px #fff
+}
+
+/* Per-band editor replaces the old permanent Filter Tools column. */
+.mpgd-band-editor{
+  position:absolute;
+  z-index:35;
+  right:14px;
+  top:56px;
+  width:300px;
+  border:1px solid #9faab4;
+  border-top:3px solid var(--raptor-active);
+  border-radius:7px;
+  background:#fff;
+  box-shadow:0 12px 28px rgba(24,32,42,.19);
+  overflow:hidden
+}
+.mpgd-band-editor header{
+  height:32px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:0 5px 0 9px;
+  border-bottom:1px solid #c7d0d7;
+  background:linear-gradient(#fff,#f5f7f9)
+}
+.mpgd-band-editor header strong{
+  color:#33404b;
+  font-size:9px
+}
+.mpgd-band-editor header span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#84909a;
+  font-size:6.5px;
+  white-space:nowrap
+}
+.mpgd-band-editor header button{
+  margin-left:auto;
+  width:24px;
+  height:24px;
+  padding:0;
+  border:0;
+  border-radius:4px;
+  background:transparent;
+  color:#62707b;
+  font-size:16px;
+  cursor:pointer
+}
+.mpgd-band-editor header button:hover{background:#eef2f4}
+.mpgd-band-editor-fields{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:6px;
+  padding:8px;
+  background:#fff
+}
+.mpgd-band-editor-fields label{
+  display:grid;
+  grid-template-columns:72px minmax(0,1fr) 26px;
+  align-items:center;
+  gap:5px;
+  color:#5b6872;
+  font-size:7.5px;
+  font-weight:700
+}
+.mpgd-band-editor-fields input{
+  min-width:0;
+  height:25px;
+  box-sizing:border-box;
+  padding:0 6px;
+  border:1px solid #b9c3ca;
+  border-radius:4px;
+  background:#fff;
+  color:#27333d;
+  font-size:8.5px;
+  font-variant-numeric:tabular-nums
+}
+.mpgd-band-editor-fields b{
+  color:#89949d;
+  font-size:7px;
+  font-weight:700
+}
+.mpgd-band-delete{
+  height:25px;
+  margin-top:2px;
+  border:1px solid #bd8e8e;
+  border-radius:4px;
+  background:#fff;
+  color:#993f3f;
+  font-size:8px;
+  font-weight:800;
+  cursor:pointer
+}
+.mpgd-band-delete:hover{background:#fff4f4}
+
+/* The old permanent tools column is retired. */
+.mpgd-filter-tools{display:none!important}
+
+@media(max-width:700px){
+  .mpgd-filter-window{
+    width:calc(100vw - 8px);
+    height:calc(100vh - 14px)
+  }
+  .mpgd-filter-main{padding:4px;gap:4px}
+  .mpgd-filter-toolbar{padding:0 5px;gap:4px}
+  .mpgd-filter-check{padding:0 4px;font-size:7px}
+  .mpgd-filter-readout{min-width:92px;font-size:7px}
+  .mpgd-filter-pointer-readout{min-width:84px;font-size:7px}
+  .mpgd-band-editor{right:7px;top:50px;width:min(286px,calc(100% - 14px))}
+}
