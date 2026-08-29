@@ -1490,6 +1490,15 @@ function setCursor(cursor,x,y,visible){
   cursor.p.setAttribute('cx',x);cursor.p.setAttribute('cy',y);
 }
 
+function restoreIdleGraphReadout(win,filter,kind){
+  const entry=sourceEntry(filter);
+  const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
+  const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
+  if(readout) readout.textContent=entry?.name||'No input';
+  if(pointer) pointer.textContent='—';
+  if(kind==='phase') clearPhaseBranchInspect(win);
+}
+
 function bindPlot(win,filter,plot){
   const kind=plot.dataset.kind;
   plot.addEventListener('pointermove',event=>{
@@ -1534,13 +1543,8 @@ function bindPlot(win,filter,plot){
   });
 
   plot.addEventListener('pointerleave',()=>{
-    const entry=sourceEntry(filter);
-    const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
-    if(readout) readout.textContent=entry?.name||'No input';
-    const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
-    if(pointer) pointer.textContent='—';
+    restoreIdleGraphReadout(win,filter,kind);
     win.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
-    if(kind==='phase') clearPhaseBranchInspect(win);
   });
 
 
@@ -1926,9 +1930,8 @@ function renderWindow(filter,win){
     magFill?.setAttribute('d',magnitudeFillPath(magPath,views,indices));
     uncertainty?.setAttribute('d',uncertaintyNeedlePath(views,indices));
 
-    const sourceName=entry?.name||'Measurement';
-    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent=sourceName);
-    win.querySelectorAll('.mpgd-filter-pointer-readout').forEach(el=>el.textContent='—');
+    restoreIdleGraphReadout(win,filter,'phase');
+    restoreIdleGraphReadout(win,filter,'magnitude');
   }
 
   const phaseCard=win.querySelector('.mpgd-filter-card[data-filter-card="phase"]');
