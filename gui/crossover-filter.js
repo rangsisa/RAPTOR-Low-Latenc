@@ -89,12 +89,12 @@ function sampleRateFor(filter){
   const value=Number(filter.sampleRateHz??entry?.sampleRate??entry?.canonical?.sample_rate_hz);
   return Number.isFinite(value)&&value>0?value:null;
 }
-function baseViews(filter){
+function sourceCanonical(filter){
   const canonical=sourceEntry(filter)?.canonical||null;
   if(!canonical) return null;
   try{
     canonicalApi.validate(canonical);
-    return canonicalApi.views(canonical);
+    return canonical;
   }catch{
     return null;
   }
@@ -148,77 +148,46 @@ function linkwitzRileyDelta(type,frequencyHz,cutoffHz,slopeDbOct,sampleRateHz){
   };
 }
 
-function derivedViews(filter){
-  const base=baseViews(filter);
-  if(!base) return null;
-  if(filter.bypass) return base;
+function processedCanonical(filter){
+  const source=sourceCanonical(filter);
+  if(!source) return null;
+
+  // LP/HP is intentionally a file/response processor only:
+  // Canonical V1 in -> Canonical V1 out. No graph/editor state is involved.
+  const output=canonicalApi.clone(source);
+  if(filter.bypass) return output;
 
   const fs=sampleRateFor(filter);
   if(!fs||!(filter.frequencyHz<fs/2)) return null;
 
-  const frequency=base.frequency_hz;
-  const magnitude=base.magnitude_db;
-  const phase=base.phase_deg;
-  if(!(frequency&&magnitude&&phase)) return null;
+  const views=canonicalApi.views(output);
+  const frequency=views.frequency_hz;
+  const magnitude=views.magnitude_db;
+  const phase=views.phase_deg;
 
-  const outMagnitude=new Float64Array(frequency.length);
-  const outPhase=new Float64Array(frequency.length);
-
-  for(let i=0;i<frequency.length;i++){
+  for(let i=0;i<output.points;i++){
     const f=Number(frequency[i]);
     const sourceMagnitude=Number(magnitude[i]);
     const sourcePhase=Number(phase[i]);
     if(!(Number.isFinite(f)&&f>0&&Number.isFinite(sourceMagnitude)&&Number.isFinite(sourcePhase))) return null;
 
     const delta=linkwitzRileyDelta(filter.type,f,filter.frequencyHz,filter.slopeDbOct,fs);
-    outMagnitude[i]=sourceMagnitude+delta.magnitudeDb;
-    outPhase[i]=principalRad(sourcePhase*Math.PI/180+delta.phaseRad)*180/Math.PI;
+    magnitude[i]=sourceMagnitude+delta.magnitudeDb;
+    phase[i]=principalRad(sourcePhase*Math.PI/180+delta.phaseRad)*180/Math.PI;
   }
 
-  return Object.freeze({
-    ...base,
-    magnitude_db:outMagnitude,
-    phase_deg:outPhase,
-    crossover_geometry:Object.freeze({
-      model:MODEL,
-      type:filter.type,
-      cutoff_hz:filter.frequencyHz,
-      slope_db_oct:filter.slopeDbOct,
-      butterworth_order:filter.slopeDbOct/12,
-      lr_order:filter.slopeDbOct/6,
-      sample_rate_hz:fs,
-      canonical_mutated:false
-    })
-  });
+  // The payload changed, so a source payload hash must never be carried forward.
+  // A later serialization/export stage may compute a fresh hash if required.
+  output.payload_sha256=null;
+  output.measurement_id=filter.id;
+  output.source_name=(source.source_name||sourceEntry(filter)?.name||'Measurement')+' -> '+labelFor(filter.type);
+  canonicalApi.validate(output);
+  return output;
 }
 
 function getOutput(filterId){
   const filter=filterById(filterId);
-  if(!filter) return null;
-  const entry=sourceEntry(filter);
-  const views=derivedViews(filter);
-  if(!entry||!views) return null;
-  return {
-    schema:'raptor.response_descriptor.v1',
-    filterId:filter.id,
-    filterType:filter.type,
-    outputKind:'response',
-    bypass:filter.bypass===true,
-    sourceMeasurementId:entry.id,
-    color:entry.color||null,
-    frequency_hz:views.frequency_hz,
-    magnitude_db:views.magnitude_db,
-    phase_deg:views.phase_deg,
-    coherence:views.coherence||null,
-    sampleRateHz:sampleRateFor(filter),
-    processing:Object.freeze({
-      model:MODEL,
-      type:filter.type,
-      cutoffFrequencyHz:filter.frequencyHz,
-      slopeDbOct:filter.slopeDbOct
-    }),
-    canonicalMutated:false
-  };
+  return filter?processedCanonical(filter):null;
 }
 
 function hexTint(hex,alpha=.10){
@@ -410,16 +379,18 @@ function buildNode(filter,index){
   output.setAttribute('aria-label','Response output from '+filter.id);
   output.addEventListener('pointerdown',event=>{
     event.stopPropagation();
-    const descriptor=getOutput(filter.id);
+    const canonical=getOutput(filter.id);
     document.dispatchEvent(new CustomEvent('raptor:filteroutputwirestart',{
       detail:{
         filterId:filter.id,
         filterType:filter.type,
-        outputKind:'response',
+        outputKind:'canonical',
         bypass:filter.bypass===true,
         sourceMeasurementId:filter.input?.id||null,
         color:sourceColor(filter),
-        hasData:!!descriptor
+        format:canonical?.format||null,
+        canonical,
+        hasData:!!canonical
       }
     }));
   });
@@ -696,12 +667,6 @@ window.RaptorCrossoverFilter=Object.freeze({
     return filter?cloneFilter(filter,false):null;
   },
   getOutput,
-  responseAt(filterId,frequencyHz){
-    const filter=filterById(filterId);
-    const fs=filter?sampleRateFor(filter):null;
-    if(!filter||!fs) return null;
-    return linkwitzRileyDelta(filter.type,Number(frequencyHz),filter.frequencyHz,filter.slopeDbOct,fs);
-  },
   setBypass(filterId,bypass){
     const filter=filterById(filterId);
     if(!filter) return false;
