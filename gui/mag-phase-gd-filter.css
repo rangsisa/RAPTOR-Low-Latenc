@@ -16,6 +16,8 @@
   box-shadow:0 2px 7px rgba(24,32,42,.07);
   overflow:visible;
   user-select:none;
+  touch-action:none;
+  overscroll-behavior:contain;
   transition:border-color 120ms ease,box-shadow 120ms ease
 }
 .mpgd-filter-node.has-lineage{
@@ -36,7 +38,8 @@
   border-bottom:1px solid #b8c2ca;
   border-radius:5px 5px 0 0;
   background:#f7f9fa;
-  cursor:grab
+  cursor:grab;
+  touch-action:none
 }
 .mpgd-filter-node.is-dragging .mpgd-filter-node-head{cursor:grabbing}
 .mpgd-filter-node-title{
@@ -747,4 +750,83 @@
   .mpgd-filter-readout{min-width:92px;font-size:7px}
   .mpgd-filter-pointer-readout{min-width:84px;font-size:7px}
   .mpgd-band-editor{right:7px;top:50px;width:min(286px,calc(100% - 14px))}
+}
+
+
+/* Touch interaction contract:
+   node surface = drag gesture; controls = taps/clicks. */
+.mpgd-filter-play,
+.mpgd-filter-delete,
+.mpgd-filter-bypass,
+.mpgd-filter-bypass input,
+.mpgd-filter-band-button,
+.mpgd-filter-window-close,
+.mpgd-filter-check,
+.mpgd-filter-check input,
+.mpgd-band-editor input,
+.mpgd-band-editor select,
+.mpgd-band-editor button{
+  touch-action:manipulation
+}
+.mpgd-filter-bypass{
+  position:relative;
+  z-index:18
+}
+.mpgd-filter-bypass input{
+  pointer-events:auto;
+  cursor:pointer
+}
+
+/* Per-band control points. The layer uses plot coordinates while the
+   markers remain true CSS circles even though the SVG graph is non-uniformly scaled. */
+.mpgd-band-markers{
+  position:absolute;
+  z-index:9;
+  inset:4px;
+  pointer-events:none
+}
+.mpgd-band-marker{
+  --band-color:#FF1744;
+  position:absolute;
+  width:18px;
+  height:18px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:var(--band-color);
+  color:#fff;
+  box-shadow:
+    0 0 0 1.5px var(--band-color),
+    0 2px 5px rgba(20,30,40,.24);
+  transform:translate(-50%,-50%);
+  font-size:7px;
+  font-weight:900;
+  line-height:1;
+  text-shadow:0 1px 2px rgba(0,0,0,.65);
+  pointer-events:auto;
+  cursor:pointer;
+  touch-action:manipulation;
+  transition:transform 90ms ease,box-shadow 90ms ease
+}
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus-visible{
+  outline:none;
+  transform:translate(-50%,-50%) scale(1.18);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px var(--band-color),
+    0 3px 8px rgba(20,30,40,.25)
+}
+.mpgd-band-marker:active{
+  transform:translate(-50%,-50%) scale(1.08)
+}
+
+@media(max-width:700px){
+  .mpgd-band-marker{
+    width:20px;
+    height:20px;
+    font-size:7.5px
+  }
 }
