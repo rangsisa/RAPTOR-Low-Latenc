@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const TOOL_IDS=['raptor-editor','nga-editor','nga-auto-zero'];
+const TOOL_IDS=['nga-auto-zero'];
 const F0=20;
 const F1=20000;
 const WIDTH=1000;
@@ -26,9 +26,7 @@ const UI_STATES=new Map(TOOL_IDS.map(id=>[id,{
   sync:true
 }]));
 
-function eqGeometryForTool(toolId){
-  if(toolId==='raptor-editor') return window.RaptorEditorEqGeometry||null;
-  if(toolId==='nga-editor') return window.NgaEditorEqGeometry||null;
+function eqGeometryForTool(){
   return null;
 }
 
@@ -924,12 +922,6 @@ document.addEventListener('raptor:toolinput',event=>{
     canonical:event.detail?.canonical||body?._raptorInput?.canonical||null,
     views:event.detail?.views||body?._raptorInput?.views||null
   });
-});
-
-document.addEventListener('raptor:eqgeometrychange',event=>{
-  const toolId=event.detail?.toolId;
-  if(toolId!=='raptor-editor'&&toolId!=='nga-editor') return;
-  render(toolId);
 });
 
 for(const toolId of TOOL_IDS){
