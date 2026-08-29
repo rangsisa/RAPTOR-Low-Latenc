@@ -969,7 +969,7 @@ window.addEventListener('resize',closePipelineContextMenu);
 
 canvas.addEventListener('contextmenu',event=>{
   const target=event.target;
-  if(target.closest?.('.measurement-node,.processor-node,.pipeline-context-menu,.pipeline-persistent-wire-hit')) return;
+  if(target.closest?.('.measurement-node,.processor-node,.mpgd-filter-node,.pipeline-context-menu,.pipeline-persistent-wire-hit')) return;
   openCanvasContextMenu(event);
 });
 
