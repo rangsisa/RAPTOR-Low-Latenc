@@ -1260,3 +1260,140 @@
     font-size:6.8px
   }
 }
+
+
+/* 2026-08-29 Phase Inspect + unified boxed graph-header readouts. */
+.mpgd-filter-card{
+  grid-template-rows:38px minmax(0,1fr)
+}
+.mpgd-filter-card-head{
+  height:38px;
+  min-width:0;
+  gap:5px;
+  padding:0 6px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none
+}
+.mpgd-filter-card-head::-webkit-scrollbar{display:none}
+.mpgd-filter-card-head strong{
+  flex:0 0 auto;
+  font-size:10.5px
+}
+
+/* All numeric/readout values use the same compact framed language.
+   Width follows content instead of reserving arbitrary fixed slots. */
+.mpgd-filter-readout,
+.mpgd-filter-pointer-readout,
+.mpgd-filter-value-pill,
+.mpgd-filter-unit{
+  box-sizing:border-box;
+  width:auto;
+  min-width:0;
+  height:25px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 1 auto;
+  padding:0 7px;
+  border:1px solid #c8d1d7;
+  border-radius:5px;
+  background:#fff;
+  font-size:10px;
+  font-weight:750;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  white-space:nowrap
+}
+.mpgd-filter-readout{
+  max-width:220px;
+  margin-left:auto;
+  color:#4e5c67;
+  border-color:#bdc7ce;
+  background:#fff;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.mpgd-filter-pointer-readout{
+  max-width:none;
+  color:#277a42;
+  border-color:#85c49a;
+  background:#f2fbf5;
+  text-align:center
+}
+.mpgd-filter-value-pill{
+  flex:0 0 auto
+}
+.mpgd-filter-value-pill--delay{
+  color:#7250a5;
+  border-color:#b5a0d3;
+  background:#f7f3fc
+}
+.mpgd-filter-value-pill--phase{
+  color:#176caa;
+  border-color:#87b8db;
+  background:#f0f8fd
+}
+.mpgd-filter-unit{
+  flex:0 0 auto;
+  padding:0 6px;
+  color:#6f7c86;
+  border-color:#d2d8dd;
+  background:#f8fafb;
+  font-size:8.8px;
+  font-weight:800
+}
+
+/* Clicked phase-line inspection point. */
+.mpgd-filter-svg--phase .phase-inspect-marker{
+  fill:#fff;
+  stroke:#7250a5;
+  stroke-width:2.2;
+  vector-effect:non-scaling-stroke;
+  filter:drop-shadow(0 1px 1px rgba(24,32,42,.22))
+}
+
+/* Larger axis numbers to match the revised Filter typography. */
+.mpgd-filter-ylabels,
+.mpgd-filter-xlabels span{
+  font-size:9.2px
+}
+
+/* Keep Phase/Magnitude rack headers vertically aligned with graph headers. */
+.mpgd-band-rack-section{
+  grid-template-rows:38px minmax(0,1fr)
+}
+.mpgd-band-rack-head{
+  min-height:38px
+}
+
+@media(max-width:700px){
+  .mpgd-filter-card{
+    grid-template-rows:36px minmax(0,1fr)
+  }
+  .mpgd-filter-card-head{
+    height:36px;
+    gap:4px;
+    padding:0 4px
+  }
+  .mpgd-filter-readout,
+  .mpgd-filter-pointer-readout,
+  .mpgd-filter-value-pill{
+    height:24px;
+    padding:0 6px;
+    font-size:9.4px
+  }
+  .mpgd-filter-readout{max-width:145px}
+  .mpgd-filter-unit{
+    height:24px;
+    font-size:8.2px
+  }
+  .mpgd-filter-ylabels,
+  .mpgd-filter-xlabels span{
+    font-size:8.5px
+  }
+  .mpgd-band-rack-section{
+    grid-template-rows:36px minmax(0,1fr)
+  }
+  .mpgd-band-rack-head{min-height:36px}
+}
