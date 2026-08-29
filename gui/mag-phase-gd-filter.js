@@ -1063,6 +1063,7 @@ function openBandEditor(win,filter,bandId){
   panel.innerHTML=
     '<header><strong>Band Editor</strong><span data-band-id></span><button type="button" data-band-close aria-label="Close">×</button></header>'+
     '<div class="mpgd-band-editor-fields">'+
+      '<label><span>Band</span><select data-band-select></select><b>#</b></label>'+
       '<label><span>Frequency</span><input type="number" step="1" min="20" max="20000" data-band-frequency><b>Hz</b></label>'+
       '<label><span>Gain</span><input type="number" step="0.1" min="-24" max="24" data-band-gain><b>dB</b></label>'+
       '<label><span>Q</span><input type="number" step="0.01" min="0.05" max="50" data-band-q><b>Q</b></label>'+
@@ -1070,6 +1071,16 @@ function openBandEditor(win,filter,bandId){
     '</div>';
 
   panel.querySelector('[data-band-id]').textContent=band.id;
+  const select=panel.querySelector('[data-band-select]');
+  filter.bands.forEach((item,index)=>{
+    const option=document.createElement('option');
+    option.value=item.id;
+    option.textContent='Band '+(index+1)+' · '+formatFrequency(item.frequencyHz);
+    option.selected=item.id===band.id;
+    select.appendChild(option);
+  });
+  select.addEventListener('change',()=>openBandEditor(win,filter,select.value));
+
   const fInput=panel.querySelector('[data-band-frequency]');
   const gInput=panel.querySelector('[data-band-gain]');
   const qInput=panel.querySelector('[data-band-q]');
