@@ -1127,3 +1127,136 @@
   .mpgd-band-rack-edit{width:30px}
   .mpgd-band-rack-delete{width:36px;font-size:6.2px}
 }
+
+
+/* 2026-08-29 direct-band controls + unified Filter typography. */
+
+/* Give each Band Point a generous invisible mouse-wheel / drag hit target,
+   while keeping the visible circle at the established size. */
+.mpgd-band-marker{
+  width:30px;
+  height:30px;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.65)
+}
+.mpgd-band-marker::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:18px;
+  height:18px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:var(--band-color);
+  box-shadow:
+    0 0 0 1.5px var(--band-color),
+    0 2px 5px rgba(20,30,40,.24);
+  transform:translate(-50%,-50%);
+  transition:transform 90ms ease,box-shadow 90ms ease
+}
+.mpgd-band-marker{
+  z-index:1
+}
+.mpgd-band-marker::after{
+  content:attr(data-band-number);
+  position:absolute;
+  z-index:2;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  font-size:7px;
+  font-weight:900;
+  line-height:1
+}
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus-visible,
+.mpgd-band-marker.is-gain-dragging{
+  transform:translate(-50%,-50%)
+}
+.mpgd-band-marker:hover::before,
+.mpgd-band-marker:focus-visible::before,
+.mpgd-band-marker.is-gain-dragging::before{
+  transform:translate(-50%,-50%) scale(1.18);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px var(--band-color),
+    0 3px 8px rgba(20,30,40,.25)
+}
+.mpgd-band-marker.is-gain-dragging{cursor:ns-resize}
+.mpgd-band-marker:hover{cursor:ns-resize}
+
+/* Unified readable typography: use the Band Edit scale as the baseline
+   throughout the whole filter workspace rather than the previous micro type. */
+.mpgd-filter-window-title strong{font-size:11px}
+.mpgd-filter-window-title span{font-size:8.25px}
+.mpgd-filter-check{font-size:9.35px}
+.mpgd-filter-idchip{font-size:8.25px}
+.mpgd-filter-card-head strong{font-size:10px}
+.mpgd-filter-readout{font-size:8.8px}
+.mpgd-filter-pointer-readout{font-size:8.8px}
+.mpgd-filter-unit{font-size:7.7px}
+.mpgd-filter-ylabels{font-size:8.25px}
+.mpgd-filter-xlabels span{font-size:8.25px}
+
+.mpgd-band-rack-head strong{font-size:9.35px}
+.mpgd-band-rack-head span{font-size:7.7px}
+.mpgd-band-rack-empty{font-size:8.25px}
+.mpgd-band-rack-info strong{font-size:8.8px}
+.mpgd-band-rack-info span{font-size:7.2px}
+.mpgd-band-rack-edit{font-size:7.7px}
+.mpgd-band-rack-delete{font-size:7.4px}
+
+.mpgd-filter-node-title strong{font-size:10.5px}
+.mpgd-filter-node-title span{font-size:7.2px}
+.mpgd-filter-input-copy span,
+.mpgd-filter-output-copy span{font-size:6.6px}
+.mpgd-filter-input-copy strong{font-size:8.25px}
+.mpgd-filter-output-copy strong{font-size:9.35px}
+.mpgd-filter-bypass{font-size:8.25px}
+.mpgd-filter-band-count{font-size:7.2px}
+.mpgd-filter-delete--footer{font-size:8.25px}
+
+/* Shrink the Band Rack again and return horizontal authority to the graphs. */
+.mpgd-filter-workspace{
+  grid-template-columns:minmax(0,1fr) minmax(175px,18%);
+}
+.mpgd-band-rack-row{
+  grid-template-columns:10px minmax(0,1fr) auto;
+  gap:3px;
+  padding:3px 3px 3px 4px
+}
+.mpgd-band-rack-list{padding:4px}
+.mpgd-band-rack-actions{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:2px
+}
+.mpgd-band-rack-edit,
+.mpgd-band-rack-delete{
+  width:34px;
+  height:20px
+}
+
+@media(max-width:700px){
+  .mpgd-filter-workspace{
+    grid-template-columns:minmax(0,1fr) minmax(145px,20%);
+  }
+  .mpgd-filter-check{font-size:8.25px}
+  .mpgd-filter-card-head strong{font-size:9.35px}
+  .mpgd-filter-readout,
+  .mpgd-filter-pointer-readout{font-size:8.25px}
+  .mpgd-filter-ylabels,
+  .mpgd-filter-xlabels span{font-size:7.7px}
+  .mpgd-band-rack-head strong{font-size:8.25px}
+  .mpgd-band-rack-info strong{font-size:8.25px}
+  .mpgd-band-rack-info span{font-size:6.8px}
+  .mpgd-band-rack-edit,
+  .mpgd-band-rack-delete{
+    width:31px;
+    font-size:6.8px
+  }
+}
