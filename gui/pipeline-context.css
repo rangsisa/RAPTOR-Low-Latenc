@@ -55,8 +55,30 @@
   pointer-events:stroke;
   cursor:context-menu
 }
-.pipeline-persistent-wire,
-.pipeline-wire-flow{pointer-events:none}
+.pipeline-persistent-wire{
+  fill:none;
+  stroke-width:2;
+  stroke-linecap:round;
+  opacity:.82;
+  pointer-events:none
+}
+.pipeline-wire-flow{
+  fill:none;
+  stroke:#fff;
+  stroke-width:1.35;
+  stroke-linecap:round;
+  stroke-dasharray:2 11;
+  opacity:.92;
+  pointer-events:none;
+  animation:raptor-wire-current .72s linear infinite;
+  filter:drop-shadow(0 0 1px rgba(255,255,255,.9))
+}
+@keyframes raptor-wire-current{
+  to{stroke-dashoffset:-26}
+}
+@media(prefers-reduced-motion:reduce){
+  .pipeline-wire-flow{animation:none;stroke-dasharray:2 11;opacity:.72}
+}
 
 @media(max-width:700px){
   .pipeline-context-menu{min-width:190px;padding:5px}
