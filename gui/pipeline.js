@@ -148,6 +148,47 @@ function unregisterInput(id){
   inputRegistry.delete(id);
 }
 
+function clearRegisteredInputHighlights(){
+  for(const input of inputRegistry.values()){
+    input.element?.classList?.remove('is-wire-available','is-wire-magnet');
+  }
+}
+
+function eligibleRegisteredInputs(entry){
+  const eligible=[];
+  for(const input of inputRegistry.values()){
+    const element=input.element;
+    if(!element?.isConnected) continue;
+    if(typeof input.canAccept==='function'&&!input.canAccept(entry)) continue;
+    eligible.push(input);
+  }
+  return eligible;
+}
+
+function nearestRegisteredInput(clientX,clientY,entry){
+  let best=null;
+  for(const input of eligibleRegisteredInputs(entry)){
+    const rect=input.element.getBoundingClientRect();
+    const x=rect.left+rect.width/2;
+    const y=rect.top+rect.height/2;
+    const distance=Math.hypot(clientX-x,clientY-y);
+    const radius=Number.isFinite(input.radius)?input.radius:48;
+    if(distance<=radius&&(!best||distance<best.distance)){
+      best={input,distance,x,y};
+    }
+  }
+  return best;
+}
+
+function registeredInputCanvasPoint(input){
+  const rect=input.element.getBoundingClientRect();
+  const canvasRect=nodeCanvas.getBoundingClientRect();
+  return {
+    x:rect.left+rect.width/2-canvasRect.left+nodeCanvas.scrollLeft,
+    y:rect.top+rect.height/2-canvasRect.top+nodeCanvas.scrollTop
+  };
+}
+
 function hexTint(hex,alpha=.09){
   const value=hex.replace('#','');
   const full=value.length===3?value.split('').map(c=>c+c).join(''):value;
@@ -594,17 +635,49 @@ function startWire(event,entry,handle){
   measurementNode.classList.add('is-wiring');
   row?.classList.add('is-wiring');
   handle.classList.add('is-wiring');
+
+  clearRegisteredInputHighlights();
+  for(const candidate of eligibleRegisteredInputs(entry)){
+    candidate.element.classList.add('is-wire-available');
+  }
+
   try{handle.setPointerCapture(pointerId)}catch{}
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
-    const endX=moveEvent.clientX-canvasRect.left+nodeCanvas.scrollLeft;
-    const endY=moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop;
+
+    clearRegisteredInputHighlights();
+    for(const candidate of eligibleRegisteredInputs(entry)){
+      candidate.element.classList.add('is-wire-available');
+    }
+
+    const magnet=nearestRegisteredInput(moveEvent.clientX,moveEvent.clientY,entry);
+    let endX=moveEvent.clientX-canvasRect.left+nodeCanvas.scrollLeft;
+    let endY=moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop;
+    if(magnet){
+      magnet.input.element.classList.add('is-wire-magnet');
+      const point=registeredInputCanvasPoint(magnet.input);
+      endX=point.x;
+      endY=point.y;
+    }
+
     const bend=Math.max(48,Math.abs(endX-startX)*.38);
     wirePath.setAttribute('d',`M ${startX} ${startY} C ${startX+bend} ${startY}, ${endX-bend} ${endY}, ${endX} ${endY}`);
   };
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
+
+    const magnet=nearestRegisteredInput(endEvent.clientX,endEvent.clientY,entry);
+    if(magnet&&typeof magnet.input.onConnect==='function'){
+      magnet.input.onConnect(entry,{
+        inputId:magnet.input.id,
+        sourceKind:'measurement',
+        sourceId:entry.id,
+        color:entry.color
+      });
+    }
+
     wirePath.removeAttribute('d');
+    clearRegisteredInputHighlights();
     measurementNode.classList.remove('is-wiring');
     row?.classList.remove('is-wiring');
     handle.classList.remove('is-wiring');
