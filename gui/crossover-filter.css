@@ -1,0 +1,284 @@
+/* Dynamic Lowpass / Highpass crossover nodes. */
+.xo-filter-node{
+  --lineage-color:#8FA6B8;
+  --lineage-tint:rgba(143,166,184,.12);
+  --lineage-tint-soft:rgba(143,166,184,.055);
+  position:absolute;
+  z-index:4;
+  width:244px;
+  min-height:148px;
+  display:grid;
+  grid-template-rows:34px 84px 30px;
+  overflow:visible;
+  border:1px solid #8f9ca7;
+  border-radius:6px;
+  background:#fff;
+  box-shadow:0 2px 7px rgba(24,32,42,.07);
+  user-select:none;
+  touch-action:none;
+  overscroll-behavior:contain
+}
+.xo-filter-node.has-lineage{
+  border-color:var(--lineage-color);
+  box-shadow:inset 3px 0 0 var(--lineage-color),0 2px 7px rgba(24,32,42,.08)
+}
+.xo-filter-node.is-dragging{
+  z-index:13;
+  box-shadow:inset 3px 0 0 var(--lineage-color),0 8px 22px rgba(24,32,42,.16)
+}
+.xo-filter-node-head{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  padding:0 8px 0 10px;
+  border-bottom:1px solid #b8c2ca;
+  border-radius:5px 5px 0 0;
+  background:#f7f9fa;
+  cursor:pointer;
+  touch-action:none
+}
+.xo-filter-node-title{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  line-height:1.04
+}
+.xo-filter-node-title strong{
+  color:#202a33;
+  font-size:10.5px;
+  font-weight:850;
+  white-space:nowrap
+}
+.xo-filter-node-title span{
+  max-width:205px;
+  margin-top:2px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#77848e;
+  font-size:7.2px;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap
+}
+.xo-filter-node-body{
+  min-width:0;
+  display:grid;
+  grid-template-columns:76px minmax(0,1fr) 54px;
+  background:#fff
+}
+.xo-filter-node.has-lineage .xo-filter-node-body{
+  background:linear-gradient(90deg,var(--lineage-tint) 0%,var(--lineage-tint-soft) 28%,#fff 62%)
+}
+.xo-filter-input-pane,
+.xo-filter-output-pane{
+  position:relative;
+  min-width:0;
+  display:flex;
+  align-items:center
+}
+.xo-filter-input-pane{
+  padding:8px 4px 8px 22px;
+  border-right:1px solid #d1d7dc
+}
+.xo-filter-output-pane{
+  justify-content:flex-end;
+  padding:8px 21px 8px 4px;
+  border-left:1px solid #d1d7dc
+}
+.xo-filter-input-copy,
+.xo-filter-output-copy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  line-height:1.06
+}
+.xo-filter-input-copy span,
+.xo-filter-output-copy span{
+  color:#85919a;
+  font-size:6.6px;
+  font-weight:750;
+  letter-spacing:.055em
+}
+.xo-filter-input-copy strong{
+  max-width:48px;
+  margin-top:4px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#45525d;
+  font-size:8.25px;
+  white-space:nowrap
+}
+.xo-filter-output-copy{
+  align-items:flex-end
+}
+.xo-filter-output-copy strong{
+  margin-top:4px;
+  color:#3e4b55;
+  font-size:8.8px;
+  font-weight:850
+}
+.xo-filter-input,
+.xo-filter-output{
+  --port-color:#73818b;
+  position:absolute;
+  z-index:11;
+  width:30px;
+  height:30px;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  cursor:crosshair;
+  touch-action:none
+}
+.xo-filter-input{
+  left:-15px;
+  top:50%;
+  transform:translateY(-50%)
+}
+.xo-filter-output{
+  right:-15px;
+  top:50%;
+  transform:translateY(-50%)
+}
+.xo-filter-input::after,
+.xo-filter-output::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:14px;
+  height:14px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 0 1.5px var(--port-color);
+  transform:translate(-50%,-50%)
+}
+.xo-filter-input.is-connected::after,
+.xo-filter-node.has-lineage .xo-filter-output::after{
+  background:var(--port-color)
+}
+.xo-filter-input.is-wire-available::after{
+  transform:translate(-50%,-50%) scale(1.16);
+  box-shadow:0 0 0 2px var(--raptor-active),0 0 0 6px rgba(232,111,23,.10)
+}
+.xo-filter-input.is-wire-magnet::after{
+  transform:translate(-50%,-50%) scale(1.30);
+  background:var(--raptor-active);
+  box-shadow:0 0 0 2px #fff,0 0 0 7px rgba(232,111,23,.22)
+}
+.xo-filter-controls{
+  min-width:0;
+  display:grid;
+  grid-template-rows:1fr 1fr;
+  gap:5px;
+  padding:7px 6px
+}
+.xo-filter-control{
+  min-width:0;
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr);
+  align-items:center;
+  gap:5px;
+  color:#5b6872;
+  font-size:8.25px;
+  font-weight:750
+}
+.xo-filter-control select{
+  min-width:0;
+  height:27px;
+  box-sizing:border-box;
+  padding:0 4px;
+  border:1px solid #b9c3ca;
+  border-radius:4px;
+  background:#fff;
+  color:#27333d;
+  font-size:9.35px;
+  font-weight:750;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.xo-filter-control select:focus{
+  outline:none;
+  border-color:var(--lineage-color);
+  box-shadow:0 0 0 2px var(--lineage-tint)
+}
+.xo-filter-node-foot{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:3px 6px;
+  border-top:1px solid #bfc8d0;
+  border-radius:0 0 5px 5px;
+  background:#f7f9fa
+}
+.xo-filter-bypass{
+  position:relative;
+  z-index:18;
+  height:22px;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:0 6px;
+  border:1px solid #e0a166;
+  border-radius:4px;
+  background:#fff8f2;
+  color:#a94a0b;
+  font-size:8.25px;
+  font-weight:850;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.xo-filter-bypass input{
+  width:11px;
+  height:11px;
+  margin:0;
+  accent-color:#3ca45e;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.xo-filter-node.is-bypassed .xo-filter-bypass{
+  border-color:#79bb8d;
+  background:#f2fbf4;
+  color:#347548
+}
+.xo-filter-model{
+  margin-left:auto;
+  color:#7b8790;
+  font-size:7.2px;
+  font-weight:850;
+  letter-spacing:.05em
+}
+.xo-filter-delete{
+  min-width:44px;
+  height:22px;
+  padding:0 7px;
+  border:1px solid #bd8e8e;
+  border-radius:4px;
+  background:#fff;
+  color:#993f3f;
+  font-size:8.25px;
+  font-weight:850;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.xo-filter-delete:hover{
+  border-color:#b87676;
+  background:#fff4f4;
+  color:#8d3030
+}
+@media(max-width:700px){
+  .xo-filter-node{
+    width:232px;
+    grid-template-rows:34px 82px 30px
+  }
+  .xo-filter-node-body{
+    grid-template-columns:70px minmax(0,1fr) 50px
+  }
+  .xo-filter-control{
+    grid-template-columns:38px minmax(0,1fr);
+    font-size:7.7px
+  }
+  .xo-filter-control select{font-size:8.8px}
+}
