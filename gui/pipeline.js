@@ -699,7 +699,12 @@ function startCanonicalWire(event,source,handle){
   const sourceKind=source.kind==='filter'?'filter':'measurement';
   if(!sourceId) return false;
 
-  try{canonicalV1.validate(source.canonical)}catch{return false;}
+  const declaredFormat=source.format||source.canonical?.format||null;
+  if(source.canonical){
+    try{canonicalV1.validate(source.canonical)}catch{return false;}
+  }else if(declaredFormat!==canonicalV1.FORMAT){
+    return false;
+  }
 
   const eligible=()=>eligibleRegisteredInputs(source);
   const nearest=(clientX,clientY)=>{

@@ -431,16 +431,16 @@ function buildNode(filter,index){
     event.stopPropagation();
     const canonical=getOutput(filter.id);
     const color=sourceColor(filter);
-    if(canonical){
-      api.startCanonicalWire?.(event,{
-        kind:'filter',
-        id:filter.id,
-        name:filter.label,
-        color,
-        sampleRate:canonical.sample_rate_hz,
-        canonical
-      },output);
-    }
+    api.startCanonicalWire?.(event,{
+      kind:'filter',
+      id:filter.id,
+      name:filter.label,
+      color,
+      sampleRate:canonical?.sample_rate_hz||null,
+      format:canonical?.format||canonicalApi.FORMAT,
+      canonical,
+      hasData:!!canonical
+    },output);
     document.dispatchEvent(new CustomEvent('raptor:filteroutputwirestart',{
       detail:{
         filterId:filter.id,
@@ -450,7 +450,7 @@ function buildNode(filter,index){
         sourceKind:'filter',
         sourceId:filter.id,
         color,
-        format:canonical?.format||null,
+        format:canonical?.format||canonicalApi.FORMAT,
         canonical,
         hasData:!!canonical
       }

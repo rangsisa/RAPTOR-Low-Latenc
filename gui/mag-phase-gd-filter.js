@@ -207,25 +207,29 @@ function sourceEntry(filter){
   }
 
   const crossover=window.RaptorCrossoverFilter||null;
-  const canonical=crossover?.getOutput?.(ref.id)||null;
-  if(!canonical) return null;
-
-  const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
-  try{canonicalApi?.validate(canonical);}catch{return null;}
-
   const upstream=crossover?.get?.(ref.id)||null;
+  if(!upstream) return null;
+
+  let canonical=crossover?.getOutput?.(ref.id)||null;
+  const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
+  if(canonical){
+    try{canonicalApi?.validate(canonical);}catch{canonical=null;}
+  }
+
   const sourceNode=[...canvas.querySelectorAll('.xo-filter-node')]
     .find(node=>node.dataset.filterId===ref.id);
   const color=sourceNode?.style.getPropertyValue('--lineage-color')?.trim()||'#8FA6B8';
 
   return {
     id:ref.id,
-    name:upstream?.label?upstream.label+' · '+ref.id:(canonical.source_name||ref.id),
+    name:upstream?.label?upstream.label+' · '+ref.id:(canonical?.source_name||ref.id),
     color,
-    sampleRate:canonical.sample_rate_hz||null,
+    sampleRate:canonical?.sample_rate_hz||upstream.sampleRateHz||null,
     canonical,
+    format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
     sourceKind:'filter',
-    filterType:upstream?.type||null
+    filterType:upstream?.type||null,
+    hasData:!!canonical
   };
 }
 
@@ -424,14 +428,20 @@ function applyNodeLineage(node,filter){
 
 function canConnectInput(filter,source){
   if(!filter||!source||filter.input?.id) return false;
-  const canonical=source.canonical||null;
   const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
-  try{
-    canonicalApi?.validate(canonical);
-    return !!canonical;
-  }catch{
-    return false;
+  const canonical=source.canonical||null;
+
+  if(canonical){
+    try{
+      canonicalApi?.validate(canonical);
+      return true;
+    }catch{
+      return false;
+    }
   }
+
+  return source.kind==='filter'&&
+    (source.format||null)===(canonicalApi?.FORMAT||'raptor.measurement.canonical.v1');
 }
 
 function connectInput(filter,source,meta={}){
