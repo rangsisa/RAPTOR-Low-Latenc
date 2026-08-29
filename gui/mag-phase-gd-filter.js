@@ -1430,8 +1430,9 @@ function bindPlot(win,filter,plot){
   });
 
   plot.addEventListener('pointerleave',()=>{
+    const entry=sourceEntry(filter);
     const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
-    if(readout) readout.textContent='—';
+    if(readout) readout.textContent=entry?.name||'No input';
     const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
     if(pointer) pointer.textContent='—';
     win.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
@@ -1805,7 +1806,7 @@ function renderWindow(filter,win){
     magTrace?.setAttribute('d','');
     magFill?.setAttribute('d','');
     uncertainty?.setAttribute('d','');
-    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='—');
+    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='No input');
     win.querySelectorAll('.mpgd-filter-pointer-readout').forEach(el=>el.textContent='—');
   }else{
     const indices=pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence);
@@ -1816,7 +1817,8 @@ function renderWindow(filter,win){
     magFill?.setAttribute('d',magnitudeFillPath(magPath,views,indices));
     uncertainty?.setAttribute('d',uncertaintyNeedlePath(views,indices));
 
-    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='—');
+    const sourceName=entry?.name||'Measurement';
+    win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent=sourceName);
     win.querySelectorAll('.mpgd-filter-pointer-readout').forEach(el=>el.textContent='—');
   }
 
