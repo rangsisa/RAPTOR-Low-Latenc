@@ -1432,3 +1432,132 @@
 
 /* Retire the old point-inspector visual if an older cached DOM still carries it. */
 .mpgd-filter-svg--phase .phase-inspect-marker{display:none!important}
+
+
+/* 2026-08-29 calm band interaction + source-title cleanup. */
+
+/* Keep Band Points visually fixed while editing. Only the frequency-zone ripple moves. */
+.mpgd-band-marker,
+.mpgd-band-marker::before{
+  transition:none!important
+}
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus-visible,
+.mpgd-band-marker.is-gain-dragging{
+  transform:translate(-50%,-50%)!important
+}
+.mpgd-band-marker:hover::before,
+.mpgd-band-marker:focus-visible::before,
+.mpgd-band-marker.is-gain-dragging::before{
+  transform:translate(-50%,-50%)!important;
+  box-shadow:
+    0 0 0 1.5px var(--band-color),
+    0 2px 5px rgba(20,30,40,.24)!important
+}
+
+/* Water-like activity centered on the band's fixed frequency.
+   This is display-only and does not alter the graph or DSP data. */
+.mpgd-band-zone-ripple{
+  --band-color:#2979FF;
+  position:absolute;
+  z-index:0;
+  top:0;
+  bottom:0;
+  width:2px;
+  transform:translateX(-50%);
+  pointer-events:none;
+  overflow:visible
+}
+.mpgd-band-zone-ripple::before,
+.mpgd-band-zone-ripple::after{
+  content:"";
+  position:absolute;
+  top:3%;
+  bottom:3%;
+  left:50%;
+  width:8px;
+  transform:translateX(-50%);
+  border-left:1px solid var(--band-color);
+  border-right:1px solid var(--band-color);
+  border-radius:50%;
+  opacity:0
+}
+.mpgd-band-zone-ripple.is-active::before{
+  animation:mpgd-band-water 1.05s ease-out infinite
+}
+.mpgd-band-zone-ripple.is-active::after{
+  animation:mpgd-band-water 1.05s .34s ease-out infinite
+}
+@keyframes mpgd-band-water{
+  0%{
+    width:8px;
+    opacity:.28
+  }
+  70%{
+    width:54px;
+    opacity:.08
+  }
+  100%{
+    width:72px;
+    opacity:0
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .mpgd-band-zone-ripple.is-active::before,
+  .mpgd-band-zone-ripple.is-active::after{
+    animation:none;
+    width:42px;
+    opacity:.10
+  }
+}
+
+/* Use the normal pointing hand rather than browser-specific grab/grabbing cursors. */
+.mpgd-filter-window-head,
+.mpgd-filter-window-head:active,
+.mpgd-band-editor-head,
+.mpgd-band-editor-head:active,
+.mpgd-filter-node-head,
+.mpgd-filter-node.is-dragging .mpgd-filter-node-head{
+  cursor:pointer!important
+}
+
+/* Source identity now lives in the filter title and may grow with the filename. */
+.mpgd-filter-window-title{
+  min-width:0;
+  max-width:calc(100% - 42px)
+}
+.mpgd-filter-window-title strong{
+  display:block;
+  max-width:min(720px,72vw);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+
+/* Make the per-band rack substantially easier to read without widening it again. */
+.mpgd-band-rack-info strong{
+  font-size:10.2px!important;
+  line-height:1.12
+}
+.mpgd-band-rack-info span{
+  margin-top:4px!important;
+  font-size:8.6px!important;
+  line-height:1.18!important
+}
+.mpgd-band-rack-row{
+  min-height:44px
+}
+.mpgd-band-rack-dot{
+  width:11px;
+  height:11px
+}
+.mpgd-band-rack-edit,
+.mpgd-band-rack-delete{
+  font-size:7.8px!important
+}
+
+@media(max-width:700px){
+  .mpgd-band-rack-info strong{font-size:9.4px!important}
+  .mpgd-band-rack-info span{font-size:7.8px!important}
+  .mpgd-band-rack-row{min-height:41px}
+}
