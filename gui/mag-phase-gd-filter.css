@@ -702,7 +702,8 @@
   font-size:7.5px;
   font-weight:700
 }
-.mpgd-band-editor-fields input{
+.mpgd-band-editor-fields input,
+.mpgd-band-editor-fields select{
   min-width:0;
   height:25px;
   box-sizing:border-box;
