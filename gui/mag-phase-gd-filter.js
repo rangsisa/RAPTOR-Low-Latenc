@@ -836,6 +836,80 @@ function nearestIndex(array,target){
   return Math.abs(array[lo]-target)<Math.abs(array[prev]-target)?lo:prev;
 }
 
+function principalDeltaRad(aDeg,bDeg){
+  const delta=(Number(bDeg)-Number(aDeg))*Math.PI/180;
+  return Math.atan2(Math.sin(delta),Math.cos(delta));
+}
+
+function localGroupDelayMs(views,index){
+  const frequency=views?.frequency_hz;
+  const phase=views?.phase_deg;
+  if(!frequency||!phase||frequency.length<2) return null;
+
+  let left=Math.max(0,index-1);
+  let right=Math.min(frequency.length-1,index+1);
+  if(left===right){
+    if(right<frequency.length-1) right+=1;
+    else if(left>0) left-=1;
+  }
+  const f0=Number(frequency[left]);
+  const f1=Number(frequency[right]);
+  const p0=Number(phase[left]);
+  const p1=Number(phase[right]);
+  const df=f1-f0;
+  if(!(Number.isFinite(f0)&&Number.isFinite(f1)&&Number.isFinite(p0)&&Number.isFinite(p1)&&df>0)) return null;
+
+  // Derived local group-delay estimate from the principal complex phase delta.
+  // This does not claim absolute TOF or hidden winding authority.
+  const dphi=principalDeltaRad(p0,p1);
+  return -dphi/(2*Math.PI*df)*1000;
+}
+
+function formatDelayMs(value){
+  if(!Number.isFinite(value)) return '—';
+  const abs=Math.abs(value);
+  if(abs>=100) return value.toFixed(1)+' ms';
+  if(abs>=10) return value.toFixed(2)+' ms';
+  if(abs>=1) return value.toFixed(3)+' ms';
+  return value.toFixed(4)+' ms';
+}
+
+function updatePhaseInspect(win,views){
+  const delayEl=win.querySelector('[data-phase-inspect-delay]');
+  const phaseEl=win.querySelector('[data-phase-inspect-angle]');
+  const marker=win.querySelector('.mpgd-filter-svg--phase .phase-inspect-marker');
+  const inspection=win._phaseInspect||null;
+
+  if(!inspection||!views?.frequency_hz){
+    if(delayEl) delayEl.textContent='Delay —';
+    if(phaseEl) phaseEl.textContent='Phase —';
+    if(marker) marker.hidden=true;
+    return;
+  }
+
+  const index=nearestIndex(views.frequency_hz,inspection.frequencyHz);
+  const f=Number(views.frequency_hz[index]);
+  const phase=Number(views.phase_deg[index]);
+  const delay=localGroupDelayMs(views,index);
+  if(!(Number.isFinite(f)&&Number.isFinite(phase))){
+    if(delayEl) delayEl.textContent='Delay —';
+    if(phaseEl) phaseEl.textContent='Phase —';
+    if(marker) marker.hidden=true;
+    return;
+  }
+
+  win._phaseInspect={frequencyHz:f,index};
+  if(delayEl) delayEl.textContent='Delay '+formatDelayMs(delay);
+  if(phaseEl) phaseEl.textContent='Phase '+phase.toFixed(2)+'°';
+
+  if(marker){
+    marker.hidden=false;
+    marker.setAttribute('cx',xOf(f).toFixed(2));
+    marker.setAttribute('cy',yPhase(phase).toFixed(2));
+  }
+}
+
+
 function buildAxisLabels(container){
   container.replaceChildren();
   for(const f of FREQ_TICKS){
@@ -882,7 +956,24 @@ function buildGraph(kind){
   const unit=document.createElement('span');
   unit.className='mpgd-filter-unit';
   unit.textContent=kind==='phase'?'deg':'dB';
-  head.append(title,readout,pointer,unit);
+
+  if(kind==='phase'){
+    const delay=document.createElement('span');
+    delay.className='mpgd-filter-value-pill mpgd-filter-value-pill--delay';
+    delay.dataset.phaseInspectDelay='';
+    delay.textContent='Delay —';
+    delay.title='Derived local group delay from adjacent phase slope; not absolute TOF';
+
+    const angle=document.createElement('span');
+    angle.className='mpgd-filter-value-pill mpgd-filter-value-pill--phase';
+    angle.dataset.phaseInspectAngle='';
+    angle.textContent='Phase —';
+    angle.title='Current derived wrapped phase angle at the inspected frequency';
+
+    head.append(title,readout,pointer,delay,angle,unit);
+  }else{
+    head.append(title,readout,pointer,unit);
+  }
 
   const plot=document.createElement('div');
   plot.className='mpgd-filter-plot';
@@ -938,6 +1029,12 @@ function buildGraph(kind){
     const markers=document.createElementNS(SVG_NS,'path');
     markers.setAttribute('class','wrap-markers');
     svg.appendChild(markers);
+
+    const inspectMarker=document.createElementNS(SVG_NS,'circle');
+    inspectMarker.setAttribute('class','phase-inspect-marker');
+    inspectMarker.setAttribute('r','5');
+    inspectMarker.hidden=true;
+    svg.appendChild(inspectMarker);
   }
 
   const trace=document.createElementNS(SVG_NS,'path');
@@ -1171,6 +1268,33 @@ function bindPlot(win,filter,plot){
     if(pointer) pointer.textContent=kind==='phase'?'— Hz · —°':'— Hz · — dB';
     win.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
   });
+
+  if(kind==='phase'){
+    plot.addEventListener('click',event=>{
+      if(event.target.closest?.('.mpgd-band-marker')) return;
+      const views=win._mpgdDisplayViews||displayViewsForFilter(filter);
+      if(!views?.frequency_hz||!views?.phase_deg) return;
+
+      const rect=plot.getBoundingClientRect();
+      const plotWidth=Math.max(1,rect.width-8);
+      const plotHeight=Math.max(1,rect.height-8);
+      const localX=Math.max(0,Math.min(plotWidth,event.clientX-rect.left-4));
+      const ratio=localX/plotWidth;
+      const targetFrequency=frequencyAtRatio(ratio);
+      const index=nearestIndex(views.frequency_hz,targetFrequency);
+      const phase=Number(views.phase_deg[index]);
+      if(!Number.isFinite(phase)) return;
+
+      const lineY=4+(yPhase(phase)/GRAPH_HEIGHT)*plotHeight;
+      const pointerY=event.clientY-rect.top;
+      const hitDistance=Math.abs(pointerY-lineY);
+      const hitRadius=Math.max(12,Math.min(18,rect.height*.055));
+      if(hitDistance>hitRadius) return;
+
+      win._phaseInspect={frequencyHz:Number(views.frequency_hz[index]),index};
+      updatePhaseInspect(win,views);
+    });
+  }
 
   plot.addEventListener('contextmenu',event=>openBandContext(event,filter,kind));
 }
@@ -1550,6 +1674,7 @@ function renderWindow(filter,win){
 
   renderBandMarkers(filter,win,views);
   renderBandRack(filter,win);
+  updatePhaseInspect(win,views);
 
   if(win._activeBandId&&!filter.bands.some(b=>b.id===win._activeBandId)){
     win._activeBandId=null;
