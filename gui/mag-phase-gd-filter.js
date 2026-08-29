@@ -235,6 +235,8 @@ function applyNodeLineage(node,filter){
 
   const inputName=node.querySelector('[data-filter-input-name]');
   if(inputName) inputName.textContent=entry?.name||'Not connected';
+  const state=node.querySelector('.mpgd-filter-state');
+  if(state) state.textContent=filter.bypass?'PASS THROUGH':'FILTER ACTIVE';
   const input=node.querySelector('.mpgd-filter-input');
   if(input){
     input.classList.toggle('is-connected',!!entry);
@@ -485,6 +487,10 @@ function renderNodes(){
   }
 
   activeFilters().forEach((filter,index)=>{
+    if(filter.input?.id&&!api.getMeasurement?.(filter.input.id)){
+      filter.input=null;
+      filter.sampleRateHz=null;
+    }
     const node=buildNode(filter,index);
     canvas.appendChild(node);
     const input=node.querySelector('.mpgd-filter-input');
