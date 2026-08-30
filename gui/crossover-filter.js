@@ -134,6 +134,41 @@ function lineageMeasurementName(filter){
   return api.getMeasurement?.(lineage.measurementId)?.name||null;
 }
 
+function downstreamOutputIds(filterId){
+  const rootId=String(filterId||'');
+  if(!rootId) return [];
+  const affected=new Set([rootId]);
+
+  // This walk is observation/event propagation only. It never rejects,
+  // rewrites, or restricts Pipeline topology.
+  let expanded=true;
+  while(expanded){
+    expanded=false;
+    for(const candidate of activeFilters()){
+      const ref=sourceRef(candidate);
+      const candidateId=String(candidate.id||'');
+      if(!candidateId||affected.has(candidateId)) continue;
+      if(ref?.kind==='filter'&&affected.has(String(ref.id))){
+        affected.add(candidateId);
+        expanded=true;
+      }
+    }
+  }
+  return [...affected];
+}
+
+function notifyOutputChange(filterId,filterType,reason){
+  const affectedFilterIds=downstreamOutputIds(filterId);
+  document.dispatchEvent(new CustomEvent('raptor:crossoveroutputchange',{
+    detail:{
+      filterId:String(filterId||''),
+      filterType:filterType||filterById(filterId)?.type||null,
+      reason:String(reason||'output-change'),
+      affectedFilterIds
+    }
+  }));
+}
+
 function notifyLineageChange(filterId,filterType,reason){
   const filter=filterById(filterId);
   const lineage=filter?lineageInfo(filter):{active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
@@ -366,6 +401,7 @@ function commitFrequencyInput(filter,input){
       frequencyHz:filter.frequencyHz
     }
   }));
+  notifyOutputChange(filter.id,filter.type,'frequency-change');
   return true;
 }
 function applyLineage(node,filter){
@@ -449,6 +485,7 @@ function buildNode(filter,index){
     document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
       detail:{filterId:filter.id,type:filter.type,slopeDbOct:filter.slopeDbOct,frequencyHz:filter.frequencyHz}
     }));
+    notifyOutputChange(filter.id,filter.type,'slope-change');
   });
   slopeLabel.appendChild(slope);
 
@@ -542,6 +579,7 @@ function buildNode(filter,index){
     document.dispatchEvent(new CustomEvent('raptor:filterbypasschange',{
       detail:{filterId:filter.id,filterType:filter.type,bypass:filter.bypass}
     }));
+    notifyOutputChange(filter.id,filter.type,'bypass-change');
   });
   const bypassText=document.createElement('span');
   bypassText.textContent='Bypass';
@@ -659,6 +697,7 @@ function connectInput(filter,source,meta={}){
     }
   }));
   notifyLineageChange(filter.id,filter.type,'input-connect');
+  notifyOutputChange(filter.id,filter.type,'input-connect');
   return true;
 }
 function disconnectInput(filter){
@@ -671,6 +710,7 @@ function disconnectInput(filter){
     detail:{filterId:filter.id,filterType:filter.type,sourceId,connected:false}
   }));
   notifyLineageChange(filter.id,filter.type,'input-disconnect');
+  notifyOutputChange(filter.id,filter.type,'input-disconnect');
   return true;
 }
 
@@ -864,6 +904,10 @@ window.RaptorCrossoverFilter=Object.freeze({
     if(!filter) return false;
     filter.bypass=!!bypass;
     renderNodes();
+    document.dispatchEvent(new CustomEvent('raptor:filterbypasschange',{
+      detail:{filterId:filter.id,filterType:filter.type,bypass:filter.bypass}
+    }));
+    notifyOutputChange(filter.id,filter.type,'bypass-change');
     return true;
   },
   delete:deleteFilter,

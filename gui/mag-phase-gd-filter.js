@@ -2414,10 +2414,13 @@ function refreshFilterSources(event){
   if(!activeCard) return;
   const sourceId=String(event.detail?.filterId||'');
   if(!sourceId) return;
+  const propagatedIds=Array.isArray(event.detail?.affectedFilterIds)
+    ?new Set(event.detail.affectedFilterIds.map(id=>String(id)))
+    :new Set([sourceId]);
 
   let affected=false;
   for(const filter of activeFilters()){
-    if(filter.input?.kind!=='filter'||String(filter.input.id)!==sourceId) continue;
+    if(filter.input?.kind!=='filter'||!propagatedIds.has(String(filter.input.id))) continue;
     affected=true;
 
     const entry=sourceEntry(filter);
@@ -2444,7 +2447,8 @@ for(const eventName of [
   'raptor:crossoverfilterchange',
   'raptor:filterbypasschange',
   'raptor:filterinputchange',
-  'raptor:filterdeleted'
+  'raptor:filterdeleted',
+  'raptor:crossoveroutputchange'
 ]){
   document.addEventListener(eventName,refreshFilterSources);
 }
