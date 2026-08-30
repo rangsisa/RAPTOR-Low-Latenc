@@ -6,7 +6,7 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css" />
   <link rel="stylesheet" href="./workspace.css" />
-  <link rel="stylesheet" href="./pipeline.css?v=canvas-zoom-theme-20260830-3" />
+  <link rel="stylesheet" href="./pipeline.css?v=canvas-zoom-theme-20260830-2" />
   <link rel="stylesheet" href="./pipeline-interactions.css?v=remove-green-preview-20260830-1" />
   <link rel="stylesheet" href="./pipeline-context.css?v=wire-underlay-inspect-20260830-1" />
   <link rel="stylesheet" href="./matching/matching.css" />
@@ -74,16 +74,13 @@
             </footer>
           </section>
         </div>
-        <div class="pipeline-canvas-controls" role="group" aria-label="Pipeline canvas view controls">
-          <div class="pipeline-theme-controls" role="group" aria-label="Pipeline canvas theme">
-            <button class="pipeline-theme-button is-active" id="pipelineThemeLight" type="button" aria-pressed="true" aria-label="Use light Pipeline canvas">☀ Light</button>
-            <button class="pipeline-theme-button" id="pipelineThemeDark" type="button" aria-pressed="false" aria-label="Use dark Pipeline canvas">☾ Dark</button>
-          </div>
-          <div class="pipeline-zoom-controls" role="group" aria-label="Pipeline canvas zoom">
+        <div class="pipeline-canvas-controls" role="group" aria-label="Pipeline workspace view controls">
+          <div class="pipeline-zoom-controls" role="group" aria-label="Pipeline zoom">
             <button class="pipeline-zoom-button" id="pipelineZoomOut" type="button" aria-label="Zoom out">−</button>
             <output class="pipeline-zoom-value" id="pipelineZoomValue" aria-live="polite">100%</output>
             <button class="pipeline-zoom-button" id="pipelineZoomIn" type="button" aria-label="Zoom in">+</button>
           </div>
+          <button class="pipeline-canvas-theme-toggle" id="pipelineCanvasThemeToggle" type="button" aria-pressed="false" aria-label="Switch Pipeline workspace to dark mode">☾ Dark</button>
         </div>
       </section>
 
@@ -243,7 +240,7 @@
 
   <script src="./workspace.js"></script>
   <script src="./measurement-canonical-v1.js"></script>
-  <script src="./pipeline-workspace-theme.js?v=canvas-zoom-theme-20260830-3"></script>
+  <script src="./pipeline-workspace-theme.js?v=canvas-zoom-theme-20260830-2"></script>
   <script src="./pipeline.js?v=canvas-zoom-20260830-2"></script>
   <script src="./measurement-import.js?v=native-change-only-v3-20260830-1"></script>
   <script src="./pipeline-interactions.js"></script>
