@@ -774,9 +774,16 @@ importButton?.addEventListener('click',event=>{
   event.preventDefault();
   event.stopPropagation();
 
-  // Keep desktop import on the simplest native path. The click is executed
-  // synchronously inside the user's gesture so Chromium/WebView can open it.
+  // Proven desktop path from commit 5ca1a936736e79713f35dac3d3dbeeb156ac8ff8.
+  // Keep showPicker() first for desktop Chromium/WebView and retain click()
+  // only as the fallback. Do not simplify this path again without a runtime test.
   fileInput.value='';
+  try{
+    if(typeof fileInput.showPicker==='function'){
+      fileInput.showPicker();
+      return;
+    }
+  }catch{}
   fileInput.click();
 });
 
