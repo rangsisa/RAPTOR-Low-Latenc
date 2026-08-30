@@ -127,6 +127,12 @@ function sourceColor(filter){
   return lineageInfo(filter).color;
 }
 
+function lineageMeasurementName(filter){
+  const lineage=lineageInfo(filter);
+  if(!lineage.active||!lineage.measurementId) return null;
+  return api.getMeasurement?.(lineage.measurementId)?.name||null;
+}
+
 function notifyLineageChange(filterId,filterType,reason){
   const filter=filterById(filterId);
   const lineage=filter?lineageInfo(filter):{active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
@@ -402,7 +408,11 @@ function buildNode(filter,index){
   head.className='xo-filter-node-head';
   const title=document.createElement('div');
   title.className='xo-filter-node-title';
-  title.innerHTML='<strong>'+labelFor(filter.type)+'</strong>';
+  const sourceFileName=lineageMeasurementName(filter);
+  const headerText=labelFor(filter.type)+(sourceFileName?' · '+sourceFileName:'');
+  title.innerHTML='<strong></strong>';
+  title.querySelector('strong').textContent=headerText;
+  title.title=headerText;
   head.appendChild(title);
 
   const body=document.createElement('div');

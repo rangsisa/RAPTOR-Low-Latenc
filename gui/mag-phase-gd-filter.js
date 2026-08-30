@@ -244,6 +244,19 @@ function sourceColor(filter){
   return sourceEntry(filter)?.color||'#8FA6B8';
 }
 
+function lineageMeasurementName(filter){
+  const ref=sourceRef(filter);
+  if(!ref) return null;
+
+  if(ref.kind==='measurement'){
+    return api.getMeasurement?.(ref.id)?.name||null;
+  }
+
+  const lineage=window.RaptorCrossoverFilter?.getLineage?.(ref.id)||null;
+  if(!lineage?.active||!lineage.measurementId) return null;
+  return api.getMeasurement?.(lineage.measurementId)?.name||null;
+}
+
 function hostSignature(filter,entry){
   const bands=filter.bands.map(band=>[
     band.id,
@@ -578,7 +591,11 @@ function buildNode(filter,index){
 
   const title=document.createElement('div');
   title.className='mpgd-filter-node-title';
-  title.innerHTML='<strong>Mag-Phase-GD Filter</strong>';
+  const sourceFileName=lineageMeasurementName(filter);
+  const headerText='Mag-Phase-GD Filter'+(sourceFileName?' · '+sourceFileName:'');
+  title.innerHTML='<strong></strong>';
+  title.querySelector('strong').textContent=headerText;
+  title.title=headerText;
 
   const actions=document.createElement('div');
   actions.className='mpgd-filter-node-actions';
