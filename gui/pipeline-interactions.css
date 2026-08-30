@@ -9,19 +9,6 @@
 .measurement-file-name,.measurement-file-meta{max-width:420px}
 .measurement-node-foot{border-radius:0 0 7px 7px}
 .measurement-output{right:-22px}
-.measurement-preview{border-color:#75aa87;background:#edf9f1;box-shadow:0 12px 30px rgba(42,92,60,.22),0 0 0 2px rgba(117,170,135,.18)}
-.measurement-preview-head{border-bottom-color:#9bc8aa;background:#dff3e6}
-.measurement-preview-head strong{color:#244d31}
-.measurement-preview-file-dot{box-shadow:0 0 0 1px rgba(36,77,49,.28)}
-.measurement-preview-close{color:#4f735b}
-.measurement-preview-graph{background:#e7f5ec}
-.measurement-preview-graph canvas{opacity:.94}
-.measurement-preview-legend{border-color:rgba(117,170,135,.7);background:rgba(239,249,242,.94);color:#4f6f59}
-.measurement-preview-meta{border-top-color:#a8ceb4;background:#eef8f1}
-.measurement-preview-meta dt{color:#64806c}
-.measurement-preview-meta dd{color:#2e5639}
-.measurement-preview-button.is-open{border-color:#75aa87;background:#e3f5e9;box-shadow:0 0 0 2px rgba(117,170,135,.16)}
-
 @media(max-width:700px){
   .measurement-node{width:max-content;min-width:214px;max-width:calc(100vw - 72px)}
   .measurement-list{width:100%;max-width:100%;overflow:visible!important}
