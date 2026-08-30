@@ -2,7 +2,8 @@
 'use strict';
 
 const canvas=document.getElementById('pipelineNodeCanvas');
-if(!canvas) return;
+const workspaceView=window.RaptorPipelineWorkspaceView;
+if(!canvas||!workspaceView) return;
 
 const FILTER_COMMANDS=Object.freeze([
   {type:'lowpass',label:'Lowpass Filter'},
@@ -36,11 +37,7 @@ function closeMenu(){
 }
 
 function canvasPoint(event){
-  const rect=canvas.getBoundingClientRect();
-  return {
-    x:event.clientX-rect.left+canvas.scrollLeft,
-    y:event.clientY-rect.top+canvas.scrollTop
-  };
+  return workspaceView.clientToLogical(event.clientX,event.clientY);
 }
 
 function positionMenu(target,event){

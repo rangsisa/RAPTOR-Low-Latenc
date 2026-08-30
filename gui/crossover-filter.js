@@ -2,12 +2,13 @@
 'use strict';
 
 const api=window.RaptorPipeline;
+const workspaceView=window.RaptorPipelineWorkspaceView;
 const canvas=document.getElementById('pipelineNodeCanvas');
 const wireSvg=document.querySelector('.pipeline-wire-layer');
 const measurementNode=document.getElementById('measurementNode');
 const measurementList=document.getElementById('measurementList');
 const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
-if(!api||!canvas||!wireSvg||!measurementNode||!measurementList||!canonicalApi) return;
+if(!api||!workspaceView||!canvas||!wireSvg||!measurementNode||!measurementList||!canonicalApi) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
 const TYPES=new Set(['lowpass','highpass']);
@@ -293,7 +294,7 @@ function hexTint(hex,alpha=.10){
 }
 function clampNodePosition(position,node=null){
   const width=node?.offsetWidth||242;
-  const maxX=Math.max(8,canvas.scrollWidth-width-12);
+  const maxX=Math.max(8,workspaceView.logicalScrollWidth()-width-12);
   return {
     x:Math.max(8,Math.min(maxX,Number(position.x)||8)),
     // Vertical overflow is intentionally unbounded like Measurement.
@@ -306,23 +307,20 @@ function startNodeDrag(event,node,filter){
   if(event.target.closest('button,input,label,select,textarea,a')) return;
   event.preventDefault();
   const pointerId=event.pointerId;
-  const rect=node.getBoundingClientRect();
-  const canvasRect=canvas.getBoundingClientRect();
-  const grabX=event.clientX-rect.left;
-  const grabY=event.clientY-rect.top;
+  const grab=workspaceView.grabOffsetLogical(event,node);
   node.classList.add('is-dragging');
   try{node.setPointerCapture(pointerId)}catch{}
 
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
     if(moveEvent.cancelable) moveEvent.preventDefault();
+    const point=workspaceView.clientToLogical(moveEvent.clientX,moveEvent.clientY);
     const next=clampNodePosition({
-      x:moveEvent.clientX-canvasRect.left+canvas.scrollLeft-grabX,
-      y:moveEvent.clientY-canvasRect.top+canvas.scrollTop-grabY
+      x:point.x-grab.x,
+      y:point.y-grab.y
     },node);
     filter.position=next;
-    node.style.left=next.x+'px';
-    node.style.top=next.y+'px';
+    workspaceView.positionNode(node,next.x,next.y);
     renderConnections();
   };
   const end=endEvent=>{
@@ -399,10 +397,11 @@ function buildNode(filter,index){
   node.dataset.filterType=filter.type;
   node.setAttribute('aria-label',labelFor(filter.type)+' '+(index+1));
 
-  const pos=clampNodePosition(filter.position,node);
+  const requestedX=Math.max(8,Number(filter.position?.x)||8);
+  const requestedY=Math.max(8,Number(filter.position?.y)||8);
+  const pos={x:requestedX,y:requestedY};
   filter.position=pos;
-  node.style.left=pos.x+'px';
-  node.style.top=pos.y+'px';
+  workspaceView.positionNode(node,pos.x,pos.y);
 
   const head=document.createElement('header');
   head.className='xo-filter-node-head';
@@ -844,6 +843,7 @@ new MutationObserver(()=>requestAnimationFrame(renderConnections))
 new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode);
 canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
 document.addEventListener('raptor:pipelineobstacleschange',()=>requestAnimationFrame(renderConnections));
+document.addEventListener('raptor:pipelinezoomchange',()=>requestAnimationFrame(renderConnections));
 
 window.RaptorCrossoverFilter=Object.freeze({
   model:MODEL,

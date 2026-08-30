@@ -5,6 +5,8 @@ if(!canonicalV1) throw new Error('measurement-canonical-v1.js must load before p
 const COMMON_SAMPLE_RATES=[44100,48000,88200,96000,176400,192000];
 const FFT_SIZES=Array.from({length:13},(_,i)=>2**(8+i));
 const nodeCanvas=document.getElementById('pipelineNodeCanvas');
+const workspaceView=window.RaptorPipelineWorkspaceView;
+if(!workspaceView) throw new Error('pipeline-workspace-theme.js must load before pipeline.js');
 const emptyState=document.getElementById('pipelineNodeEmpty');
 const measurementNode=document.getElementById('measurementNode');
 const measurementHead=measurementNode.querySelector('.measurement-node-head');
@@ -90,15 +92,15 @@ function setLoadState(card,active){
 function applyMeasurementPosition(){
   if(!activeCard||measurementNode.hidden) return;
   const measurement=ensureState(activeCard).nodes.measurement;
+  const zoom=workspaceView.getZoom();
   let x=24;
-  let y=Math.max(12,(nodeCanvas.clientHeight-measurementNode.offsetHeight)/2);
+  let y=Math.max(12,(nodeCanvas.clientHeight/zoom-measurementNode.offsetHeight)/2);
   if(measurement.position&&Number.isFinite(measurement.position.x)&&Number.isFinite(measurement.position.y)){
     x=measurement.position.x;
     y=measurement.position.y;
   }
   measurementNode.style.transform='none';
-  measurementNode.style.left=`${Math.max(8,x)}px`;
-  measurementNode.style.top=`${Math.max(8,y)}px`;
+  workspaceView.positionNode(measurementNode,Math.max(8,x),Math.max(8,y));
 }
 
 function load(card){
@@ -747,20 +749,17 @@ function startNodeDrag(event){
   closePreview();
   closeColorMenu();
   const pointerId=event.pointerId;
-  const canvasRect=nodeCanvas.getBoundingClientRect();
-  const nodeRect=measurementNode.getBoundingClientRect();
-  const grabX=event.clientX-nodeRect.left;
-  const grabY=event.clientY-nodeRect.top;
+  const grab=workspaceView.grabOffsetLogical(event,measurementNode);
   measurementNode.style.transform='none';
   measurementNode.classList.add('is-dragging');
   try{measurementHead.setPointerCapture(pointerId)}catch{}
 
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
-    const x=Math.max(8,moveEvent.clientX-canvasRect.left+nodeCanvas.scrollLeft-grabX);
-    const y=Math.max(8,moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop-grabY);
-    measurementNode.style.left=`${x}px`;
-    measurementNode.style.top=`${y}px`;
+    const point=workspaceView.clientToLogical(moveEvent.clientX,moveEvent.clientY);
+    const x=Math.max(8,point.x-grab.x);
+    const y=Math.max(8,point.y-grab.y);
+    workspaceView.positionNode(measurementNode,x,y);
     ensureState(activeCard).nodes.measurement.position={x,y};
   };
   const end=endEvent=>{
@@ -810,6 +809,9 @@ document.addEventListener('pointerdown',event=>{
 window.addEventListener('resize',()=>{
   if(!preview.hidden&&previewEntry) closePreview();
   if(activeCard&&ensureState(activeCard).nodes.measurement.position===null) requestAnimationFrame(applyMeasurementPosition);
+});
+document.addEventListener('raptor:pipelinezoomchange',()=>{
+  if(activeCard) requestAnimationFrame(applyMeasurementPosition);
 });
 
 function getMeasurement(fileId){

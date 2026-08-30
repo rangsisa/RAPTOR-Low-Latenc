@@ -6,7 +6,7 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css" />
   <link rel="stylesheet" href="./workspace.css" />
-  <link rel="stylesheet" href="./pipeline.css?v=canvas-theme-toggle-20260830-1" />
+  <link rel="stylesheet" href="./pipeline.css?v=canvas-zoom-theme-20260830-2" />
   <link rel="stylesheet" href="./pipeline-interactions.css?v=remove-green-preview-20260830-1" />
   <link rel="stylesheet" href="./pipeline-context.css?v=wire-underlay-inspect-20260830-1" />
   <link rel="stylesheet" href="./matching/matching.css" />
@@ -74,7 +74,14 @@
             </footer>
           </section>
         </div>
-        <button class="pipeline-canvas-theme-toggle" id="pipelineCanvasThemeToggle" type="button" aria-pressed="false" aria-label="Switch Pipeline workspace to dark mode">☾ Dark</button>
+        <div class="pipeline-canvas-controls" role="group" aria-label="Pipeline workspace view controls">
+          <div class="pipeline-zoom-controls" role="group" aria-label="Pipeline zoom">
+            <button class="pipeline-zoom-button" id="pipelineZoomOut" type="button" aria-label="Zoom out">−</button>
+            <output class="pipeline-zoom-value" id="pipelineZoomValue" aria-live="polite">100%</output>
+            <button class="pipeline-zoom-button" id="pipelineZoomIn" type="button" aria-label="Zoom in">+</button>
+          </div>
+          <button class="pipeline-canvas-theme-toggle" id="pipelineCanvasThemeToggle" type="button" aria-pressed="false" aria-label="Switch Pipeline workspace to dark mode">☾ Dark</button>
+        </div>
       </section>
 
       <section class="page-view" data-view="welcome" hidden></section>
@@ -233,15 +240,15 @@
 
   <script src="./workspace.js"></script>
   <script src="./measurement-canonical-v1.js"></script>
-  <script src="./pipeline.js?v=wire-underlay-inspect-20260830-1"></script>
-  <script src="./pipeline-workspace-theme.js?v=canvas-theme-toggle-20260830-1"></script>
+  <script src="./pipeline-workspace-theme.js?v=canvas-zoom-theme-20260830-2"></script>
+  <script src="./pipeline.js?v=canvas-zoom-20260830-2"></script>
   <script src="./measurement-import.js?v=native-change-only-v3-20260830-1"></script>
   <script src="./pipeline-interactions.js"></script>
-  <script src="./pipeline-context.js"></script>
+  <script src="./pipeline-context.js?v=canvas-zoom-20260830-2"></script>
   <script src="./eq-geometry-rbj.js"></script>
   <script src="./response-host-v1.js"></script>
-  <script src="./mag-phase-gd-filter.js?v=source-name-header-20260830-1"></script>
-  <script src="./crossover-filter.js?v=source-name-header-20260830-1"></script>
+  <script src="./mag-phase-gd-filter.js?v=canvas-zoom-20260830-2"></script>
+  <script src="./crossover-filter.js?v=canvas-zoom-20260830-2"></script>
   <script src="./pipeline-wire-inspect.js?v=wire-underlay-inspect-20260830-1"></script>
   <script src="./editor-foundation.js"></script>
   <script src="./matching/matching-dom.js"></script>
