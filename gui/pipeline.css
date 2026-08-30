@@ -109,6 +109,11 @@
 .pipeline-zoom-button:hover{background:#eef2f4;color:#202a33}
 .pipeline-zoom-button:disabled{opacity:.35;cursor:default}
 .pipeline-zoom-value{min-width:46px;text-align:center;color:#34414c;font-size:9px;font-weight:800;font-variant-numeric:tabular-nums}
+.pipeline-canvas-controls.is-dark-mode .pipeline-zoom-controls{border-color:#58636c;background:rgba(44,51,57,.94);box-shadow:0 2px 8px rgba(0,0,0,.28)}
+.pipeline-canvas-controls.is-dark-mode .pipeline-zoom-button{color:#f2f5f7}
+.pipeline-canvas-controls.is-dark-mode .pipeline-zoom-button:hover{background:#3a4249;color:#fff}
+.pipeline-canvas-controls.is-dark-mode .pipeline-zoom-value{color:#f2f5f7}
+.pipeline-canvas-controls.is-dark-mode .pipeline-zoom-button:disabled{color:#9ba5ad;opacity:.45}
 .pipeline-canvas-theme-toggle{height:28px;min-width:68px;padding:0 10px;border:1px solid #9ba7b1;border-radius:14px;background:rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(24,32,42,.14);color:#34414c;font-size:9px;font-weight:800;letter-spacing:.01em;cursor:pointer;touch-action:manipulation;user-select:none}
 .pipeline-canvas-theme-toggle:hover{border-color:var(--raptor-active-border);background:#fff9f4;color:#a94a0b}
 .pipeline-canvas-theme-toggle[aria-pressed="true"]{border-color:#58636c;background:rgba(44,51,57,.94);color:#f2f5f7}

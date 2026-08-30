@@ -6,11 +6,12 @@ const ZOOM_STORAGE_KEY='raptor.pipeline.canvas.zoom.v1';
 const ZOOM_LEVELS=Object.freeze([.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5]);
 
 const canvas=document.getElementById('pipelineNodeCanvas');
+const controls=document.querySelector('.pipeline-canvas-controls');
 const themeToggle=document.getElementById('pipelineCanvasThemeToggle');
 const zoomOut=document.getElementById('pipelineZoomOut');
 const zoomIn=document.getElementById('pipelineZoomIn');
 const zoomValue=document.getElementById('pipelineZoomValue');
-if(!canvas||!themeToggle||!zoomOut||!zoomIn||!zoomValue) return;
+if(!canvas||!controls||!themeToggle||!zoomOut||!zoomIn||!zoomValue) return;
 
 function readStoredTheme(){
   try{return window.localStorage.getItem(THEME_STORAGE_KEY)==='dark'?'dark':'light';}
@@ -34,6 +35,7 @@ let zoom=readStoredZoom();
 function applyTheme(theme,persist=false){
   const dark=theme==='dark';
   canvas.classList.toggle('is-dark-canvas',dark);
+  controls.classList.toggle('is-dark-mode',dark);
   themeToggle.setAttribute('aria-pressed',dark?'true':'false');
   themeToggle.setAttribute('aria-label',dark?'Switch Pipeline workspace to light mode':'Switch Pipeline workspace to dark mode');
   themeToggle.textContent=dark?'☀ Light':'☾ Dark';
