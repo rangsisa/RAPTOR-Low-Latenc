@@ -66,7 +66,7 @@
   background:#fff
 }
 .xo-filter-node.has-lineage .xo-filter-node-body{
-  background:linear-gradient(90deg,var(--lineage-tint) 0%,var(--lineage-tint-soft) 28%,#fff 62%)
+  background:linear-gradient(135deg,var(--lineage-tint-soft) 0%,var(--lineage-tint) 100%)
 }
 .xo-filter-input-pane,
 .xo-filter-output-pane{

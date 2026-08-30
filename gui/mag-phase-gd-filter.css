@@ -107,7 +107,7 @@
   background:#fff
 }
 .mpgd-filter-node.has-lineage .mpgd-filter-node-body{
-  background:linear-gradient(90deg,var(--lineage-tint) 0%,var(--lineage-tint-soft) 46%,#fff 100%)
+  background:linear-gradient(135deg,var(--lineage-tint-soft) 0%,var(--lineage-tint) 100%)
 }
 
 .mpgd-filter-input-pane{
