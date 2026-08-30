@@ -184,7 +184,8 @@
   font-size:8.25px;
   font-weight:750
 }
-.xo-filter-control select{
+.xo-filter-control select,
+.xo-filter-control input[type="number"]{
   min-width:0;
   height:27px;
   box-sizing:border-box;
@@ -199,7 +200,8 @@
   cursor:pointer;
   touch-action:manipulation
 }
-.xo-filter-control select:focus{
+.xo-filter-control select:focus,
+.xo-filter-control input[type="number"]:focus{
   outline:none;
   border-color:var(--lineage-color);
   box-shadow:0 0 0 2px var(--lineage-tint)
@@ -280,5 +282,22 @@
     grid-template-columns:38px minmax(0,1fr);
     font-size:7.7px
   }
-  .xo-filter-control select{font-size:8.8px}
+  .xo-filter-control select,
+  .xo-filter-control input[type="number"]{font-size:8.8px}
+}
+
+
+/* LP/HP crossover frequency is a free numeric Hz entry. */
+.xo-filter-control input[type="number"]{
+  appearance:textfield;
+  -moz-appearance:textfield
+}
+.xo-filter-control input[type="number"]::-webkit-outer-spin-button,
+.xo-filter-control input[type="number"]::-webkit-inner-spin-button{
+  margin:0;
+  -webkit-appearance:none
+}
+.xo-filter-control input[type="number"][aria-invalid="true"]{
+  border-color:#b85f5f;
+  background:#fff5f5
 }

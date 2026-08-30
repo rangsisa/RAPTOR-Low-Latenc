@@ -12,10 +12,6 @@ if(!api||!canvas||!wireSvg||!measurementNode||!measurementList||!canonicalApi) r
 const SVG_NS='http://www.w3.org/2000/svg';
 const TYPES=new Set(['lowpass','highpass']);
 const SLOPES=Object.freeze([12,24,48,96,192]);
-const FREQUENCIES=Object.freeze([
-  20,25,31.5,40,50,63,80,90,100,110,125,160,200,250,315,400,500,630,800,
-  1000,1250,1600,2000,2500,3150,3400,4000,5000,6300,8000,10000,12500,16000,20000
-]);
 const MODEL='LINKWITZ_RILEY_BILINEAR_V1';
 
 let activeCard=null;
@@ -45,7 +41,8 @@ function defaultFilter(type,position={x:390,y:150}){
 function cloneFilter(filter,rekey=false){
   const type=TYPES.has(filter?.type)?filter.type:'lowpass';
   const slope=SLOPES.includes(Number(filter?.slopeDbOct))?Number(filter.slopeDbOct):24;
-  const frequency=FREQUENCIES.includes(Number(filter?.frequencyHz))?Number(filter.frequencyHz):1000;
+  const rawFrequency=Number(filter?.frequencyHz);
+  const frequency=Number.isFinite(rawFrequency)&&rawFrequency>0?rawFrequency:1000;
   return {
     id:rekey?makeId(type):String(filter?.id||makeId(type)),
     type,
@@ -294,25 +291,37 @@ function startNodeDrag(event,node,filter){
   window.addEventListener('pointercancel',end);
 }
 
-function frequencyLabel(value){
-  if(value>=1000){
-    const k=value/1000;
-    return (Number.isInteger(k)?k:k.toFixed(k<10?2:1).replace(/0+$/,'').replace(/\.$/,''))+' kHz';
-  }
-  return value+' Hz';
-}
-function validFrequencyOptions(filter){
+function maxFrequencyForFilter(filter){
   const fs=sampleRateFor(filter);
-  return FREQUENCIES.filter(value=>!fs||value<fs/2);
+  return fs?fs/2:null;
 }
-function normalizeFrequencyForSource(filter){
-  const options=validFrequencyOptions(filter);
-  if(!options.length) return;
-  if(options.includes(filter.frequencyHz)) return;
-  const target=filter.frequencyHz;
-  filter.frequencyHz=options.reduce((best,value)=>
-    Math.abs(value-target)<Math.abs(best-target)?value:best
-  ,options[0]);
+function validFrequencyForFilter(filter,value){
+  const frequency=Number(value);
+  if(!(Number.isFinite(frequency)&&frequency>0)) return false;
+  const max=maxFrequencyForFilter(filter);
+  return !max||frequency<max;
+}
+function commitFrequencyInput(filter,input){
+  const next=Number(input.value);
+  if(!validFrequencyForFilter(filter,next)){
+    input.value=String(filter.frequencyHz);
+    input.setAttribute('aria-invalid','true');
+    return false;
+  }
+
+  input.removeAttribute('aria-invalid');
+  if(next===filter.frequencyHz) return true;
+
+  filter.frequencyHz=next;
+  document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
+    detail:{
+      filterId:filter.id,
+      type:filter.type,
+      slopeDbOct:filter.slopeDbOct,
+      frequencyHz:filter.frequencyHz
+    }
+  }));
+  return true;
 }
 function applyLineage(node,filter){
   const connected=sourceExists(filter);
@@ -395,22 +404,28 @@ function buildNode(filter,index){
   const frequencyLabelEl=document.createElement('label');
   frequencyLabelEl.className='xo-filter-control';
   frequencyLabelEl.innerHTML='<span>Frequency</span>';
-  const frequency=document.createElement('select');
-  frequency.setAttribute('aria-label','Crossover frequency');
-  const fs=sampleRateFor(filter);
-  for(const value of FREQUENCIES){
-    const option=document.createElement('option');
-    option.value=String(value);
-    option.textContent=frequencyLabel(value);
-    option.disabled=!!fs&&value>=fs/2;
-    option.selected=value===filter.frequencyHz;
-    frequency.appendChild(option);
-  }
-  frequency.addEventListener('change',()=>{
-    filter.frequencyHz=Number(frequency.value);
-    document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
-      detail:{filterId:filter.id,type:filter.type,slopeDbOct:filter.slopeDbOct,frequencyHz:filter.frequencyHz}
-    }));
+  const frequency=document.createElement('input');
+  frequency.type='number';
+  frequency.inputMode='decimal';
+  frequency.step='any';
+  frequency.min='0.000001';
+  frequency.value=String(filter.frequencyHz);
+  frequency.setAttribute('aria-label','Crossover frequency in Hz');
+  frequency.setAttribute('title','Enter crossover frequency in Hz');
+  const maxFrequency=maxFrequencyForFilter(filter);
+  if(maxFrequency) frequency.max=String(maxFrequency);
+
+  frequency.addEventListener('change',()=>commitFrequencyInput(filter,frequency));
+  frequency.addEventListener('blur',()=>commitFrequencyInput(filter,frequency));
+  frequency.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){
+      event.preventDefault();
+      if(commitFrequencyInput(filter,frequency)) frequency.blur();
+    }else if(event.key==='Escape'){
+      frequency.value=String(filter.frequencyHz);
+      frequency.removeAttribute('aria-invalid');
+      frequency.blur();
+    }
   });
   frequencyLabelEl.appendChild(frequency);
 
@@ -523,7 +538,6 @@ function renderNodes(){
       filter.input=null;
       filter.sampleRateHz=null;
     }
-    normalizeFrequencyForSource(filter);
     const node=buildNode(filter,index);
     canvas.appendChild(node);
     const input=node.querySelector('.xo-filter-input');
@@ -581,7 +595,6 @@ function connectInput(filter,source,meta={}){
   filter.input={kind,id:sourceId};
   const sourceRate=Number(source.sampleRate??canonical.sample_rate_hz);
   filter.sampleRateHz=Number.isFinite(sourceRate)&&sourceRate>0?sourceRate:null;
-  normalizeFrequencyForSource(filter);
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
     detail:{
