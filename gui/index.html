@@ -6,7 +6,7 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css" />
   <link rel="stylesheet" href="./workspace.css" />
-  <link rel="stylesheet" href="./pipeline.css" />
+  <link rel="stylesheet" href="./pipeline.css?v=desktop-import-20260830-1" />
   <link rel="stylesheet" href="./pipeline-interactions.css" />
   <link rel="stylesheet" href="./pipeline-context.css" />
   <link rel="stylesheet" href="./matching/matching.css" />
@@ -54,10 +54,8 @@
                 <strong>Measurement</strong>
                 <span id="measurementLineLabel">RAPTOR Line</span>
               </div>
-              <label class="measurement-import">
-                + Import Measurement
-                <input id="measurementFileInput" type="file" multiple accept=".txt,.frd,.csv,.dat,text/plain,text/csv" />
-              </label>
+              <button class="measurement-import" id="measurementImportButton" type="button">+ Import Measurement</button>
+              <input class="measurement-file-input" id="measurementFileInput" type="file" multiple accept=".txt,.frd,.csv,.dat,text/plain,text/csv" />
             </header>
 
             <div class="measurement-summary" id="measurementSummary"><strong>0</strong> measurements</div>
@@ -231,7 +229,7 @@
 
   <script src="./workspace.js"></script>
   <script src="./measurement-canonical-v1.js"></script>
-  <script src="./pipeline.js?v=canonical-chain-20260830-2"></script>
+  <script src="./pipeline.js?v=desktop-import-20260830-1"></script>
   <script src="./pipeline-interactions.js"></script>
   <script src="./pipeline-context.js"></script>
   <script src="./eq-geometry-rbj.js"></script>

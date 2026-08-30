@@ -10,6 +10,7 @@ const measurementNode=document.getElementById('measurementNode');
 const measurementHead=measurementNode.querySelector('.measurement-node-head');
 const activeLineLabel=document.getElementById('measurementLineLabel');
 const fileInput=document.getElementById('measurementFileInput');
+const importButton=document.getElementById('measurementImportButton');
 const fileList=document.getElementById('measurementList');
 const fileSummary=document.getElementById('measurementSummary');
 const selectButton=document.getElementById('measurementSelect');
@@ -728,7 +729,7 @@ function startCanonicalWire(event,source,handle){
 function startNodeDrag(event){
   if(!activeCard||measurementNode.hidden) return;
   if(event.button!==undefined&&event.button!==0) return;
-  if(event.target.closest('.measurement-import')) return;
+  if(event.target.closest('.measurement-import,.measurement-file-input')) return;
   event.preventDefault();
   closePreview();
   closeColorMenu();
@@ -762,10 +763,31 @@ function startNodeDrag(event){
   window.addEventListener('pointercancel',end);
 }
 
-fileInput.addEventListener('change',async()=>{
-  const files=[...fileInput.files];
+importButton?.addEventListener('pointerdown',event=>{
+  event.stopPropagation();
+});
+
+importButton?.addEventListener('click',event=>{
+  event.preventDefault();
+  event.stopPropagation();
+
+  // Open the native chooser from the user's direct click. This is more
+  // reliable on desktop Chromium/WebView than label -> display:none input.
   fileInput.value='';
+  try{
+    if(typeof fileInput.showPicker==='function'){
+      fileInput.showPicker();
+      return;
+    }
+  }catch{}
+  fileInput.click();
+});
+
+fileInput.addEventListener('change',async()=>{
+  const files=Array.from(fileInput.files||[]);
+  if(!files.length) return;
   await importFiles(files);
+  fileInput.value='';
 });
 
 selectButton.addEventListener('click',()=>{
