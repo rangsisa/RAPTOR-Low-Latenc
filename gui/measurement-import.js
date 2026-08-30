@@ -4,7 +4,11 @@
 const fileInput=document.getElementById('measurementFileInput');
 if(!fileInput) throw new Error('measurementFileInput is required');
 
-async function handleSelection(){
+let importing=false;
+
+async function handleSelection(source){
+  if(importing) return;
+
   const files=Array.from(fileInput.files||[]);
   if(!files.length) return;
 
@@ -14,21 +18,49 @@ async function handleSelection(){
     throw new Error('RaptorPipeline.importMeasurementFiles is required');
   }
 
+  importing=true;
+  fileInput.dataset.importState='importing';
+  fileInput.dataset.importEvent=String(source||'unknown');
+
   try{
     await pipeline.importMeasurementFiles(files);
+    fileInput.dataset.importState='idle';
+  }catch(error){
+    fileInput.dataset.importState='error';
+    throw error;
   }finally{
     fileInput.value='';
+    importing=false;
   }
 }
 
+function report(error){
+  console.error('[RAPTOR Measurement Import]',error);
+}
+
+fileInput.addEventListener('pointerdown',event=>{
+  event.stopPropagation();
+});
+
+fileInput.addEventListener('click',event=>{
+  event.stopPropagation();
+  if(!importing) fileInput.value='';
+});
+
+fileInput.addEventListener('input',()=>{
+  handleSelection('input').catch(report);
+});
+
 fileInput.addEventListener('change',()=>{
-  handleSelection().catch(error=>{
-    console.error('[RAPTOR Measurement Import]',error);
-  });
+  handleSelection('change').catch(report);
+});
+
+fileInput.addEventListener('cancel',()=>{
+  if(!importing) fileInput.dataset.importState='idle';
 });
 
 window.RaptorMeasurementImport=Object.freeze({
-  version:'native-label-v1',
+  version:'native-rendered-input-v2',
   input:fileInput
 });
 })();
