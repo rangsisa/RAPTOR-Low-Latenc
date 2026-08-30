@@ -487,7 +487,7 @@ function drawPreview(entry){
   canvas.height=Math.round(h*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
-  ctx.fillStyle=entry.color||'#8FA6B8';
+  ctx.fillStyle='#ffffff';
   ctx.fillRect(0,0,w,h);
   if(!entry.canonical) return;
   canonicalV1.validate(entry.canonical);
@@ -593,8 +593,8 @@ function openPreview(anchor,entry){
   previewTitle.textContent=entry.name;
   const previewColor=entry.color||'#8FA6B8';
   previewDot.style.background=previewColor;
-  preview.style.setProperty('--preview-color',previewColor);
-  preview.style.setProperty('--preview-bg',previewColor);
+  preview.style.removeProperty('--preview-color');
+  preview.style.removeProperty('--preview-bg');
   previewRate.textContent=formatRate(entry.sampleRate);
   previewFft.textContent=entry.fftSize?String(entry.fftSize):'Unknown';
   previewPoints.textContent=entry.points?String(entry.points):'—';
@@ -774,15 +774,9 @@ importButton?.addEventListener('click',event=>{
   event.preventDefault();
   event.stopPropagation();
 
-  // Open the native chooser from the user's direct click. This is more
-  // reliable on desktop Chromium/WebView than label -> display:none input.
+  // Keep desktop import on the simplest native path. The click is executed
+  // synchronously inside the user's gesture so Chromium/WebView can open it.
   fileInput.value='';
-  try{
-    if(typeof fileInput.showPicker==='function'){
-      fileInput.showPicker();
-      return;
-    }
-  }catch{}
   fileInput.click();
 });
 
