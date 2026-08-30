@@ -101,22 +101,18 @@
 .pipeline-card.is-loaded{border-color:var(--raptor-active-border);box-shadow:0 0 0 1px var(--raptor-active-soft)}
 .pipeline-card.is-loaded .pipeline-load{background:var(--raptor-active);color:#fff}
 .pipeline-card.is-loaded .pipeline-load:hover{background:var(--raptor-active-hover);color:#fff}
-.pipeline-node-canvas{--pipeline-zoom:1;position:absolute;inset:62px 0 0 0;z-index:1;overflow:auto;min-width:900px;min-height:420px;background-color:#f7f9fb;background-image:radial-gradient(circle,#cbd3da .8px,transparent .9px);background-size:calc(24px * var(--pipeline-zoom)) calc(24px * var(--pipeline-zoom));transition:background-color 150ms ease,background-size 90ms ease}
+.pipeline-node-canvas{position:absolute;inset:62px 0 0 0;z-index:1;overflow:auto;min-width:900px;min-height:420px;background-color:#f7f9fb;background-image:radial-gradient(circle,#cbd3da .8px,transparent .9px);background-size:24px 24px;transition:background-color 150ms ease}
 .pipeline-node-canvas.is-dark-canvas{background-color:#262c31;background-image:radial-gradient(circle,rgba(221,230,237,.20) .8px,transparent .9px)}
-.pipeline-canvas-controls{position:absolute;top:72px;right:14px;z-index:70;display:flex;align-items:center;gap:6px;pointer-events:none}
-.pipeline-canvas-controls>*{pointer-events:auto}
-.pipeline-theme-controls{height:28px;display:grid;grid-template-columns:auto auto;align-items:center;border:1px solid #9ba7b1;border-radius:14px;background:rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(24,32,42,.14);overflow:hidden}
-.pipeline-theme-button{height:28px;min-width:58px;padding:0 9px;border:0;background:transparent;color:#52606c;font-size:9px;font-weight:800;letter-spacing:.01em;cursor:pointer;touch-action:manipulation;user-select:none}
-.pipeline-theme-button+.pipeline-theme-button{border-left:1px solid #c4ccd3}
-.pipeline-theme-button:hover{background:#eef2f4;color:#202a33}
-.pipeline-theme-button.is-active,.pipeline-theme-button[aria-pressed="true"]{background:#fff7ef;color:#a94a0b;box-shadow:inset 0 0 0 1px rgba(232,111,23,.22)}
-.pipeline-node-canvas.is-dark-canvas~.pipeline-canvas-controls .pipeline-theme-button.is-active,
-.pipeline-node-canvas.is-dark-canvas~.pipeline-canvas-controls .pipeline-theme-button[aria-pressed="true"]{background:#343b41;color:#f2f5f7;box-shadow:none}
+.pipeline-canvas-controls{position:absolute;top:72px;right:14px;z-index:70;display:flex;align-items:center;gap:6px}
 .pipeline-zoom-controls{height:28px;display:grid;grid-template-columns:28px 46px 28px;align-items:center;border:1px solid #9ba7b1;border-radius:14px;background:rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(24,32,42,.14);overflow:hidden}
 .pipeline-zoom-button{width:28px;height:28px;padding:0;border:0;background:transparent;color:#34414c;font-size:16px;font-weight:800;line-height:1;cursor:pointer;touch-action:manipulation;user-select:none}
 .pipeline-zoom-button:hover{background:#eef2f4;color:#202a33}
 .pipeline-zoom-button:disabled{opacity:.35;cursor:default}
 .pipeline-zoom-value{min-width:46px;text-align:center;color:#34414c;font-size:9px;font-weight:800;font-variant-numeric:tabular-nums}
+.pipeline-canvas-theme-toggle{height:28px;min-width:68px;padding:0 10px;border:1px solid #9ba7b1;border-radius:14px;background:rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(24,32,42,.14);color:#34414c;font-size:9px;font-weight:800;letter-spacing:.01em;cursor:pointer;touch-action:manipulation;user-select:none}
+.pipeline-canvas-theme-toggle:hover{border-color:var(--raptor-active-border);background:#fff9f4;color:#a94a0b}
+.pipeline-canvas-theme-toggle[aria-pressed="true"]{border-color:#58636c;background:rgba(44,51,57,.94);color:#f2f5f7}
+.pipeline-canvas-theme-toggle[aria-pressed="true"]:hover{border-color:var(--raptor-active-border);background:#343b41;color:#fff}
 .pipeline-node-empty{position:absolute;top:28px;left:24px;padding:8px 10px;border:1px dashed #b8c2ca;border-radius:5px;background:rgba(255,255,255,.76);color:#71808c;font-size:11px}
 .pipeline-wire-layer{position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;overflow:visible}
 .pipeline-wire-inspect-layer{position:absolute;inset:0;z-index:30;width:100%;height:100%;pointer-events:none;overflow:visible}
