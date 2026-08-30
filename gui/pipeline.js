@@ -487,7 +487,7 @@ function drawPreview(entry){
   canvas.height=Math.round(h*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
-  ctx.fillStyle='#f7fcf8';
+  ctx.fillStyle=hexTint(entry.color||'#8FA6B8',.08);
   ctx.fillRect(0,0,w,h);
   if(!entry.canonical) return;
   canonicalV1.validate(entry.canonical);
@@ -520,24 +520,24 @@ function drawPreview(entry){
   ctx.lineWidth=1;
   for(let i=0;i<=4;i++){
     const y=T+(B-T)*i/4;
-    ctx.strokeStyle=i===2?'#a9c6b1':'#d7e7db';
+    ctx.strokeStyle=i===2?'#b8c1c8':'#d9dfe4';
     ctx.beginPath();ctx.moveTo(L,y+.5);ctx.lineTo(R,y+.5);ctx.stroke();
   }
   const decades=[20,50,100,200,500,1000,2000,5000,10000,20000,50000];
   ctx.font='7px Arial,sans-serif';
-  ctx.fillStyle='#5f7769';
+  ctx.fillStyle='#687680';
   ctx.textAlign='center';
   ctx.textBaseline='top';
   for(const f of decades){
     if(f<f0||f>f1) continue;
     const x=xOf(f);
-    ctx.strokeStyle='#d7e7db';
+    ctx.strokeStyle='#d9dfe4';
     ctx.beginPath();ctx.moveTo(x+.5,T);ctx.lineTo(x+.5,B);ctx.stroke();
     if([20,100,1000,10000,20000].includes(f)) ctx.fillText(f>=1000?`${f/1000}k`:`${f}`,x,B+4);
   }
-  ctx.strokeStyle='#8eae98';
+  ctx.strokeStyle='#9eabb4';
   ctx.strokeRect(L+.5,T+.5,R-L-1,B-T-1);
-  ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#5f7769';
+  ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#687680';
   ctx.fillText(`${magMax.toFixed(1)}`,L-4,T-2);
   ctx.textBaseline='bottom';ctx.fillText(`${magMin.toFixed(1)}`,L-4,B+1);
   ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('180°',R+4,T-2);
@@ -591,7 +591,12 @@ function openPreview(anchor,entry){
   previewAnchor.classList.add('is-preview-open');
   previewAnchor.setAttribute('aria-pressed','true');
   previewTitle.textContent=entry.name;
-  previewDot.style.background=entry.color;
+  const previewColor=entry.color||'#8FA6B8';
+  previewDot.style.background=previewColor;
+  preview.style.setProperty('--preview-color',previewColor);
+  preview.style.setProperty('--preview-tint',hexTint(previewColor,.14));
+  preview.style.setProperty('--preview-tint-soft',hexTint(previewColor,.065));
+  preview.style.setProperty('--preview-tint-faint',hexTint(previewColor,.035));
   previewRate.textContent=formatRate(entry.sampleRate);
   previewFft.textContent=entry.fftSize?String(entry.fftSize):'Unknown';
   previewPoints.textContent=entry.points?String(entry.points):'—';
