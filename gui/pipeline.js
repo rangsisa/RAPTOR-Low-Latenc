@@ -212,21 +212,26 @@ function collectWireObstacles(start,end,sourceElement=null,targetElement=null){
   const obstacles=[];
 
   for(const node of nodeCanvas.querySelectorAll(WIRE_NODE_SELECTOR)){
-    if(node===sourceNode||node===targetNode||node.hidden||!node.isConnected) continue;
+    if(node.hidden||!node.isConnected) continue;
     const rect=node.getBoundingClientRect();
     if(!(rect.width>0&&rect.height>0)) continue;
 
+    // Source/target bodies remain obstacles so a reverse-positioned connection
+    // cannot cut back through either node. Their obstacle is inset by 1 px so
+    // the port center on the border remains a legal route endpoint.
+    const endpointNode=node===sourceNode||node===targetNode;
+    const clearance=endpointNode?-1:WIRE_CLEARANCE;
     const obstacle={
-      left:rect.left-canvasRect.left+nodeCanvas.scrollLeft-WIRE_CLEARANCE,
-      right:rect.right-canvasRect.left+nodeCanvas.scrollLeft+WIRE_CLEARANCE,
-      top:rect.top-canvasRect.top+nodeCanvas.scrollTop-WIRE_CLEARANCE,
-      bottom:rect.bottom-canvasRect.top+nodeCanvas.scrollTop+WIRE_CLEARANCE
+      left:rect.left-canvasRect.left+nodeCanvas.scrollLeft-clearance,
+      right:rect.right-canvasRect.left+nodeCanvas.scrollLeft+clearance,
+      top:rect.top-canvasRect.top+nodeCanvas.scrollTop-clearance,
+      bottom:rect.bottom-canvasRect.top+nodeCanvas.scrollTop+clearance
     };
 
-    // During free drag the pointer may temporarily sit over a node. Ignore only
-    // the node containing the live endpoint; persistent target nodes are already
-    // excluded above.
-    if(pointInsideWireRect(start,obstacle)||pointInsideWireRect(end,obstacle)) continue;
+    // During free drag the pointer may temporarily sit over an unrelated node.
+    // Ignore only that live endpoint obstacle; source/target endpoint nodes stay
+    // active barriers.
+    if(!endpointNode&&(pointInsideWireRect(start,obstacle)||pointInsideWireRect(end,obstacle))) continue;
     obstacles.push(obstacle);
   }
   return obstacles;
