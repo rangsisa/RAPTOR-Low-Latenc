@@ -430,18 +430,18 @@ function canConnectInput(filter,source){
   if(!filter||!source||filter.input?.id) return false;
   const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
   const canonical=source.canonical||null;
+  const expectedFormat=canonicalApi?.FORMAT||'raptor.measurement.canonical.v1';
+  const format=source.format||canonical?.format||null;
 
-  if(canonical){
-    try{
-      canonicalApi?.validate(canonical);
-      return true;
-    }catch{
-      return false;
-    }
+  if(format!==expectedFormat) return false;
+  if(!canonical) return true;
+
+  try{
+    canonicalApi?.validate(canonical);
+    return true;
+  }catch{
+    return false;
   }
-
-  return source.kind==='filter'&&
-    (source.format||null)===(canonicalApi?.FORMAT||'raptor.measurement.canonical.v1');
 }
 
 function connectInput(filter,source,meta={}){
