@@ -574,7 +574,7 @@ function buildNode(filter,index){
 
   const title=document.createElement('div');
   title.className='mpgd-filter-node-title';
-  title.innerHTML='<strong>Mag-Phase-GD Filter</strong><span>'+filter.id+'</span>';
+  title.innerHTML='<strong>Mag-Phase-GD Filter</strong>';
 
   const actions=document.createElement('div');
   actions.className='mpgd-filter-node-actions';

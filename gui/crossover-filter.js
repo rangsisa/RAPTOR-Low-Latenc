@@ -360,7 +360,7 @@ function buildNode(filter,index){
   head.className='xo-filter-node-head';
   const title=document.createElement('div');
   title.className='xo-filter-node-title';
-  title.innerHTML='<strong>'+labelFor(filter.type)+'</strong><span>'+filter.id+'</span>';
+  title.innerHTML='<strong>'+labelFor(filter.type)+'</strong>';
   head.appendChild(title);
 
   const body=document.createElement('div');
