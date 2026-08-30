@@ -295,9 +295,8 @@ function responseHostForFilter(filter){
   if(!views?.frequency_hz) return null;
 
   const signature=hostSignature(filter,entry);
-  const cacheable=entry.sourceKind!=='filter';
   const cached=hostCache.get(filter.id);
-  if(cacheable&&cached?.signature===signature) return cached.host;
+  if(cached?.signature===signature) return cached.host;
 
   const line=api.getActiveLine?.()||null;
   const host=responseHost.create({
@@ -342,8 +341,10 @@ function responseHostForFilter(filter){
     }
   });
 
-  if(cacheable) hostCache.set(filter.id,{signature,host});
-  else hostCache.delete(filter.id);
+  // Crossover chains now publish raptor:crossoveroutputchange with downstream
+  // affected IDs, so filter-source snapshots can be cached safely and are
+  // invalidated whenever their upstream response changes.
+  hostCache.set(filter.id,{signature,host});
   return host;
 }
 
@@ -655,13 +656,14 @@ function buildNode(filter,index){
         detail:{
           filterId:filter.id,
           outputKind:kind,
+          format:projection?.format||null,
           bypass:filter.bypass===true,
           sourceMeasurementId:filter.input?.id||null,
           color:sourceColor(filter),
           hostFormat:host?.format||null,
           hostId:host?.id||null,
           pairId:projection?.pairId||null,
-          host,
+          payload:projection,
           projection
         }
       }));
@@ -2496,27 +2498,33 @@ window.RaptorMagPhaseGdFilter=Object.freeze({
     if(!filter||!['phase','magnitude'].includes(outputKind)) return null;
     const projection=outputProjection(filter,outputKind);
     if(!projection) return null;
-    return Object.freeze({
+
+    const common={
+      format:projection.format,
+      schemaVersion:projection.schemaVersion,
       filterId,
       outputKind,
       bypass:filter.bypass===true,
-      sourceMeasurementId:filter.input?.id||null,
+      sourceMeasurementId:window.RaptorCrossoverFilter?.getLineage?.(filter.input?.id)?.measurementId
+        ||(filter.input?.kind==='measurement'?filter.input.id:null),
       color:projection.color,
       hostFormat:projection.hostFormat,
       hostId:projection.hostId,
       pairId:projection.pairId,
+      points:projection.points,
       frequency_hz:projection.frequency_hz,
       values:projection.values,
-      magnitude_db:projection.magnitude_db,
-      phase_deg:projection.phase_deg,
-      complex_real:projection.complex_real,
-      complex_imag:projection.complex_imag,
       coherence:projection.coherence,
       sampleRateHz:projection.sampleRateHz,
+      source:projection.source,
       processing:projection.processing,
       provenance:projection.provenance,
       canonicalMutated:false
-    });
+    };
+
+    return Object.freeze(outputKind==='phase'
+      ?{...common,phase_deg:projection.phase_deg}
+      :{...common,magnitude_db:projection.magnitude_db});
   },
   refresh:renderNodes,
   refreshConnections:renderConnections

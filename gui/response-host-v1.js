@@ -3,6 +3,10 @@
 
 const FORMAT='raptor.response.host.v1';
 const SCHEMA_VERSION=1;
+const PROJECTION_SCHEMA_VERSION=1;
+const PHASE_FORMAT='raptor.response.phase.v1';
+const MAGNITUDE_FORMAT='raptor.response.magnitude.v1';
+const COMPLEX_FORMAT='raptor.response.complex.v1';
 
 function copyFloat64(values,name){
   if(values===null||values===undefined) return null;
@@ -108,13 +112,8 @@ function project(host,kind){
     throw new Error('Unknown Response Host projection: '+kind);
   }
 
-  const values=
-    kind==='phase'?host.phase_deg:
-    kind==='magnitude'?host.magnitude_db:
-    null;
-
-  return Object.freeze({
-    format:'raptor.response.projection.v1',
+  const common={
+    schemaVersion:PROJECTION_SCHEMA_VERSION,
     hostFormat:FORMAT,
     hostId:host.id,
     pairId:host.id,
@@ -124,21 +123,45 @@ function project(host,kind){
     color:host.color,
     points:host.points,
     frequency_hz:host.frequency_hz,
-    values,
-    magnitude_db:host.magnitude_db,
-    phase_deg:host.phase_deg,
-    complex_real:host.complex_real,
-    complex_imag:host.complex_imag,
     coherence:host.coherence,
     source:host.source,
     processing:host.processing,
     provenance:host.provenance
+  };
+
+  if(kind==='phase'){
+    return Object.freeze({
+      ...common,
+      format:PHASE_FORMAT,
+      values:host.phase_deg,
+      phase_deg:host.phase_deg
+    });
+  }
+
+  if(kind==='magnitude'){
+    return Object.freeze({
+      ...common,
+      format:MAGNITUDE_FORMAT,
+      values:host.magnitude_db,
+      magnitude_db:host.magnitude_db
+    });
+  }
+
+  return Object.freeze({
+    ...common,
+    format:COMPLEX_FORMAT,
+    complex_real:host.complex_real,
+    complex_imag:host.complex_imag
   });
 }
 
 window.RaptorResponseHostV1=Object.freeze({
   FORMAT,
   SCHEMA_VERSION,
+  PROJECTION_SCHEMA_VERSION,
+  PHASE_FORMAT,
+  MAGNITUDE_FORMAT,
+  COMPLEX_FORMAT,
   create,
   validate,
   project
