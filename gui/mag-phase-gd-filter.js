@@ -370,9 +370,8 @@ function canvasPointFor(element){
   };
 }
 
-function wireCurve(start,end){
-  const bend=Math.max(52,Math.abs(end.x-start.x)*.38);
-  return 'M '+start.x+' '+start.y+' C '+(start.x+bend)+' '+start.y+', '+(end.x-bend)+' '+end.y+', '+end.x+' '+end.y;
+function wireCurve(start,end,sourceElement=null,targetElement=null){
+  return api.routeWire?.(start,end,{sourceElement,targetElement})||'';
 }
 
 function renderConnections(){
@@ -387,7 +386,8 @@ function renderConnections(){
     const target=canvas.querySelector('.mpgd-filter-node[data-filter-id="'+filter.id+'"] .mpgd-filter-input');
     if(!entry||!ref||!source||!target) continue;
 
-    const d=wireCurve(canvasPointFor(source),canvasPointFor(target));
+    const d=wireCurve(canvasPointFor(source),canvasPointFor(target),source,target);
+    if(!d) continue;
     const hit=document.createElementNS(SVG_NS,'path');
     hit.setAttribute('class','pipeline-persistent-wire-hit');
     hit.setAttribute('d',d);
@@ -2415,6 +2415,7 @@ new MutationObserver(()=>requestAnimationFrame(renderConnections))
 
 new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode);
 canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
+document.addEventListener('raptor:pipelineobstacleschange',()=>requestAnimationFrame(renderConnections));
 
 window.RaptorMagPhaseGdFilter=Object.freeze({
   type:FILTER_TYPE,

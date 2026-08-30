@@ -656,9 +656,8 @@ function canvasPointFor(element){
     y:rect.top+rect.height/2-canvasRect.top+canvas.scrollTop
   };
 }
-function wireCurve(start,end){
-  const bend=Math.max(52,Math.abs(end.x-start.x)*.38);
-  return 'M '+start.x+' '+start.y+' C '+(start.x+bend)+' '+start.y+', '+(end.x-bend)+' '+end.y+', '+end.x+' '+end.y;
+function wireCurve(start,end,sourceElement=null,targetElement=null){
+  return api.routeWire?.(start,end,{sourceElement,targetElement})||'';
 }
 function renderConnections(){
   const group=ensureWireGroup();
@@ -672,7 +671,8 @@ function renderConnections(){
     if(!ref||!source||!target) continue;
 
     const color=sourceColor(filter);
-    const d=wireCurve(canvasPointFor(source),canvasPointFor(target));
+    const d=wireCurve(canvasPointFor(source),canvasPointFor(target),source,target);
+    if(!d) continue;
     const hit=document.createElementNS(SVG_NS,'path');
     hit.setAttribute('class','pipeline-persistent-wire-hit');
     hit.setAttribute('d',d);
@@ -788,6 +788,7 @@ new MutationObserver(()=>requestAnimationFrame(renderConnections))
   .observe(measurementNode,{attributes:true,attributeFilter:['style']});
 new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode);
 canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
+document.addEventListener('raptor:pipelineobstacleschange',()=>requestAnimationFrame(renderConnections));
 
 window.RaptorCrossoverFilter=Object.freeze({
   model:MODEL,
