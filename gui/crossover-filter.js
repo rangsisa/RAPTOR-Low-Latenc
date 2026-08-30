@@ -87,18 +87,59 @@ function sourceRef(filter){
     id:String(filter.input.id)
   };
 }
+const LINEAGE_BASE_COLOR='#8FA6B8';
+
 function sourceExists(filter){
   const ref=sourceRef(filter);
   if(!ref) return false;
   return ref.kind==='filter'?!!filterById(ref.id):!!api.getMeasurement?.(ref.id);
 }
-function sourceColor(filter){
+
+function lineageInfo(filter,seen=new Set()){
+  if(!filter) return {active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
+
+  const filterId=String(filter.id||'');
+  if(filterId&&seen.has(filterId)){
+    return {active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
+  }
+
+  const nextSeen=new Set(seen);
+  if(filterId) nextSeen.add(filterId);
+
   const ref=sourceRef(filter);
-  if(!ref) return '#8FA6B8';
-  if(ref.kind==='measurement') return api.getMeasurement?.(ref.id)?.color||'#8FA6B8';
-  const upstreamNode=[...canvas.querySelectorAll('.xo-filter-node')]
-    .find(candidate=>candidate.dataset.filterId===ref.id);
-  return upstreamNode?.style.getPropertyValue('--lineage-color')||'#8FA6B8';
+  if(!ref) return {active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
+
+  if(ref.kind==='measurement'){
+    const entry=api.getMeasurement?.(ref.id)||null;
+    return {
+      active:!!entry,
+      color:entry?.color||LINEAGE_BASE_COLOR,
+      measurementId:entry?ref.id:null
+    };
+  }
+
+  const upstream=filterById(ref.id);
+  if(!upstream) return {active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
+  return lineageInfo(upstream,nextSeen);
+}
+
+function sourceColor(filter){
+  return lineageInfo(filter).color;
+}
+
+function notifyLineageChange(filterId,filterType,reason){
+  const filter=filterById(filterId);
+  const lineage=filter?lineageInfo(filter):{active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
+  document.dispatchEvent(new CustomEvent('raptor:crossoverlineagechange',{
+    detail:{
+      filterId:String(filterId||''),
+      filterType:filterType||filter?.type||null,
+      reason:String(reason||'lineage-change'),
+      active:lineage.active===true,
+      color:lineage.color,
+      measurementId:lineage.measurementId
+    }
+  }));
 }
 function sourceName(filter){
   const ref=sourceRef(filter);
@@ -324,9 +365,10 @@ function commitFrequencyInput(filter,input){
   return true;
 }
 function applyLineage(node,filter){
-  const connected=sourceExists(filter);
-  const color=sourceColor(filter);
-  node.classList.toggle('has-lineage',connected);
+  const linked=sourceExists(filter);
+  const lineage=lineageInfo(filter);
+  const color=lineage.color;
+  node.classList.toggle('has-lineage',lineage.active===true);
   node.classList.toggle('is-bypassed',filter.bypass===true);
   node.style.setProperty('--lineage-color',color);
   node.style.setProperty('--lineage-tint',hexTint(color,.12));
@@ -338,7 +380,7 @@ function applyLineage(node,filter){
   const input=node.querySelector('.xo-filter-input');
   const output=node.querySelector('.xo-filter-output');
   if(input){
-    input.classList.toggle('is-connected',connected);
+    input.classList.toggle('is-connected',linked);
     input.style.setProperty('--port-color',color);
   }
   if(output) output.style.setProperty('--port-color',color);
@@ -578,6 +620,7 @@ function deleteFilter(filterId){
   document.dispatchEvent(new CustomEvent('raptor:filterdeleted',{
     detail:{filterId,filterType:filter.type}
   }));
+  notifyLineageChange(filterId,filter.type,'filter-delete');
   return true;
 }
 function connectInput(filter,source,meta={}){
@@ -603,9 +646,10 @@ function connectInput(filter,source,meta={}){
       sourceKind:kind,
       sourceId,
       connected:true,
-      color:meta.color||source.color||sourceColor(filter)
+      color:sourceColor(filter)
     }
   }));
+  notifyLineageChange(filter.id,filter.type,'input-connect');
   return true;
 }
 function disconnectInput(filter){
@@ -617,6 +661,7 @@ function disconnectInput(filter){
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
     detail:{filterId:filter.id,filterType:filter.type,sourceId,connected:false}
   }));
+  notifyLineageChange(filter.id,filter.type,'input-disconnect');
   return true;
 }
 
@@ -799,6 +844,11 @@ window.RaptorCrossoverFilter=Object.freeze({
     return filter?cloneFilter(filter,false):null;
   },
   getOutput,
+  getLineage(filterId){
+    const filter=filterById(filterId);
+    const lineage=filter?lineageInfo(filter):{active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
+    return Object.freeze({...lineage});
+  },
   setBypass(filterId,bypass){
     const filter=filterById(filterId);
     if(!filter) return false;

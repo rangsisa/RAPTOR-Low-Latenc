@@ -206,7 +206,7 @@ function sourceEntry(filter){
 
   if(ref.kind==='measurement'){
     const entry=api.getMeasurement?.(ref.id)||null;
-    return entry?{...entry,sourceKind:'measurement'}:null;
+    return entry?{...entry,sourceKind:'measurement',lineageActive:true}:null;
   }
 
   const crossover=window.RaptorCrossoverFilter||null;
@@ -219,14 +219,18 @@ function sourceEntry(filter){
     try{canonicalApi?.validate(canonical);}catch{canonical=null;}
   }
 
-  const sourceNode=[...canvas.querySelectorAll('.xo-filter-node')]
-    .find(node=>node.dataset.filterId===ref.id);
-  const color=sourceNode?.style.getPropertyValue('--lineage-color')?.trim()||'#8FA6B8';
+  const lineage=crossover?.getLineage?.(ref.id)||{
+    active:!!canonical,
+    color:'#8FA6B8',
+    measurementId:null
+  };
+  const color=lineage.color||'#8FA6B8';
 
   return {
     id:ref.id,
     name:upstream?.label?upstream.label+' · '+ref.id:(canonical?.source_name||ref.id),
     color,
+    lineageActive:lineage.active===true,
     sampleRate:canonical?.sample_rate_hz||upstream.sampleRateHz||null,
     canonical,
     format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
@@ -412,7 +416,7 @@ function renderConnections(){
 function applyNodeLineage(node,filter){
   const entry=sourceEntry(filter);
   const color=entry?.color||'#8FA6B8';
-  node.classList.toggle('has-lineage',!!entry);
+  node.classList.toggle('has-lineage',entry?.lineageActive===true);
   node.classList.toggle('is-bypassed',filter.bypass===true);
   node.classList.toggle('is-filtering',filter.bypass!==true);
   node.style.setProperty('--lineage-color',color);
@@ -2368,6 +2372,28 @@ new MutationObserver(()=>{
   requestAnimationFrame(renderConnections);
 }).observe(measurementList,{childList:true,subtree:false});
 
+function refreshCrossoverLineages(){
+  if(!activeCard) return;
+
+  let affected=false;
+  for(const filter of activeFilters()){
+    if(filter.input?.kind!=='filter') continue;
+    affected=true;
+
+    const entry=sourceEntry(filter);
+    filter.sampleRateHz=Number(entry?.sampleRate??entry?.canonical?.sample_rate_hz)||null;
+    invalidateResponseHost(filter,'crossover-lineage-change');
+
+    const win=windows.get(filter.id);
+    if(win?.isConnected&&!win.hidden) renderWindow(filter,win);
+  }
+
+  if(affected){
+    renderNodes();
+    requestAnimationFrame(renderConnections);
+  }
+}
+
 function refreshFilterSources(event){
   if(!activeCard) return;
   const sourceId=String(event.detail?.filterId||'');
@@ -2406,6 +2432,7 @@ for(const eventName of [
 ]){
   document.addEventListener(eventName,refreshFilterSources);
 }
+document.addEventListener('raptor:crossoverlineagechange',refreshCrossoverLineages);
 
 new MutationObserver(()=>requestAnimationFrame(renderConnections))
   .observe(canvas,{attributes:true,subtree:true,attributeFilter:['style']});
