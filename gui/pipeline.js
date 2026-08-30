@@ -9,7 +9,6 @@ const emptyState=document.getElementById('pipelineNodeEmpty');
 const measurementNode=document.getElementById('measurementNode');
 const measurementHead=measurementNode.querySelector('.measurement-node-head');
 const activeLineLabel=document.getElementById('measurementLineLabel');
-const fileInput=document.getElementById('measurementFileInput');
 const fileList=document.getElementById('measurementList');
 const fileSummary=document.getElementById('measurementSummary');
 const selectButton=document.getElementById('measurementSelect');
@@ -1086,21 +1085,6 @@ function startNodeDrag(event){
   window.addEventListener('pointercancel',end);
 }
 
-// Native input owns the complete desktop chooser lifecycle.
-fileInput.addEventListener('pointerdown',event=>{
-  event.stopPropagation();
-});
-fileInput.addEventListener('click',event=>{
-  event.stopPropagation();
-});
-
-fileInput.addEventListener('change',async()=>{
-  const files=Array.from(fileInput.files||[]);
-  if(!files.length) return;
-  await importFiles(files);
-  fileInput.value='';
-});
-
 selectButton.addEventListener('click',()=>{
   selectionMode=!selectionMode;
   if(!selectionMode) selectedIds.clear();
@@ -1167,6 +1151,7 @@ window.RaptorPipeline={
   unregisterInput,
   startCanonicalWire,
   routeWire,
+  importMeasurementFiles:importFiles,
   getMeasurement,
   getMeasurementCanonical,
   getActiveLine

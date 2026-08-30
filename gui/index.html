@@ -54,11 +54,9 @@
                 <strong>Measurement</strong>
                 <span id="measurementLineLabel">RAPTOR Line</span>
               </div>
-              <span class="measurement-import">
-                <span class="measurement-import-label" aria-hidden="true">+ Import</span>
-                <input class="measurement-file-input" id="measurementFileInput" type="file" multiple accept=".txt,.frd,.csv,.dat,text/plain,text/csv" aria-label="Import measurement files" />
-              </span>
+              <label class="measurement-import" for="measurementFileInput">+ Import</label>
             </header>
+            <input class="measurement-file-input" id="measurementFileInput" type="file" multiple accept=".txt,.frd,.csv,.dat,text/plain,text/csv" aria-label="Import measurement files" />
 
             <div class="measurement-summary" id="measurementSummary"><strong>0</strong> measurements</div>
             <div class="measurement-list" id="measurementList">
@@ -230,7 +228,8 @@
 
   <script src="./workspace.js"></script>
   <script src="./measurement-canonical-v1.js"></script>
-  <script src="./pipeline.js?v=native-import-overlay-20260830-1"></script>
+  <script src="./pipeline.js?v=measurement-import-split-20260830-1"></script>
+  <script src="./measurement-import.js?v=native-label-v1-20260830-1"></script>
   <script src="./pipeline-interactions.js"></script>
   <script src="./pipeline-context.js"></script>
   <script src="./eq-geometry-rbj.js"></script>
