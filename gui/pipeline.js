@@ -487,7 +487,7 @@ function drawPreview(entry){
   canvas.height=Math.round(h*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
-  ctx.fillStyle=hexTint(entry.color||'#8FA6B8',.08);
+  ctx.fillStyle=hexTint(entry.color||'#8FA6B8',.14);
   ctx.fillRect(0,0,w,h);
   if(!entry.canonical) return;
   canonicalV1.validate(entry.canonical);
@@ -595,8 +595,6 @@ function openPreview(anchor,entry){
   previewDot.style.background=previewColor;
   preview.style.setProperty('--preview-color',previewColor);
   preview.style.setProperty('--preview-tint',hexTint(previewColor,.14));
-  preview.style.setProperty('--preview-tint-soft',hexTint(previewColor,.065));
-  preview.style.setProperty('--preview-tint-faint',hexTint(previewColor,.035));
   previewRate.textContent=formatRate(entry.sampleRate);
   previewFft.textContent=entry.fftSize?String(entry.fftSize):'Unknown';
   previewPoints.textContent=entry.points?String(entry.points):'—';
