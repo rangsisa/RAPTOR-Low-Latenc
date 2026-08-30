@@ -53,7 +53,7 @@
   stroke:transparent;
   stroke-width:14;
   pointer-events:stroke;
-  cursor:context-menu
+  cursor:pointer
 }
 .pipeline-persistent-wire{
   fill:none;
@@ -83,4 +83,45 @@
 @media(max-width:700px){
   .pipeline-context-menu{min-width:190px;padding:5px}
   .pipeline-context-action{min-height:32px;font-size:10px}
+}
+
+/* Wire inspection: normal wiring stays under nodes; only inspected clones rise above. */
+.pipeline-wire-inspect-path{
+  fill:none;
+  stroke-width:3.2;
+  stroke-linecap:round;
+  opacity:1;
+  pointer-events:none;
+  filter:drop-shadow(0 1px 2px rgba(20,28,36,.32))
+}
+.pipeline-wire-inspect-path.is-hover{stroke-width:2.8;opacity:.96}
+.pipeline-wire-inspect-flow{
+  fill:none;
+  stroke:#fff;
+  stroke-width:1.45;
+  stroke-linecap:round;
+  stroke-dasharray:2 10;
+  opacity:1;
+  pointer-events:none;
+  animation:raptor-wire-current .72s linear infinite;
+  filter:drop-shadow(0 0 1px rgba(255,255,255,.95))
+}
+.measurement-node.is-wire-trace-node,
+.xo-filter-node.is-wire-trace-node,
+.mpgd-filter-node.is-wire-trace-node{
+  outline:2px solid var(--wire-trace-color,#e86f17);
+  outline-offset:3px
+}
+.measurement-file.is-wire-trace-node{
+  box-shadow:inset 0 0 0 2px var(--wire-trace-color,#e86f17)
+}
+.measurement-node.is-wire-trace-node .measurement-output::after,
+.xo-filter-node.is-wire-trace-node .xo-filter-input::after,
+.xo-filter-node.is-wire-trace-node .xo-filter-output::after,
+.mpgd-filter-node.is-wire-trace-node .mpgd-filter-input::after,
+.mpgd-filter-node.is-wire-trace-node .mpgd-filter-output::after{
+  filter:drop-shadow(0 0 3px var(--wire-trace-color,#e86f17))
+}
+@media(prefers-reduced-motion:reduce){
+  .pipeline-wire-inspect-flow{animation:none}
 }
