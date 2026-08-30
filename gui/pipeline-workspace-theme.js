@@ -6,11 +6,12 @@ const ZOOM_STORAGE_KEY='raptor.pipeline.canvas.zoom.v1';
 const ZOOM_LEVELS=Object.freeze([.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5]);
 
 const canvas=document.getElementById('pipelineNodeCanvas');
-const themeToggle=document.getElementById('pipelineCanvasThemeToggle');
+const themeLight=document.getElementById('pipelineThemeLight');
+const themeDark=document.getElementById('pipelineThemeDark');
 const zoomOut=document.getElementById('pipelineZoomOut');
 const zoomIn=document.getElementById('pipelineZoomIn');
 const zoomValue=document.getElementById('pipelineZoomValue');
-if(!canvas||!themeToggle||!zoomOut||!zoomIn||!zoomValue) return;
+if(!canvas||!themeLight||!themeDark||!zoomOut||!zoomIn||!zoomValue) return;
 
 function readStoredTheme(){
   try{return window.localStorage.getItem(THEME_STORAGE_KEY)==='dark'?'dark':'light';}
@@ -34,21 +35,27 @@ let zoom=readStoredZoom();
 function applyTheme(theme,persist=false){
   const dark=theme==='dark';
   canvas.classList.toggle('is-dark-canvas',dark);
-  themeToggle.setAttribute('aria-pressed',dark?'true':'false');
-  themeToggle.setAttribute('aria-label',dark?'Switch Pipeline workspace to light mode':'Switch Pipeline workspace to dark mode');
-  themeToggle.textContent=dark?'☀ Light':'☾ Dark';
+
+  themeLight.classList.toggle('is-active',!dark);
+  themeDark.classList.toggle('is-active',dark);
+  themeLight.setAttribute('aria-pressed',dark?'false':'true');
+  themeDark.setAttribute('aria-pressed',dark?'true':'false');
+  themeLight.title=dark?'Switch canvas to Light mode':'Light canvas active';
+  themeDark.title=dark?'Dark canvas active':'Switch canvas to Dark mode';
+
   if(persist) storeTheme(dark?'dark':'light');
 }
 
 function updateZoomControls(){
   const index=ZOOM_LEVELS.indexOf(zoom);
-  const text=Math.round(zoom*100)+'%';
-  zoomValue.value=text;
-  zoomValue.textContent=text;
+  const value=Math.round(zoom*100)+'%';
+  zoomValue.value=value;
+  zoomValue.textContent=value;
+  zoomValue.title='Pipeline canvas zoom · Ctrl/⌘ + wheel zooms around the cursor';
   zoomOut.disabled=index<=0;
   zoomIn.disabled=index<0||index>=ZOOM_LEVELS.length-1;
-  zoomOut.title='Zoom out · '+text;
-  zoomIn.title='Zoom in · '+text;
+  zoomOut.title='Zoom out · '+value;
+  zoomIn.title='Zoom in · '+value;
 }
 
 function positionNode(node,x,y){
@@ -89,11 +96,20 @@ function logicalScrollWidth(){
   return Math.max(canvas.clientWidth/zoom,canvas.scrollWidth/zoom);
 }
 
-function setZoom(next,persist=false){
+function setZoom(next,persist=false,anchorClient=null){
   if(!ZOOM_LEVELS.includes(next)||next===zoom) return false;
+
   const oldZoom=zoom;
-  const logicalCenterX=(canvas.scrollLeft+canvas.clientWidth/2)/oldZoom;
-  const logicalCenterY=(canvas.scrollTop+canvas.clientHeight/2)/oldZoom;
+  const rect=canvas.getBoundingClientRect();
+  const viewportX=anchorClient&&Number.isFinite(anchorClient.clientX)
+    ?Math.max(0,Math.min(canvas.clientWidth,anchorClient.clientX-rect.left))
+    :canvas.clientWidth/2;
+  const viewportY=anchorClient&&Number.isFinite(anchorClient.clientY)
+    ?Math.max(0,Math.min(canvas.clientHeight,anchorClient.clientY-rect.top))
+    :canvas.clientHeight/2;
+
+  const logicalAnchorX=(canvas.scrollLeft+viewportX)/oldZoom;
+  const logicalAnchorY=(canvas.scrollTop+viewportY)/oldZoom;
 
   zoom=next;
   canvas.style.setProperty('--pipeline-zoom',String(zoom));
@@ -102,24 +118,35 @@ function setZoom(next,persist=false){
   if(persist) storeZoom(zoom);
 
   requestAnimationFrame(()=>{
-    canvas.scrollLeft=Math.max(0,logicalCenterX*zoom-canvas.clientWidth/2);
-    canvas.scrollTop=Math.max(0,logicalCenterY*zoom-canvas.clientHeight/2);
-    document.dispatchEvent(new CustomEvent('raptor:pipelinezoomchange',{detail:{zoom}}));
+    canvas.scrollLeft=Math.max(0,logicalAnchorX*zoom-viewportX);
+    canvas.scrollTop=Math.max(0,logicalAnchorY*zoom-viewportY);
+    document.dispatchEvent(new CustomEvent('raptor:pipelinezoomchange',{
+      detail:{zoom,anchorClient:anchorClient?{clientX:anchorClient.clientX,clientY:anchorClient.clientY}:null}
+    }));
   });
   return true;
 }
 
-themeToggle.addEventListener('click',()=>{
-  applyTheme(canvas.classList.contains('is-dark-canvas')?'light':'dark',true);
-});
-zoomOut.addEventListener('click',()=>{
+function zoomByStep(step,persist=false,anchorClient=null){
   const index=ZOOM_LEVELS.indexOf(zoom);
-  if(index>0) setZoom(ZOOM_LEVELS[index-1],true);
-});
-zoomIn.addEventListener('click',()=>{
-  const index=ZOOM_LEVELS.indexOf(zoom);
-  if(index>=0&&index<ZOOM_LEVELS.length-1) setZoom(ZOOM_LEVELS[index+1],true);
-});
+  if(index<0) return false;
+  const nextIndex=Math.max(0,Math.min(ZOOM_LEVELS.length-1,index+step));
+  if(nextIndex===index) return false;
+  return setZoom(ZOOM_LEVELS[nextIndex],persist,anchorClient);
+}
+
+themeLight.addEventListener('click',()=>applyTheme('light',true));
+themeDark.addEventListener('click',()=>applyTheme('dark',true));
+
+zoomOut.addEventListener('click',()=>zoomByStep(-1,true));
+zoomIn.addEventListener('click',()=>zoomByStep(1,true));
+
+canvas.addEventListener('wheel',event=>{
+  if(!(event.ctrlKey||event.metaKey)) return;
+  if(!Number.isFinite(event.deltaY)||event.deltaY===0) return;
+  event.preventDefault();
+  zoomByStep(event.deltaY<0?1:-1,true,{clientX:event.clientX,clientY:event.clientY});
+},{passive:false});
 
 canvas.style.setProperty('--pipeline-zoom',String(zoom));
 applyTheme(readStoredTheme(),false);
