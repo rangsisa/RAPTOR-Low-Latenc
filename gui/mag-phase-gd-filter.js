@@ -514,12 +514,12 @@ function deleteFilter(filterId){
 
 function clampNodePosition(position,node=null){
   const width=node?.offsetWidth||222;
-  const height=node?.offsetHeight||128;
   const maxX=Math.max(8,canvas.scrollWidth-width-12);
-  const maxY=Math.max(8,canvas.scrollHeight-height-12);
   return {
     x:Math.max(8,Math.min(maxX,Number(position.x)||8)),
-    y:Math.max(8,Math.min(maxY,Number(position.y)||8))
+    // Vertical overflow is intentionally unbounded like Measurement.
+    // Moving a filter below the current viewport expands canvas.scrollHeight.
+    y:Math.max(8,Number(position.y)||8)
   };
 }
 
