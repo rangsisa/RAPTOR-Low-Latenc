@@ -117,7 +117,10 @@ function normalizeFilterInPlace(filter){
   if(filter.windowPosition&&(!Number.isFinite(Number(filter.windowPosition.x))||!Number.isFinite(Number(filter.windowPosition.y)))){
     filter.windowPosition=null;
   }
-  filter.input=filter.input?.id?{kind:'measurement',id:String(filter.input.id)}:null;
+  filter.input=filter.input?.id?{
+    kind:filter.input.kind==='filter'?'filter':'measurement',
+    id:String(filter.input.id)
+  }:null;
   filter.bypass=filter.bypass===true;
   filter.sampleRateHz=Number.isFinite(Number(filter.sampleRateHz))&&Number(filter.sampleRateHz)>0?Number(filter.sampleRateHz):null;
   if(!Array.isArray(filter.bands)) filter.bands=[];
