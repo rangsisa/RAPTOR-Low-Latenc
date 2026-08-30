@@ -10,7 +10,6 @@ const measurementNode=document.getElementById('measurementNode');
 const measurementHead=measurementNode.querySelector('.measurement-node-head');
 const activeLineLabel=document.getElementById('measurementLineLabel');
 const fileInput=document.getElementById('measurementFileInput');
-const importButton=document.getElementById('measurementImportButton');
 const fileList=document.getElementById('measurementList');
 const fileSummary=document.getElementById('measurementSummary');
 const selectButton=document.getElementById('measurementSelect');
@@ -1087,25 +1086,12 @@ function startNodeDrag(event){
   window.addEventListener('pointercancel',end);
 }
 
-importButton?.addEventListener('pointerdown',event=>{
+// Native input owns the complete desktop chooser lifecycle.
+fileInput.addEventListener('pointerdown',event=>{
   event.stopPropagation();
 });
-
-importButton?.addEventListener('click',event=>{
-  event.preventDefault();
+fileInput.addEventListener('click',event=>{
   event.stopPropagation();
-
-  // Proven desktop path from commit 5ca1a936736e79713f35dac3d3dbeeb156ac8ff8.
-  // Keep showPicker() first for desktop Chromium/WebView and retain click()
-  // only as the fallback. Do not simplify this path again without a runtime test.
-  fileInput.value='';
-  try{
-    if(typeof fileInput.showPicker==='function'){
-      fileInput.showPicker();
-      return;
-    }
-  }catch{}
-  fileInput.click();
 });
 
 fileInput.addEventListener('change',async()=>{

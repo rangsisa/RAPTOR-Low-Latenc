@@ -6,7 +6,7 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css" />
   <link rel="stylesheet" href="./workspace.css" />
-  <link rel="stylesheet" href="./pipeline.css?v=neutral-preview-import-20260830-1" />
+  <link rel="stylesheet" href="./pipeline.css?v=native-import-overlay-20260830-1" />
   <link rel="stylesheet" href="./pipeline-interactions.css?v=remove-green-preview-20260830-1" />
   <link rel="stylesheet" href="./pipeline-context.css" />
   <link rel="stylesheet" href="./matching/matching.css" />
@@ -54,8 +54,10 @@
                 <strong>Measurement</strong>
                 <span id="measurementLineLabel">RAPTOR Line</span>
               </div>
-              <button class="measurement-import" id="measurementImportButton" type="button">+ Import</button>
-              <input class="measurement-file-input" id="measurementFileInput" type="file" multiple accept=".txt,.frd,.csv,.dat,text/plain,text/csv" />
+              <span class="measurement-import">
+                <span class="measurement-import-label" aria-hidden="true">+ Import</span>
+                <input class="measurement-file-input" id="measurementFileInput" type="file" multiple accept=".txt,.frd,.csv,.dat,text/plain,text/csv" aria-label="Import measurement files" />
+              </span>
             </header>
 
             <div class="measurement-summary" id="measurementSummary"><strong>0</strong> measurements</div>
@@ -228,7 +230,7 @@
 
   <script src="./workspace.js"></script>
   <script src="./measurement-canonical-v1.js"></script>
-  <script src="./pipeline.js?v=obstacle-router-20260830-2"></script>
+  <script src="./pipeline.js?v=native-import-overlay-20260830-1"></script>
   <script src="./pipeline-interactions.js"></script>
   <script src="./pipeline-context.js"></script>
   <script src="./eq-geometry-rbj.js"></script>
