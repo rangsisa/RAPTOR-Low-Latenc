@@ -6,7 +6,7 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css" />
   <link rel="stylesheet" href="./workspace.css" />
-  <link rel="stylesheet" href="./pipeline.css?v=wire-underlay-inspect-20260830-1" />
+  <link rel="stylesheet" href="./pipeline.css?v=compact-pipeline-strip-20260830-1" />
   <link rel="stylesheet" href="./pipeline-interactions.css?v=remove-green-preview-20260830-1" />
   <link rel="stylesheet" href="./pipeline-context.css?v=wire-underlay-inspect-20260830-1" />
   <link rel="stylesheet" href="./matching/matching.css" />
@@ -35,13 +35,15 @@
 
     <section class="workspace-canvas" id="workspaceCanvas" data-page="pipeline" aria-live="polite">
       <section class="page-view page-view--pipeline is-page-active" data-view="pipeline">
-        <div class="pipeline-toolbar" role="toolbar" aria-label="Pipeline tools">
-          <span class="pipeline-toolbar-title">PIPELINE</span>
-          <button class="pipeline-add" id="addPipeline" type="button"><span class="pipeline-add-symbol" aria-hidden="true">+</span>Add Pipeline</button>
-        </div>
+        <div class="pipeline-strip">
+          <div class="pipeline-toolbar" role="toolbar" aria-label="Pipeline tools">
+            <span class="pipeline-toolbar-title">PIPELINE</span>
+            <button class="pipeline-add" id="addPipeline" type="button"><span class="pipeline-add-symbol" aria-hidden="true">+</span>Add Pipeline</button>
+          </div>
 
-        <div class="pipeline-scroll">
-          <div class="pipeline-row" id="pipelineRow" aria-live="polite"></div>
+          <div class="pipeline-scroll">
+            <div class="pipeline-row" id="pipelineRow" aria-live="polite"></div>
+          </div>
         </div>
 
         <div class="pipeline-node-canvas" id="pipelineNodeCanvas" aria-label="RAPTOR Line node workspace">

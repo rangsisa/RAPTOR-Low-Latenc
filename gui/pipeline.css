@@ -1,8 +1,107 @@
+
+/* Compact Pipeline control strip: Add Pipeline + RAPTOR Lines share one row. */
+.pipeline-strip{
+  position:absolute;
+  top:10px;
+  left:12px;
+  right:0;
+  z-index:3;
+  height:42px;
+  min-width:0;
+  display:flex;
+  align-items:stretch;
+  gap:7px;
+  padding-right:8px
+}
+.pipeline-strip .pipeline-toolbar{
+  position:static;
+  top:auto;
+  left:auto;
+  flex:0 0 auto;
+  height:40px;
+  min-width:max-content;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:5px 6px 5px 9px;
+  border:1px solid #aeb9c4;
+  border-radius:6px;
+  background:#fff;
+  box-shadow:0 2px 7px rgba(28,38,48,.09)
+}
+.pipeline-strip .pipeline-scroll{
+  position:static;
+  inset:auto;
+  flex:1 1 auto;
+  min-width:0;
+  height:42px;
+  padding:0 8px 2px 0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  border:0;
+  background:transparent;
+  scrollbar-gutter:stable
+}
+.pipeline-strip .pipeline-row{
+  height:40px;
+  min-width:max-content;
+  display:flex;
+  align-items:stretch;
+  gap:7px
+}
+.pipeline-strip .pipeline-card{
+  width:max-content;
+  min-width:max-content;
+  height:40px;
+  flex:0 0 auto;
+  display:grid;
+  grid-template-columns:max-content 44px 40px;
+  grid-template-rows:40px;
+  border:1px solid #9faab4;
+  border-radius:5px;
+  background:#fff;
+  overflow:hidden
+}
+.pipeline-strip .pipeline-card-name{
+  grid-column:auto;
+  min-width:max-content;
+  max-width:none;
+  display:flex;
+  align-items:center;
+  padding:0 10px;
+  border-right:1px solid #b6c0c9;
+  border-bottom:0;
+  font-size:11px;
+  font-weight:700;
+  color:#1f2a33;
+  white-space:nowrap;
+  overflow:visible;
+  text-overflow:clip
+}
+.pipeline-strip .pipeline-card-action{
+  min-width:0;
+  height:40px;
+  padding:0;
+  border:0;
+  background:#f7f9fa;
+  color:#43505c;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer
+}
+.pipeline-strip .pipeline-card-action + .pipeline-card-action{
+  border-left:1px solid #b6c0c9
+}
+.pipeline-strip .pipeline-card-action:hover{
+  background:#eef2f4;
+  color:#222d36
+}
+
 .pipeline-scroll{inset:70px 0 auto 0;height:94px;padding:8px 16px;overflow-x:auto;overflow-y:hidden;border-bottom:1px solid #c8d0d7;background:rgba(247,249,251,.92)}
 .pipeline-card.is-loaded{border-color:var(--raptor-active-border);box-shadow:0 0 0 1px var(--raptor-active-soft)}
 .pipeline-card.is-loaded .pipeline-load{background:var(--raptor-active);color:#fff}
 .pipeline-card.is-loaded .pipeline-load:hover{background:var(--raptor-active-hover);color:#fff}
-.pipeline-node-canvas{position:absolute;inset:164px 0 0 0;z-index:1;overflow:auto;min-width:900px;min-height:420px;background-image:radial-gradient(circle,#cbd3da .8px,transparent .9px);background-size:24px 24px}
+.pipeline-node-canvas{position:absolute;inset:62px 0 0 0;z-index:1;overflow:auto;min-width:900px;min-height:420px;background-image:radial-gradient(circle,#cbd3da .8px,transparent .9px);background-size:24px 24px}
 .pipeline-node-empty{position:absolute;top:28px;left:24px;padding:8px 10px;border:1px dashed #b8c2ca;border-radius:5px;background:rgba(255,255,255,.76);color:#71808c;font-size:11px}
 .pipeline-wire-layer{position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;overflow:visible}
 .pipeline-wire-inspect-layer{position:absolute;inset:0;z-index:30;width:100%;height:100%;pointer-events:none;overflow:visible}
@@ -72,4 +171,16 @@
 .measurement-preview-meta .measurement-preview-wide{grid-column:1/-1}
 .measurement-preview-meta dt,.measurement-preview-meta dd{margin:0;font-size:7.5px;white-space:nowrap}
 .measurement-preview-meta dt{color:#6a7781}.measurement-preview-meta dd{overflow:hidden;text-overflow:ellipsis;color:#34414c;font-weight:700;font-variant-numeric:tabular-nums}
-@media(max-height:720px){.pipeline-node-canvas{inset:158px 0 0}.measurement-node{max-height:calc(100% - 20px)}}
+@media(max-height:720px){.pipeline-node-canvas{inset:58px 0 0}.measurement-node{max-height:calc(100% - 20px)}}
+
+.pipeline-scroll{
+  inset:auto;
+  border-bottom:0
+}
+@media(max-width:700px){
+  .pipeline-strip{top:8px;left:8px;gap:6px;padding-right:6px;height:42px}
+  .pipeline-strip .pipeline-toolbar{height:40px;padding-left:8px;gap:7px}
+  .pipeline-strip .pipeline-card{height:40px;grid-template-rows:40px}
+  .pipeline-strip .pipeline-card-name{padding:0 9px}
+  .pipeline-node-canvas{inset:58px 0 0 0}
+}
