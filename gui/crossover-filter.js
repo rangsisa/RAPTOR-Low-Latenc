@@ -11,7 +11,8 @@ const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
 if(!api||!workspaceView||!canvas||!wireSvg||!measurementNode||!measurementList||!canonicalApi) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
-const TYPES=new Set(['lowpass','highpass']);
+const TYPES=new Set(['lowpass','highpass','bandpass']);
+const LR_TYPES=new Set(['lowpass','highpass']);
 const SLOPES=Object.freeze([12,24,48,96,192]);
 const MODEL='LINKWITZ_RILEY_BILINEAR_V1';
 
@@ -36,13 +37,55 @@ function formatCompactFrequency(value){
 function slopeIconMarkup(type){
   const path=type==='highpass'
     ?'M4 49 C23 49 34 47 45 39 C58 29 67 12 96 5'
-    :'M4 5 C23 5 34 7 45 15 C58 25 67 42 96 49';
+    :type==='bandpass'
+      ?'M4 49 C15 49 20 47 27 36 C33 26 35 12 43 7 L57 7 C65 12 67 26 73 36 C80 47 85 49 96 49'
+      :'M4 5 C23 5 34 7 45 15 C58 25 67 42 96 49';
   return '<svg viewBox="0 0 100 54" aria-hidden="true"><path class="xo-filter-slope-axis" d="M3 51 H97 M3 3 V51"/><path class="xo-filter-slope-curve" d="'+path+'"/></svg>';
+}
+
+function filterChangeDetail(filter){
+  if(filter.type==='bandpass'){
+    return {
+      filterId:filter.id,
+      type:filter.type,
+      highpassSlopeDbOct:filter.highpassSlopeDbOct,
+      lowpassSlopeDbOct:filter.lowpassSlopeDbOct,
+      lowFrequencyHz:filter.lowFrequencyHz,
+      highFrequencyHz:filter.highFrequencyHz
+    };
+  }
+  return {
+    filterId:filter.id,
+    type:filter.type,
+    slopeDbOct:filter.slopeDbOct,
+    frequencyHz:filter.frequencyHz
+  };
+}
+
+function publishFilterChange(filter,reason){
+  document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
+    detail:filterChangeDetail(filter)
+  }));
+  notifyOutputChange(filter.id,filter.type,reason);
 }
 
 function updateSlopeSummary(button,filter){
   if(!button||!filter) return;
   const summary=button.querySelector('.xo-filter-slope-summary');
+  if(filter.type==='bandpass'){
+    const text=filter.highpassSlopeDbOct+'/'+filter.lowpassSlopeDbOct+' dB • '+
+      formatCompactFrequency(filter.lowFrequencyHz)+'–'+formatCompactFrequency(filter.highFrequencyHz);
+    if(summary) summary.textContent=text;
+    button.setAttribute(
+      'aria-label',
+      'Edit Bandpass Filter. Highpass '+filter.highpassSlopeDbOct+' dB per octave at '+
+      formatCompactFrequency(filter.lowFrequencyHz)+', Lowpass '+filter.lowpassSlopeDbOct+
+      ' dB per octave at '+formatCompactFrequency(filter.highFrequencyHz)
+    );
+    button.title='Edit bandpass slopes and frequencies';
+    return;
+  }
+
   if(summary) summary.textContent=filter.slopeDbOct+' dB • '+formatCompactFrequency(filter.frequencyHz);
   button.setAttribute('aria-label','Edit '+labelFor(filter.type)+' slope and frequency. '+filter.slopeDbOct+' dB per octave at '+formatCompactFrequency(filter.frequencyHz));
   button.title='Edit slope and frequency';
@@ -92,6 +135,7 @@ function openParameterPopover(anchor,filter){
 
   const popover=document.createElement('section');
   popover.className='xo-filter-parameter-popover';
+  if(filter.type==='bandpass') popover.classList.add('is-bandpass');
   popover.dataset.filterId=filter.id;
   popover.setAttribute('role','dialog');
   popover.setAttribute('aria-label',labelFor(filter.type)+' settings');
@@ -113,67 +157,100 @@ function openParameterPopover(anchor,filter){
 
   const body=document.createElement('div');
   body.className='xo-filter-parameter-popover-body';
+  let focusTarget=null;
 
-  const slopeLabel=document.createElement('label');
-  slopeLabel.className='xo-filter-parameter-field';
-  const slopeName=document.createElement('span');
-  slopeName.textContent='Slope';
-  const slope=document.createElement('select');
-  slope.setAttribute('aria-label','Crossover slope');
-  for(const value of SLOPES){
-    const option=document.createElement('option');
-    option.value=String(value);
-    option.textContent=value+' dB/oct';
-    option.selected=value===filter.slopeDbOct;
-    slope.appendChild(option);
-  }
-  slope.addEventListener('change',()=>{
-    const next=Number(slope.value);
-    if(next===filter.slopeDbOct) return;
-    filter.slopeDbOct=next;
-    updateSlopeSummary(anchor,filter);
-    document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
-      detail:{filterId:filter.id,type:filter.type,slopeDbOct:filter.slopeDbOct,frequencyHz:filter.frequencyHz}
-    }));
-    notifyOutputChange(filter.id,filter.type,'slope-change');
-  });
-  slopeLabel.append(slopeName,slope);
-
-  const frequencyLabel=document.createElement('label');
-  frequencyLabel.className='xo-filter-parameter-field';
-  const frequencyName=document.createElement('span');
-  frequencyName.textContent='Frequency';
-  const frequency=document.createElement('input');
-  frequency.type='number';
-  frequency.inputMode='decimal';
-  frequency.step='any';
-  frequency.min='0.000001';
-  frequency.value=String(filter.frequencyHz);
-  frequency.setAttribute('aria-label','Crossover frequency in Hz');
-  const maxFrequency=maxFrequencyForFilter(filter);
-  if(maxFrequency) frequency.max=String(maxFrequency);
-
-  const commit=()=>{
-    const ok=commitFrequencyInput(filter,frequency);
-    if(ok) updateSlopeSummary(anchor,filter);
-    return ok;
-  };
-  frequency.addEventListener('change',commit);
-  frequency.addEventListener('blur',commit);
-  frequency.addEventListener('keydown',event=>{
-    if(event.key==='Enter'){
-      event.preventDefault();
-      if(commit()) frequency.blur();
-    }else if(event.key==='Escape'){
-      event.preventDefault();
-      frequency.value=String(filter.frequencyHz);
-      frequency.removeAttribute('aria-invalid');
-      closeParameterPopover();
+  const addSlopeField=(name,value,onChange)=>{
+    const field=document.createElement('label');
+    field.className='xo-filter-parameter-field';
+    const fieldName=document.createElement('span');
+    fieldName.textContent=name;
+    const select=document.createElement('select');
+    select.setAttribute('aria-label',name);
+    for(const slopeValue of SLOPES){
+      const option=document.createElement('option');
+      option.value=String(slopeValue);
+      option.textContent=slopeValue+' dB/oct';
+      option.selected=slopeValue===value;
+      select.appendChild(option);
     }
-  });
-  frequencyLabel.append(frequencyName,frequency);
+    select.addEventListener('change',()=>onChange(Number(select.value)));
+    field.append(fieldName,select);
+    body.appendChild(field);
+    return select;
+  };
 
-  body.append(slopeLabel,frequencyLabel);
+  const addFrequencyField=(name,value,onCommit)=>{
+    const field=document.createElement('label');
+    field.className='xo-filter-parameter-field';
+    const fieldName=document.createElement('span');
+    fieldName.textContent=name;
+    const input=document.createElement('input');
+    input.type='number';
+    input.inputMode='decimal';
+    input.step='any';
+    input.min='0.000001';
+    input.value=String(value);
+    input.setAttribute('aria-label',name+' in Hz');
+    const max=maxFrequencyForFilter(filter);
+    if(max) input.max=String(max);
+
+    const commit=()=>{
+      const ok=onCommit(input);
+      if(ok) updateSlopeSummary(anchor,filter);
+      return ok;
+    };
+    input.addEventListener('change',commit);
+    input.addEventListener('blur',commit);
+    input.addEventListener('keydown',event=>{
+      if(event.key==='Enter'){
+        event.preventDefault();
+        if(commit()) input.blur();
+      }else if(event.key==='Escape'){
+        event.preventDefault();
+        input.removeAttribute('aria-invalid');
+        closeParameterPopover();
+      }
+    });
+    field.append(fieldName,input);
+    body.appendChild(field);
+    return input;
+  };
+
+  if(filter.type==='bandpass'){
+    addSlopeField('Highpass Slope',filter.highpassSlopeDbOct,next=>{
+      if(next===filter.highpassSlopeDbOct) return;
+      filter.highpassSlopeDbOct=next;
+      updateSlopeSummary(anchor,filter);
+      publishFilterChange(filter,'highpass-slope-change');
+    });
+
+    focusTarget=addFrequencyField('Low Frequency',filter.lowFrequencyHz,input=>
+      commitBandpassFrequencyInput(filter,'lowFrequencyHz',input)
+    );
+
+    addSlopeField('Lowpass Slope',filter.lowpassSlopeDbOct,next=>{
+      if(next===filter.lowpassSlopeDbOct) return;
+      filter.lowpassSlopeDbOct=next;
+      updateSlopeSummary(anchor,filter);
+      publishFilterChange(filter,'lowpass-slope-change');
+    });
+
+    addFrequencyField('High Frequency',filter.highFrequencyHz,input=>
+      commitBandpassFrequencyInput(filter,'highFrequencyHz',input)
+    );
+  }else{
+    addSlopeField('Slope',filter.slopeDbOct,next=>{
+      if(next===filter.slopeDbOct) return;
+      filter.slopeDbOct=next;
+      updateSlopeSummary(anchor,filter);
+      publishFilterChange(filter,'slope-change');
+    });
+
+    focusTarget=addFrequencyField('Frequency',filter.frequencyHz,input=>
+      commitFrequencyInput(filter,input)
+    );
+  }
+
   popover.append(head,body);
   popover.addEventListener('pointerdown',event=>event.stopPropagation());
   popover.addEventListener('contextmenu',event=>event.stopPropagation());
@@ -186,23 +263,25 @@ function openParameterPopover(anchor,filter){
     if(!popover.isConnected) return;
     repositionParameterPopover();
 
-    // On touch/coarse-pointer devices, forcing focus here opens the virtual
-    // keyboard and changes the visual viewport immediately. Let the user tap
-    // the field explicitly so the popover remains stable.
     const coarsePointer=window.matchMedia?.('(pointer: coarse)')?.matches===true;
-    if(!coarsePointer){
-      frequency.focus({preventScroll:true});
-      frequency.select();
+    if(!coarsePointer&&focusTarget){
+      focusTarget.focus({preventScroll:true});
+      focusTarget.select?.();
     }
   });
 }
 
 function makeId(type){
-  return (type==='lowpass'?'lp':'hp')+'-'+Date.now().toString(36)+'-'+(sequence++);
+  const prefix=type==='lowpass'?'lp':type==='highpass'?'hp':'bp';
+  return prefix+'-'+Date.now().toString(36)+'-'+(sequence++);
 }
-function labelFor(type){return type==='lowpass'?'Lowpass Filter':'Highpass Filter';}
+function labelFor(type){
+  return type==='lowpass'?'Lowpass Filter':
+    type==='highpass'?'Highpass Filter':
+    'Bandpass Filter';
+}
 function defaultFilter(type,position={x:390,y:150}){
-  return {
+  const base={
     id:makeId(type),
     type,
     label:labelFor(type),
@@ -212,17 +291,28 @@ function defaultFilter(type,position={x:390,y:150}){
     },
     input:null,
     bypass:false,
-    slopeDbOct:24,
-    frequencyHz:1000,
     sampleRateHz:null
+  };
+
+  if(type==='bandpass'){
+    return {
+      ...base,
+      highpassSlopeDbOct:24,
+      lowpassSlopeDbOct:24,
+      lowFrequencyHz:100,
+      highFrequencyHz:1000
+    };
+  }
+
+  return {
+    ...base,
+    slopeDbOct:24,
+    frequencyHz:1000
   };
 }
 function cloneFilter(filter,rekey=false){
   const type=TYPES.has(filter?.type)?filter.type:'lowpass';
-  const slope=SLOPES.includes(Number(filter?.slopeDbOct))?Number(filter.slopeDbOct):24;
-  const rawFrequency=Number(filter?.frequencyHz);
-  const frequency=Number.isFinite(rawFrequency)&&rawFrequency>0?rawFrequency:1000;
-  return {
+  const base={
     id:rekey?makeId(type):String(filter?.id||makeId(type)),
     type,
     label:labelFor(type),
@@ -235,10 +325,35 @@ function cloneFilter(filter,rekey=false){
       id:String(filter.input.id)
     }:null,
     bypass:filter?.bypass===true,
-    slopeDbOct:slope,
-    frequencyHz:frequency,
-    sampleRateHz:Number.isFinite(Number(filter?.sampleRateHz))&&Number(filter.sampleRateHz)>0?Number(filter.sampleRateHz):null
+    sampleRateHz:Number.isFinite(Number(filter?.sampleRateHz))&&Number(filter.sampleRateHz)>0
+      ?Number(filter.sampleRateHz)
+      :null
   };
+
+  if(type==='bandpass'){
+    const hpSlope=SLOPES.includes(Number(filter?.highpassSlopeDbOct))
+      ?Number(filter.highpassSlopeDbOct)
+      :24;
+    const lpSlope=SLOPES.includes(Number(filter?.lowpassSlopeDbOct))
+      ?Number(filter.lowpassSlopeDbOct)
+      :24;
+    const rawLow=Number(filter?.lowFrequencyHz);
+    const rawHigh=Number(filter?.highFrequencyHz);
+    const low=Number.isFinite(rawLow)&&rawLow>0?rawLow:100;
+    const high=Number.isFinite(rawHigh)&&rawHigh>low?rawHigh:Math.max(1000,low*2);
+    return {
+      ...base,
+      highpassSlopeDbOct:hpSlope,
+      lowpassSlopeDbOct:lpSlope,
+      lowFrequencyHz:low,
+      highFrequencyHz:high
+    };
+  }
+
+  const slope=SLOPES.includes(Number(filter?.slopeDbOct))?Number(filter.slopeDbOct):24;
+  const rawFrequency=Number(filter?.frequencyHz);
+  const frequency=Number.isFinite(rawFrequency)&&rawFrequency>0?rawFrequency:1000;
+  return {...base,slopeDbOct:slope,frequencyHz:frequency};
 }
 function normalizeFilter(filter){
   if(!filter||typeof filter!=='object') return defaultFilter('lowpass');
@@ -433,7 +548,7 @@ function canConnectInput(filter,source){
 function principalRad(value){return Math.atan2(Math.sin(value),Math.cos(value));}
 
 function linkwitzRileyDelta(type,frequencyHz,cutoffHz,slopeDbOct,sampleRateHz){
-  if(!TYPES.has(type)) throw new RangeError('Unsupported crossover type');
+  if(!LR_TYPES.has(type)) throw new RangeError('Unsupported Linkwitz-Riley edge type');
   if(!SLOPES.includes(slopeDbOct)) throw new RangeError('Unsupported crossover slope');
   if(!(frequencyHz>0&&cutoffHz>0&&sampleRateHz>0&&cutoffHz<sampleRateHz/2)) throw new RangeError('Invalid crossover geometry');
 
@@ -491,7 +606,14 @@ function processedCanonical(filter){
 
   const fsValue=Number(source.sample_rate_hz??sampleRateFor(filter));
   const fs=Number.isFinite(fsValue)&&fsValue>0?fsValue:null;
-  if(!fs||!(filter.frequencyHz<fs/2)) return null;
+  if(!fs) return null;
+
+  if(filter.type==='bandpass'){
+    if(!(filter.lowFrequencyHz>0&&filter.highFrequencyHz>filter.lowFrequencyHz&&filter.highFrequencyHz<fs/2)) return null;
+    if(!SLOPES.includes(filter.highpassSlopeDbOct)||!SLOPES.includes(filter.lowpassSlopeDbOct)) return null;
+  }else if(!(filter.frequencyHz<fs/2)){
+    return null;
+  }
 
   const views=canonicalApi.views(output);
   const frequency=views.frequency_hz;
@@ -504,9 +626,16 @@ function processedCanonical(filter){
     const sourcePhase=Number(phase[i]);
     if(!(Number.isFinite(f)&&f>0&&Number.isFinite(sourceMagnitude)&&Number.isFinite(sourcePhase))) return null;
 
-    const delta=linkwitzRileyDelta(filter.type,f,filter.frequencyHz,filter.slopeDbOct,fs);
-    magnitude[i]=sourceMagnitude+delta.magnitudeDb;
-    phase[i]=principalRad(sourcePhase*Math.PI/180+delta.phaseRad)*180/Math.PI;
+    if(filter.type==='bandpass'){
+      const highpass=linkwitzRileyDelta('highpass',f,filter.lowFrequencyHz,filter.highpassSlopeDbOct,fs);
+      const lowpass=linkwitzRileyDelta('lowpass',f,filter.highFrequencyHz,filter.lowpassSlopeDbOct,fs);
+      magnitude[i]=sourceMagnitude+highpass.magnitudeDb+lowpass.magnitudeDb;
+      phase[i]=principalRad(sourcePhase*Math.PI/180+highpass.phaseRad+lowpass.phaseRad)*180/Math.PI;
+    }else{
+      const delta=linkwitzRileyDelta(filter.type,f,filter.frequencyHz,filter.slopeDbOct,fs);
+      magnitude[i]=sourceMagnitude+delta.magnitudeDb;
+      phase[i]=principalRad(sourcePhase*Math.PI/180+delta.phaseRad)*180/Math.PI;
+    }
   }
 
   // The payload changed, so a source payload hash must never be carried forward.
@@ -584,6 +713,27 @@ function validFrequencyForFilter(filter,value){
   const max=maxFrequencyForFilter(filter);
   return !max||frequency<max;
 }
+function validBandpassGeometry(filter,low,high){
+  if(!(Number.isFinite(low)&&Number.isFinite(high)&&low>0&&high>low)) return false;
+  const max=maxFrequencyForFilter(filter);
+  return !max||high<max;
+}
+function commitBandpassFrequencyInput(filter,key,input){
+  const next=Number(input.value);
+  const low=key==='lowFrequencyHz'?next:Number(filter.lowFrequencyHz);
+  const high=key==='highFrequencyHz'?next:Number(filter.highFrequencyHz);
+  if(!validBandpassGeometry(filter,low,high)){
+    input.value=String(filter[key]);
+    input.setAttribute('aria-invalid','true');
+    return false;
+  }
+
+  input.removeAttribute('aria-invalid');
+  if(next===filter[key]) return true;
+  filter[key]=next;
+  publishFilterChange(filter,key==='lowFrequencyHz'?'low-frequency-change':'high-frequency-change');
+  return true;
+}
 function commitFrequencyInput(filter,input){
   const next=Number(input.value);
   if(!validFrequencyForFilter(filter,next)){
@@ -596,15 +746,7 @@ function commitFrequencyInput(filter,input){
   if(next===filter.frequencyHz) return true;
 
   filter.frequencyHz=next;
-  document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
-    detail:{
-      filterId:filter.id,
-      type:filter.type,
-      slopeDbOct:filter.slopeDbOct,
-      frequencyHz:filter.frequencyHz
-    }
-  }));
-  notifyOutputChange(filter.id,filter.type,'frequency-change');
+  publishFilterChange(filter,'frequency-change');
   return true;
 }
 function applyLineage(node,filter){

@@ -396,3 +396,22 @@
 .xo-filter-parameter-field input[type="number"]{appearance:textfield;-moz-appearance:textfield}
 .xo-filter-parameter-field input[type="number"]::-webkit-outer-spin-button,
 .xo-filter-parameter-field input[type="number"]::-webkit-inner-spin-button{margin:0;-webkit-appearance:none}
+
+/* Bandpass uses the same crossover node family with a four-parameter editor. */
+.xo-filter-parameter-popover.is-bandpass{
+  width:min(304px,calc(100vw - 16px))
+}
+.xo-filter-parameter-popover.is-bandpass .xo-filter-parameter-field{
+  grid-template-columns:104px minmax(0,1fr)
+}
+.xo-filter-slope-button[data-filter-type="bandpass"] .xo-filter-slope-summary{
+  font-size:7.15px
+}
+@media(max-width:700px){
+  .xo-filter-parameter-popover.is-bandpass{
+    width:min(292px,calc(100vw - 14px))
+  }
+  .xo-filter-parameter-popover.is-bandpass .xo-filter-parameter-field{
+    grid-template-columns:96px minmax(0,1fr)
+  }
+}
