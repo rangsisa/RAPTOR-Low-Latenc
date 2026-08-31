@@ -1601,3 +1601,24 @@
   opacity:.92;
   pointer-events:none
 }
+
+/* Combined Canonical output: one ordinary OUTPUT port. */
+.mpgd-filter-outputs{
+  display:flex;
+  align-items:stretch
+}
+.mpgd-filter-output-row{
+  flex:1 1 auto;
+  width:100%;
+  min-height:72px;
+  border-bottom:0!important
+}
+.mpgd-filter-output-copy{
+  justify-content:center
+}
+.mpgd-filter-output-copy strong{
+  margin-top:0;
+  color:#4b5963;
+  font-size:8px;
+  letter-spacing:.04em
+}

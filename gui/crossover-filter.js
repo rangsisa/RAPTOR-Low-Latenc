@@ -271,7 +271,8 @@ const LINEAGE_BASE_COLOR='#8FA6B8';
 function sourceExists(filter){
   const ref=sourceRef(filter);
   if(!ref) return false;
-  return ref.kind==='filter'?!!filterById(ref.id):!!api.getMeasurement?.(ref.id);
+  if(ref.kind==='measurement') return !!api.getMeasurement?.(ref.id);
+  return !!filterById(ref.id)||!!window.RaptorMagPhaseGdFilter?.get?.(ref.id);
 }
 
 function lineageInfo(filter,seen=new Set()){
@@ -298,8 +299,16 @@ function lineageInfo(filter,seen=new Set()){
   }
 
   const upstream=filterById(ref.id);
-  if(!upstream) return {active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
-  return lineageInfo(upstream,nextSeen);
+  if(upstream) return lineageInfo(upstream,nextSeen);
+
+  const magLineage=window.RaptorMagPhaseGdFilter?.getLineage?.(ref.id)||null;
+  return magLineage
+    ?{
+      active:magLineage.active===true,
+      color:magLineage.color||LINEAGE_BASE_COLOR,
+      measurementId:magLineage.measurementId||null
+    }
+    :{active:false,color:LINEAGE_BASE_COLOR,measurementId:null};
 }
 
 function sourceColor(filter){
@@ -366,7 +375,9 @@ function sourceName(filter){
   if(!ref) return null;
   if(ref.kind==='measurement') return api.getMeasurement?.(ref.id)?.name||null;
   const upstream=filterById(ref.id);
-  return upstream?upstream.label+' · '+upstream.id:null;
+  if(upstream) return upstream.label+' · '+upstream.id;
+  const mag=window.RaptorMagPhaseGdFilter?.get?.(ref.id)||null;
+  return mag?mag.label+' · '+mag.id:null;
 }
 function sampleRateFor(filter){
   const ref=sourceRef(filter);
@@ -376,7 +387,12 @@ function sampleRateFor(filter){
     value=Number(entry?.sampleRate??entry?.canonical?.sample_rate_hz??value);
   }else if(ref?.kind==='filter'){
     const upstream=filterById(ref.id);
-    value=Number(upstream?.sampleRateHz??value);
+    if(upstream){
+      value=Number(upstream.sampleRateHz??value);
+    }else{
+      const canonical=window.RaptorMagPhaseGdFilter?.getOutput?.(ref.id)||null;
+      value=Number(canonical?.sample_rate_hz??value);
+    }
   }
   return Number.isFinite(value)&&value>0?value:null;
 }
@@ -394,7 +410,16 @@ function sourceCanonical(filter){
     }
   }
   const upstream=filterById(ref.id);
-  return upstream?processedCanonical(upstream):null;
+  if(upstream) return processedCanonical(upstream);
+
+  const canonical=window.RaptorMagPhaseGdFilter?.getOutput?.(ref.id)||null;
+  if(!canonical) return null;
+  try{
+    canonicalApi.validate(canonical);
+    return canonical;
+  }catch{
+    return null;
+  }
 }
 function canConnectInput(filter,source){
   if(!filter||filter.input?.id||!source?.id) return false;
@@ -819,7 +844,11 @@ function connectInput(filter,source,meta={}){
 
   let canonical=source.canonical||null;
   if(!canonical){
-    canonical=kind==='filter'?getOutput(sourceId):api.getMeasurementCanonical?.(sourceId)||null;
+    if(kind==='measurement'){
+      canonical=api.getMeasurementCanonical?.(sourceId)||null;
+    }else{
+      canonical=getOutput(sourceId)||window.RaptorMagPhaseGdFilter?.getOutput?.(sourceId)||null;
+    }
   }
   try{canonicalApi.validate(canonical)}catch{return false;}
 
@@ -874,9 +903,13 @@ function measurementHandle(fileId){
   return [...measurementList.querySelectorAll('.measurement-file')][index]?.querySelector('.measurement-output')||null;
 }
 function filterHandle(filterId){
-  const node=[...canvas.querySelectorAll('.xo-filter-node')]
+  const crossoverNode=[...canvas.querySelectorAll('.xo-filter-node')]
     .find(candidate=>candidate.dataset.filterId===String(filterId));
-  return node?.querySelector('.xo-filter-output')||null;
+  if(crossoverNode) return crossoverNode.querySelector('.xo-filter-output')||null;
+
+  const magNode=[...canvas.querySelectorAll('.mpgd-filter-node')]
+    .find(candidate=>candidate.dataset.filterId===String(filterId));
+  return magNode?.querySelector('.mpgd-filter-output')||null;
 }
 function sourceHandle(filter){
   const ref=sourceRef(filter);
@@ -1038,6 +1071,38 @@ new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(measure
 canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
 document.addEventListener('raptor:pipelineobstacleschange',()=>requestAnimationFrame(renderConnections));
 document.addEventListener('raptor:pipelinezoomchange',()=>requestAnimationFrame(renderConnections));
+
+document.addEventListener('raptor:filteroutputchange',event=>{
+  if(event.detail?.filterType!=='mag-phase-gd'||!activeCard) return;
+  const sourceId=String(event.detail?.filterId||'');
+  if(!sourceId) return;
+
+  let affected=false;
+  for(const filter of activeFilters()){
+    const ref=sourceRef(filter);
+    if(ref?.kind!=='filter'||String(ref.id)!==sourceId) continue;
+    affected=true;
+    filter.sampleRateHz=sampleRateFor(filter);
+    notifyOutputChange(filter.id,filter.type,'upstream-mag-change');
+  }
+  if(affected) renderNodes();
+});
+
+document.addEventListener('raptor:filterdeleted',event=>{
+  if(event.detail?.filterType!=='mag-phase-gd'||!activeCard) return;
+  const sourceId=String(event.detail?.filterId||'');
+  let affected=false;
+  for(const filter of activeFilters()){
+    const ref=sourceRef(filter);
+    if(ref?.kind!=='filter'||String(ref.id)!==sourceId) continue;
+    filter.input=null;
+    filter.sampleRateHz=null;
+    notifyLineageChange(filter.id,filter.type,'upstream-mag-delete');
+    notifyOutputChange(filter.id,filter.type,'upstream-mag-delete');
+    affected=true;
+  }
+  if(affected) renderNodes();
+});
 
 window.RaptorCrossoverFilter=Object.freeze({
   model:MODEL,

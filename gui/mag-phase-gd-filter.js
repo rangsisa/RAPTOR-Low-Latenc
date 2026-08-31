@@ -282,7 +282,7 @@ function invalidateResponseHost(filter,reason='processing-change'){
       filterId:filter.id,
       filterType:FILTER_TYPE,
       reason,
-      outputs:['phase','magnitude']
+      outputs:['canonical']
     }
   }));
 }
@@ -351,6 +351,50 @@ function responseHostForFilter(filter){
 function outputProjection(filter,kind){
   const host=responseHostForFilter(filter);
   return host?responseHost.project(host,kind):null;
+}
+
+function canonicalOutputForFilter(filter){
+  if(!filter) return null;
+  const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
+  const entry=sourceEntry(filter);
+  const source=entry?.canonical||null;
+  if(!canonicalApi||!source) return null;
+
+  try{canonicalApi.validate(source);}catch{return null;}
+  const processed=displayViewsForFilter(filter);
+  if(!processed?.magnitude_db||!processed?.phase_deg) return null;
+
+  const output=canonicalApi.clone(source);
+  const outputViews=canonicalApi.views(output);
+  if(outputViews.magnitude_db.length!==processed.magnitude_db.length||
+     outputViews.phase_deg.length!==processed.phase_deg.length){
+    return null;
+  }
+
+  outputViews.magnitude_db.set(processed.magnitude_db);
+  outputViews.phase_deg.set(processed.phase_deg);
+  output.payload_sha256=null;
+  output.measurement_id=filter.id;
+  output.source_name=(source.source_name||entry.name||'Canonical V1')+' -> '+filter.label;
+  canonicalApi.validate(output);
+  return output;
+}
+
+function magLineageInfo(filter){
+  const ref=sourceRef(filter);
+  if(!ref) return {active:false,color:'#8FA6B8',measurementId:null};
+  if(ref.kind==='measurement'){
+    const entry=api.getMeasurement?.(ref.id)||null;
+    return {
+      active:!!entry,
+      color:entry?.color||'#8FA6B8',
+      measurementId:entry?ref.id:null
+    };
+  }
+  const lineage=window.RaptorCrossoverFilter?.getLineage?.(ref.id)||null;
+  return lineage
+    ?{active:lineage.active===true,color:lineage.color||'#8FA6B8',measurementId:lineage.measurementId||null}
+    :{active:false,color:'#8FA6B8',measurementId:null};
 }
 
 function hexTint(hex,alpha=.10){
@@ -633,63 +677,58 @@ function buildNode(filter,index){
   const outputs=document.createElement('div');
   outputs.className='mpgd-filter-outputs';
 
-  for(const [kind,label] of [['phase','Phase'],['magnitude','Magnitude']]){
-    const row=document.createElement('div');
-    row.className='mpgd-filter-output-row';
-    row.dataset.outputKind=kind;
-    const copy=document.createElement('div');
-    copy.className='mpgd-filter-output-copy';
-    copy.innerHTML='<span>OUTPUT</span><strong>'+label+'</strong>';
+  const row=document.createElement('div');
+  row.className='mpgd-filter-output-row';
+  row.dataset.outputKind='canonical';
 
-    const handle=document.createElement('button');
-    handle.className='mpgd-filter-output';
-    handle.type='button';
-    handle.dataset.filterId=filter.id;
-    handle.dataset.outputKind=kind;
-    handle.title=label+' output';
-    handle.setAttribute('aria-label',label+' output from '+filter.id);
-    handle.addEventListener('pointerdown',event=>{
-      event.stopPropagation();
-      const host=responseHostForFilter(filter);
-      const projection=host?responseHost.project(host,kind):null;
-      if(!projection) return;
+  const copy=document.createElement('div');
+  copy.className='mpgd-filter-output-copy';
+  copy.innerHTML='<strong>OUTPUT</strong>';
 
-      const wireSource={
-        kind:'filter',
-        id:filter.id,
+  const handle=document.createElement('button');
+  handle.className='mpgd-filter-output';
+  handle.type='button';
+  handle.dataset.filterId=filter.id;
+  handle.dataset.outputKind='canonical';
+  handle.title='Output';
+  handle.setAttribute('aria-label','Output from '+filter.id);
+  handle.addEventListener('pointerdown',event=>{
+    event.stopPropagation();
+    const canonical=canonicalOutputForFilter(filter);
+    const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
+    const color=sourceColor(filter);
+
+    api.startCanonicalWire?.(event,{
+      kind:'filter',
+      id:filter.id,
+      filterId:filter.id,
+      name:filter.label,
+      outputKind:'canonical',
+      color,
+      sampleRate:canonical?.sample_rate_hz||null,
+      format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
+      canonical,
+      hasData:!!canonical
+    },handle);
+
+    document.dispatchEvent(new CustomEvent('raptor:filteroutputwirestart',{
+      detail:{
         filterId:filter.id,
-        outputKind:kind,
-        format:projection.format,
-        color:sourceColor(filter),
-        sampleRate:projection.sampleRateHz||null,
-        pairId:projection.pairId||null,
-        hostId:projection.hostId||null,
-        payload:projection,
-        projection
-      };
+        filterType:FILTER_TYPE,
+        outputKind:'canonical',
+        bypass:filter.bypass===true,
+        sourceKind:'filter',
+        sourceId:filter.id,
+        color,
+        format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
+        canonical,
+        hasData:!!canonical
+      }
+    }));
+  });
 
-      api.startDataWire?.(event,wireSource,handle);
-      document.dispatchEvent(new CustomEvent('raptor:filteroutputwirestart',{
-        detail:{
-          filterId:filter.id,
-          outputKind:kind,
-          format:projection.format,
-          bypass:filter.bypass===true,
-          sourceMeasurementId:filter.input?.id||null,
-          color:wireSource.color,
-          hostFormat:host?.format||null,
-          hostId:projection.hostId||null,
-          pairId:projection.pairId||null,
-          payload:projection,
-          projection
-        }
-      }));
-    });
-
-    row.append(copy,handle);
-    outputs.appendChild(row);
-  }
-
+  row.append(copy,handle);
+  outputs.appendChild(row);
   body.append(inputPane,outputs);
 
   const foot=document.createElement('footer');
@@ -2510,38 +2549,13 @@ window.RaptorMagPhaseGdFilter=Object.freeze({
     const filter=filterById(filterId);
     return filter?responseHostForFilter(filter):null;
   },
-  getOutput(filterId,outputKind){
+  getOutput(filterId){
     const filter=filterById(filterId);
-    if(!filter||!['phase','magnitude'].includes(outputKind)) return null;
-    const projection=outputProjection(filter,outputKind);
-    if(!projection) return null;
-
-    const common={
-      format:projection.format,
-      schemaVersion:projection.schemaVersion,
-      filterId,
-      outputKind,
-      bypass:filter.bypass===true,
-      sourceMeasurementId:window.RaptorCrossoverFilter?.getLineage?.(filter.input?.id)?.measurementId
-        ||(filter.input?.kind==='measurement'?filter.input.id:null),
-      color:projection.color,
-      hostFormat:projection.hostFormat,
-      hostId:projection.hostId,
-      pairId:projection.pairId,
-      points:projection.points,
-      frequency_hz:projection.frequency_hz,
-      values:projection.values,
-      coherence:projection.coherence,
-      sampleRateHz:projection.sampleRateHz,
-      source:projection.source,
-      processing:projection.processing,
-      provenance:projection.provenance,
-      canonicalMutated:false
-    };
-
-    return Object.freeze(outputKind==='phase'
-      ?{...common,phase_deg:projection.phase_deg}
-      :{...common,magnitude_db:projection.magnitude_db});
+    return filter?canonicalOutputForFilter(filter):null;
+  },
+  getLineage(filterId){
+    const filter=filterById(filterId);
+    return Object.freeze(filter?magLineageInfo(filter):{active:false,color:'#8FA6B8',measurementId:null});
   },
   refresh:renderNodes,
   refreshConnections:renderConnections
