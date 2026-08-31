@@ -1318,18 +1318,7 @@
 }
 .mpgd-filter-value-pill{
   flex:0 0 auto
-}
-.mpgd-filter-value-pill--delay{
-  color:#7250a5;
-  border-color:#b5a0d3;
-  background:#f7f3fc
-}
-.mpgd-filter-value-pill--phase{
-  color:#176caa;
-  border-color:#87b8db;
-  background:#f0f8fd
-}
-.mpgd-filter-unit{
+}.mpgd-filter-unit{
   flex:0 0 auto;
   padding:0 6px;
   color:#6f7c86;
@@ -1337,15 +1326,6 @@
   background:#f8fafb;
   font-size:8.8px;
   font-weight:800
-}
-
-/* Clicked phase-line inspection point. */
-.mpgd-filter-svg--phase .phase-inspect-marker{
-  fill:#fff;
-  stroke:#7250a5;
-  stroke-width:2.2;
-  vector-effect:non-scaling-stroke;
-  filter:drop-shadow(0 1px 1px rgba(24,32,42,.22))
 }
 
 /* Larger axis numbers to match the revised Filter typography. */
@@ -1392,41 +1372,6 @@
   }
   .mpgd-band-rack-head{min-height:36px}
 }
-
-
-/* 2026-08-29 Phase Branch Reader.
-   Hovering a readable wrapped branch highlights the actual branch and overlays
-   its Phase-vs-Frequency linear fit. */
-.mpgd-filter-svg--phase .phase-branch-highlight{
-  fill:none;
-  stroke:#7b61b2;
-  stroke-width:4;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-  opacity:.34;
-  vector-effect:non-scaling-stroke;
-  pointer-events:none
-}
-.mpgd-filter-svg--phase .phase-branch-fit{
-  fill:none;
-  stroke:#7b61b2;
-  stroke-width:1.6;
-  stroke-dasharray:6 4;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-  opacity:.95;
-  vector-effect:non-scaling-stroke;
-  pointer-events:none
-}
-.mpgd-filter-value-pill--delay.is-unreadable,
-.mpgd-filter-value-pill--phase.is-unreadable{
-  color:#8a6233;
-  border-color:#d4b88e;
-  background:#fff8ed
-}
-
-/* Retire the old point-inspector visual if an older cached DOM still carries it. */
-.mpgd-filter-svg--phase .phase-inspect-marker{display:none!important}
 
 
 /* 2026-08-29 calm band interaction + source-title cleanup. */

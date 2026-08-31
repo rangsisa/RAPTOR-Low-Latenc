@@ -1176,392 +1176,6 @@ function nearestIndex(array,target){
   return Math.abs(array[lo]-target)<Math.abs(array[prev]-target)?lo:prev;
 }
 
-function formatDelayMs(value){
-  if(!Number.isFinite(value)) return '—';
-  const abs=Math.abs(value);
-  if(abs>=100) return value.toFixed(1)+' ms';
-  if(abs>=10) return value.toFixed(2)+' ms';
-  if(abs>=1) return value.toFixed(3)+' ms';
-  return value.toFixed(4)+' ms';
-}
-
-function median(values){
-  if(!values.length) return 0;
-  const sorted=[...values].sort((a,b)=>a-b);
-  const mid=sorted.length>>1;
-  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])*.5;
-}
-
-function buildPhaseReader(views){
-  const frequency=views?.frequency_hz;
-  const phase=views?.phase_deg;
-  if(!frequency||!phase||frequency.length<2){
-    return Object.freeze({unwrapped:new Float64Array(0),runs:[]});
-  }
-
-  const unwrapped=new Float64Array(phase.length);
-  unwrapped.fill(NaN);
-  const wrapPrefix=new Uint32Array(phase.length+1);
-  const runs=[];
-  let start=null;
-  let previous=null;
-  let previousWrapped=null;
-  let previousUnwrapped=null;
-  let wraps=0;
-
-  const flush=end=>{
-    if(start===null||end<start) return;
-    runs.push(Object.freeze({start,end,wraps}));
-  };
-
-  for(let i=0;i<frequency.length;i++){
-    wrapPrefix[i+1]=wrapPrefix[i];
-    const f=Number(frequency[i]);
-    const p=Number(phase[i]);
-    const valid=Number.isFinite(f)&&Number.isFinite(p)&&f>=F0&&f<=F1;
-
-    if(!valid){
-      if(start!==null&&previous!==null) flush(previous);
-      start=null;
-      previous=null;
-      previousWrapped=null;
-      previousUnwrapped=null;
-      wraps=0;
-      continue;
-    }
-
-    if(start===null){
-      start=i;
-      previous=i;
-      previousWrapped=p;
-      previousUnwrapped=p;
-      unwrapped[i]=p;
-      wraps=0;
-      continue;
-    }
-
-    const rawDelta=p-previousWrapped;
-    let delta=rawDelta;
-    if(delta>180) delta-=360;
-    else if(delta<-180) delta+=360;
-
-    if(Math.abs(rawDelta)>180){
-      wraps+=1;
-      wrapPrefix[i+1]+=1;
-    }
-    const nextUnwrapped=previousUnwrapped+delta;
-    unwrapped[i]=nextUnwrapped;
-
-    previous=i;
-    previousWrapped=p;
-    previousUnwrapped=nextUnwrapped;
-  }
-
-  if(start!==null&&previous!==null) flush(previous);
-  return Object.freeze({
-    unwrapped,
-    wrapPrefix,
-    runs:Object.freeze(runs)
-  });
-}
-
-function phaseRunForIndex(reader,index){
-  const runs=reader?.runs||[];
-  let lo=0,hi=runs.length-1;
-  while(lo<=hi){
-    const mid=(lo+hi)>>1;
-    const run=runs[mid];
-    if(index<run.start) hi=mid-1;
-    else if(index>run.end) lo=mid+1;
-    else return run;
-  }
-  return null;
-}
-
-function weightedPhaseFit(views,reader,start,end){
-  const frequency=views?.frequency_hz;
-  const coherence=views?.coherence;
-  const unwrapped=reader?.unwrapped;
-  if(!frequency||!unwrapped||end<start) return null;
-
-  const count=end-start+1;
-  const maxSamples=161;
-  const stride=Math.max(1,Math.ceil(count/maxSamples));
-  const points=[];
-
-  for(let i=start;i<=end;i+=stride){
-    const f=Number(frequency[i]);
-    const p=Number(unwrapped[i]);
-    if(!(Number.isFinite(f)&&Number.isFinite(p))) continue;
-    const c=Number(coherence?.[i]);
-    const weight=Number.isFinite(c)?(.20+.80*Math.max(0,Math.min(1,c))**2):1;
-    points.push({i,f,p,weight});
-  }
-  if(points.length<6) return null;
-
-  const solve=items=>{
-    let sw=0,sf=0,sp=0;
-    for(const point of items){
-      sw+=point.weight;
-      sf+=point.weight*point.f;
-      sp+=point.weight*point.p;
-    }
-    if(!(sw>0)) return null;
-    const meanF=sf/sw;
-    const meanP=sp/sw;
-    let sxx=0,sxy=0;
-    for(const point of items){
-      const df=point.f-meanF;
-      sxx+=point.weight*df*df;
-      sxy+=point.weight*df*(point.p-meanP);
-    }
-    if(!(sxx>0)) return null;
-    const slope=sxy/sxx;
-    return {slope,intercept:meanP-slope*meanF};
-  };
-
-  let fit=solve(points);
-  if(!fit) return null;
-
-  const residuals=points.map(point=>Math.abs(point.p-(fit.slope*point.f+fit.intercept)));
-  const mad=median(residuals);
-  const robustSigma=mad*1.4826;
-  const rejectLimit=Math.max(1.5,robustSigma*3.5);
-  const kept=points.filter(point=>Math.abs(point.p-(fit.slope*point.f+fit.intercept))<=rejectLimit);
-  if(kept.length>=6&&kept.length<points.length){
-    const refined=solve(kept);
-    if(refined) fit=refined;
-  }
-  const used=kept.length>=6?kept:points;
-
-  let sw=0,sse=0,sst=0,weightedMean=0;
-  for(const point of used){
-    sw+=point.weight;
-    weightedMean+=point.weight*point.p;
-  }
-  weightedMean/=sw;
-  for(const point of used){
-    const residual=point.p-(fit.slope*point.f+fit.intercept);
-    const centered=point.p-weightedMean;
-    sse+=point.weight*residual*residual;
-    sst+=point.weight*centered*centered;
-  }
-
-  const first=used[0];
-  const last=used[used.length-1];
-  const spanHz=last.f-first.f;
-  const screenSpan=Math.abs(xOf(last.f)-xOf(first.f));
-  const deltaPhase=fit.slope*spanHz;
-  const rmse=Math.sqrt(sse/Math.max(1,sw));
-  const r2=sst>1e-12?Math.max(0,1-sse/sst):(rmse<1e-6?1:0);
-
-  const prefix=reader.wrapPrefix;
-  const wrapStart=Math.max(0,Math.min(start+1,prefix?.length?prefix.length-1:0));
-  const wrapEnd=Math.max(wrapStart,Math.min(end+1,prefix?.length?prefix.length-1:0));
-  const wrapCount=prefix?.length?Number(prefix[wrapEnd]-prefix[wrapStart]):0;
-
-  const residualLimit=Math.max(4,Math.abs(deltaPhase)*.06);
-  const readable=
-    used.length>=6 &&
-    spanHz>0 &&
-    screenSpan>=34 &&
-    Math.abs(deltaPhase)>=8 &&
-    r2>=.94 &&
-    rmse<=residualLimit;
-
-  return Object.freeze({
-    start,
-    end,
-    points:used.length,
-    fStart:first.f,
-    fEnd:last.f,
-    slopeDegPerHz:fit.slope,
-    interceptDeg:fit.intercept,
-    deltaPhaseDeg:deltaPhase,
-    delayMs:-fit.slope/360*1000,
-    rmseDeg:rmse,
-    r2,
-    wrapCount,
-    readable
-  });
-}
-
-function localPhaseDelayFit(views,reader,targetFrequency,plotWidth,localX){
-  const frequency=views?.frequency_hz;
-  if(!frequency?.length||!reader?.runs?.length) return null;
-
-  const nearest=nearestIndex(frequency,targetFrequency);
-  const run=phaseRunForIndex(reader,nearest);
-  if(!run) return null;
-
-  const halfWidthPx=Math.max(46,Math.min(86,plotWidth*.115));
-  const lowRatio=Math.max(0,(localX-halfWidthPx)/Math.max(1,plotWidth));
-  const highRatio=Math.min(1,(localX+halfWidthPx)/Math.max(1,plotWidth));
-  let start=Math.max(run.start,nearestIndex(frequency,frequencyAtRatio(lowRatio)));
-  let end=Math.min(run.end,nearestIndex(frequency,frequencyAtRatio(highRatio)));
-  if(start>end){const temp=start;start=end;end=temp;}
-
-  while(end-start+1<9&&(start>run.start||end<run.end)){
-    if(start>run.start) start-=1;
-    if(end<run.end) end+=1;
-  }
-
-  return weightedPhaseFit(views,reader,start,end);
-}
-
-function phaseInspectPath(views,fit){
-  if(!fit) return '';
-  const count=fit.end-fit.start+1;
-  const stride=Math.max(1,Math.ceil(count/240));
-  const indices=[];
-  for(let i=fit.start;i<=fit.end;i+=stride) indices.push(i);
-  if(indices[indices.length-1]!==fit.end) indices.push(fit.end);
-  return phasePathFromViews(views,indices);
-}
-
-function clearPhaseBranchInspect(win){
-  const delayEl=win.querySelector('[data-phase-inspect-delay]');
-  const phaseEl=win.querySelector('[data-phase-inspect-angle]');
-  const highlight=win.querySelector('.mpgd-filter-svg--phase .phase-branch-highlight');
-  const fitPath=win.querySelector('.mpgd-filter-svg--phase .phase-branch-fit');
-  if(delayEl){
-    delayEl.textContent='—';
-    delayEl.title='';
-    delayEl.classList.remove('is-unreadable');
-  }
-  if(phaseEl){
-    phaseEl.textContent='—';
-    phaseEl.title='';
-    phaseEl.classList.remove('is-unreadable');
-  }
-  if(highlight) highlight.setAttribute('d','');
-  if(fitPath) fitPath.setAttribute('d','');
-  win._phaseBranchInspect=null;
-}
-
-function showPhaseBranchInspect(win,views,fit){
-  const delayEl=win.querySelector('[data-phase-inspect-delay]');
-  const phaseEl=win.querySelector('[data-phase-inspect-angle]');
-  const highlight=win.querySelector('.mpgd-filter-svg--phase .phase-branch-highlight');
-  const fitPath=win.querySelector('.mpgd-filter-svg--phase .phase-branch-fit');
-
-  win._phaseBranchInspect=fit;
-  if(highlight) highlight.setAttribute('d',phaseInspectPath(views,fit));
-  // The reader is numeric only. Do not draw a fitted wrapped line that could
-  // visually imply a different winding branch.
-  if(fitPath) fitPath.setAttribute('d','');
-
-  if(!fit?.readable){
-    if(delayEl){
-      delayEl.textContent='Delay unreadable';
-      delayEl.classList.add('is-unreadable');
-    }
-    if(phaseEl){
-      phaseEl.textContent='Phase —';
-      phaseEl.classList.add('is-unreadable');
-    }
-    return;
-  }
-
-  if(delayEl){
-    delayEl.textContent='Delay '+formatDelayMs(fit.delayMs);
-    delayEl.classList.remove('is-unreadable');
-    delayEl.title='Wrap-aware local fit · R² '+fit.r2.toFixed(4)+' · RMSE '+fit.rmseDeg.toFixed(2)+'° · wraps '+fit.wrapCount;
-  }
-  if(phaseEl){
-    phaseEl.textContent='Phase '+fit.deltaPhaseDeg.toFixed(1)+'°';
-    phaseEl.classList.remove('is-unreadable');
-    phaseEl.title=formatFrequency(fit.fStart)+' – '+formatFrequency(fit.fEnd);
-  }
-}
-
-function phaseScreenYAtFrequency(views,targetFrequency,plotHeight){
-  const frequency=views?.frequency_hz;
-  const phase=views?.phase_deg;
-  if(!frequency?.length||!phase?.length) return null;
-
-  let nearest=nearestIndex(frequency,targetFrequency);
-  let a=nearest,b=nearest;
-  const fNearest=Number(frequency[nearest]);
-  if(Number.isFinite(fNearest)){
-    if(fNearest<=targetFrequency&&nearest<frequency.length-1) b=nearest+1;
-    else if(fNearest>targetFrequency&&nearest>0) a=nearest-1;
-  }
-
-  const f0=Number(frequency[a]),p0=Number(phase[a]);
-  const f1=Number(frequency[b]),p1=Number(phase[b]);
-  if(!(Number.isFinite(f0)&&Number.isFinite(p0))) return null;
-  if(a===b||!(Number.isFinite(f1)&&Number.isFinite(p1))) {
-    return 4+(yPhase(p0)/GRAPH_HEIGHT)*plotHeight;
-  }
-
-  const x0=xOf(f0),x1=xOf(f1),xTarget=xOf(targetFrequency);
-  if(!(Number.isFinite(x0)&&Number.isFinite(x1))||x1===x0){
-    return 4+(yPhase(p0)/GRAPH_HEIGHT)*plotHeight;
-  }
-
-  let graphPhase=p0;
-  const rawDelta=p1-p0;
-  if(Math.abs(rawDelta)<=180){
-    const t=Math.max(0,Math.min(1,(xTarget-x0)/(x1-x0)));
-    graphPhase=p0+(p1-p0)*t;
-  }else{
-    let adjustedP1=p1,boundary=180,opposite=-180;
-    if(rawDelta>180){
-      adjustedP1=p1-360;
-      boundary=-180;
-      opposite=180;
-    }else{
-      adjustedP1=p1+360;
-      boundary=180;
-      opposite=-180;
-    }
-    const den=adjustedP1-p0;
-    const wrapT=Math.max(0,Math.min(1,den===0?0:(boundary-p0)/den));
-    const xCross=x0+(x1-x0)*wrapT;
-    if(xTarget<=xCross){
-      const t=xCross===x0?0:Math.max(0,Math.min(1,(xTarget-x0)/(xCross-x0)));
-      graphPhase=p0+(boundary-p0)*t;
-    }else{
-      const t=x1===xCross?1:Math.max(0,Math.min(1,(xTarget-xCross)/(x1-xCross)));
-      graphPhase=opposite+(p1-opposite)*t;
-    }
-  }
-
-  return 4+(yPhase(graphPhase)/GRAPH_HEIGHT)*plotHeight;
-}
-
-function inspectPhaseBranchAtPointer(win,plot,event,views){
-  const reader=win._phaseReader;
-  if(!reader?.runs?.length||!views?.frequency_hz||!views?.phase_deg){
-    clearPhaseBranchInspect(win);
-    return;
-  }
-
-  const rect=plot.getBoundingClientRect();
-  const plotWidth=Math.max(1,rect.width-8);
-  const plotHeight=Math.max(1,rect.height-8);
-  const localX=Math.max(0,Math.min(plotWidth,event.clientX-rect.left-4));
-  const ratio=localX/plotWidth;
-  const targetFrequency=frequencyAtRatio(ratio);
-  const pointerY=event.clientY-rect.top;
-  const lineY=phaseScreenYAtFrequency(views,targetFrequency,plotHeight);
-
-  const hitRadius=Math.max(12,Math.min(19,rect.height*.06));
-  if(!Number.isFinite(lineY)||Math.abs(pointerY-lineY)>hitRadius){
-    clearPhaseBranchInspect(win);
-    return;
-  }
-
-  const fit=localPhaseDelayFit(views,reader,targetFrequency,plotWidth,localX);
-  if(!fit){
-    clearPhaseBranchInspect(win);
-    return;
-  }
-  showPhaseBranchInspect(win,views,fit);
-}
-
-
 function buildAxisLabels(container){
   container.replaceChildren();
   for(const f of FREQ_TICKS){
@@ -1609,23 +1223,7 @@ function buildGraph(kind){
   unit.className='mpgd-filter-unit';
   unit.textContent=kind==='phase'?'deg':'dB';
 
-  if(kind==='phase'){
-    const delay=document.createElement('span');
-    delay.className='mpgd-filter-value-pill mpgd-filter-value-pill--delay';
-    delay.dataset.phaseInspectDelay='';
-    delay.textContent='—';
-    delay.title='Delay from a wrap-aware local Phase-vs-Frequency fit';
-
-    const angle=document.createElement('span');
-    angle.className='mpgd-filter-value-pill mpgd-filter-value-pill--phase';
-    angle.dataset.phaseInspectAngle='';
-    angle.textContent='—';
-    angle.title='Fitted phase travel across the local wrap-aware reader window';
-
-    head.append(title,readout,pointer,delay,angle,unit);
-  }else{
-    head.append(title,readout,pointer,unit);
-  }
+  head.append(title,readout,pointer,unit);
 
   const plot=document.createElement('div');
   plot.className='mpgd-filter-plot';
@@ -1688,14 +1286,6 @@ function buildGraph(kind){
     const markers=document.createElementNS(SVG_NS,'path');
     markers.setAttribute('class','wrap-markers');
     svg.appendChild(markers);
-
-    const highlight=document.createElementNS(SVG_NS,'path');
-    highlight.setAttribute('class','phase-branch-highlight');
-    svg.appendChild(highlight);
-
-    const fitPath=document.createElementNS(SVG_NS,'path');
-    fitPath.setAttribute('class','phase-branch-fit');
-    svg.appendChild(fitPath);
   }
 
   const trace=document.createElementNS(SVG_NS,'path');
@@ -1887,19 +1477,15 @@ function restoreIdleGraphReadout(win,filter,kind){
   const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
   if(readout) readout.textContent=entry?.name||'No input';
   if(pointer) pointer.textContent='—';
-  if(kind==='phase') clearPhaseBranchInspect(win);
 }
 
 function bindPlot(win,filter,plot){
   const kind=plot.dataset.kind;
-  let pointerFrame=0;
-  let latestPointer=null;
-
-  const processPointer=point=>{
+  plot.addEventListener('pointermove',event=>{
     const views=win._mpgdDisplayViews||displayViewsForFilter(filter);
     if(!views?.frequency_hz) return;
     const rect=plot.getBoundingClientRect();
-    const ratio=Math.max(0,Math.min(1,(point.clientX-rect.left)/Math.max(1,rect.width)));
+    const ratio=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));
     const target=frequencyAtRatio(ratio);
     const i=nearestIndex(views.frequency_hz,target);
     const f=views.frequency_hz[i];
@@ -1913,20 +1499,13 @@ function bindPlot(win,filter,plot){
         :formatFrequency(f)+' · '+mag.toFixed(2)+' dB';
     }
 
-    const yRatio=Math.max(0,Math.min(1,(point.clientY-rect.top)/Math.max(1,rect.height)));
+    const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top)/Math.max(1,rect.height)));
     const rawValue=kind==='phase'?180-yRatio*360:40-yRatio*80;
     const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
     if(pointer){
       pointer.textContent=kind==='phase'
         ?formatFrequency(target)+' · '+rawValue.toFixed(1)+'°'
         :formatFrequency(target)+' · '+rawValue.toFixed(2)+' dB';
-    }
-
-    if(kind==='phase'){
-      inspectPhaseBranchAtPointer(win,plot,{
-        clientX:point.clientX,
-        clientY:point.clientY
-      },views);
     }
 
     const x=xOf(f);
@@ -1939,25 +1518,9 @@ function bindPlot(win,filter,plot){
       const y=targetKind==='phase'?yPhase(phase):yMagnitude(mag);
       setCursor(cursor,x,y,ui.sync!==false||targetKind===kind);
     }
-  };
-
-  plot.addEventListener('pointermove',event=>{
-    latestPointer={clientX:event.clientX,clientY:event.clientY};
-    if(pointerFrame) return;
-    pointerFrame=requestAnimationFrame(()=>{
-      pointerFrame=0;
-      const point=latestPointer;
-      latestPointer=null;
-      if(point) processPointer(point);
-    });
   });
 
   plot.addEventListener('pointerleave',()=>{
-    latestPointer=null;
-    if(pointerFrame){
-      cancelAnimationFrame(pointerFrame);
-      pointerFrame=0;
-    }
     restoreIdleGraphReadout(win,filter,kind);
     win.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
   });
@@ -2322,9 +1885,6 @@ function renderWindow(filter,win){
   const uncertainty=win.querySelector('.mpgd-filter-svg--mag .uncertainty-needles');
 
   applyMagnitudeLineageFill(win,filter);
-
-  win._phaseReader=views?.frequency_hz?buildPhaseReader(views):null;
-  clearPhaseBranchInspect(win);
 
   if(!views?.frequency_hz){
     phaseTrace?.setAttribute('d','');
