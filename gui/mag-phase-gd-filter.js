@@ -2266,12 +2266,6 @@ function renderWindow(filter,win){
   if(windowBypass) windowBypass.checked=filter.bypass===true;
   win.classList.toggle('is-bypassed',filter.bypass===true);
 
-  const chip=win.querySelector('.mpgd-filter-idchip');
-  if(chip){
-    const mode=filter.bypass?'BYPASS':'FILTER';
-    chip.textContent=filter.id+' · '+mode;
-  }
-
   renderBandMarkers(filter,win,views);
   renderBandRack(filter,win);
 
@@ -2292,29 +2286,7 @@ function buildFilterWindow(filter){
 
   const title=document.createElement('div');
   title.className='mpgd-filter-window-title';
-  title.innerHTML='<strong>Mag-Phase-GD Filter</strong><span>'+filter.id+'</span>';
-
-  const windowBypass=document.createElement('label');
-  windowBypass.className='mpgd-filter-window-bypass';
-  const windowBypassInput=document.createElement('input');
-  windowBypassInput.type='checkbox';
-  windowBypassInput.checked=filter.bypass===true;
-  windowBypassInput.dataset.filterWindowBypass='';
-  windowBypassInput.setAttribute('aria-label','Bypass '+filter.id);
-  const windowBypassText=document.createElement('span');
-  windowBypassText.textContent='Bypass';
-  windowBypass.append(windowBypassInput,windowBypassText);
-
-  windowBypassInput.addEventListener('change',event=>{
-    event.stopPropagation();
-    filter.bypass=windowBypassInput.checked;
-    invalidateResponseHost(filter,'bypass-change');
-    renderNodes();
-    renderWindow(filter,win);
-    document.dispatchEvent(new CustomEvent('raptor:filterbypasschange',{
-      detail:{filterId:filter.id,filterType:FILTER_TYPE,bypass:filter.bypass}
-    }));
-  });
+  title.innerHTML='<strong>Mag-Phase-GD Filter</strong>';
 
   const close=document.createElement('button');
   close.className='mpgd-filter-window-close';
@@ -2327,7 +2299,7 @@ function buildFilterWindow(filter){
     win.classList.remove('is-front');
   });
 
-  head.append(title,windowBypass,close);
+  head.append(title,close);
 
   const body=document.createElement('div');
   body.className='mpgd-filter-window-body';
@@ -2339,8 +2311,8 @@ function buildFilterWindow(filter){
   toolbar.className='mpgd-filter-toolbar';
 
   const controls=[
-    ['phase','Phase'],
-    ['magnitude','Magnitude'],
+    ['phase','Show Phase'],
+    ['magnitude','Show Magnitude'],
     ['wrap','Wrap phase'],
     ['sync','Sync cursor'],
     ['bandPoints','Band Points']
@@ -2360,10 +2332,28 @@ function buildFilterWindow(filter){
     item.append(input,text);
     toolbar.appendChild(item);
   }
-  const chip=document.createElement('span');
-  chip.className='mpgd-filter-idchip';
-  chip.textContent=filter.id;
-  toolbar.appendChild(chip);
+  const windowBypass=document.createElement('label');
+  windowBypass.className='mpgd-filter-window-bypass mpgd-filter-toolbar-bypass';
+  const windowBypassInput=document.createElement('input');
+  windowBypassInput.type='checkbox';
+  windowBypassInput.checked=filter.bypass===true;
+  windowBypassInput.dataset.filterWindowBypass='';
+  windowBypassInput.setAttribute('aria-label','Bypass '+filter.id);
+  const windowBypassText=document.createElement('span');
+  windowBypassText.textContent='Bypass';
+  windowBypass.append(windowBypassInput,windowBypassText);
+
+  windowBypassInput.addEventListener('change',event=>{
+    event.stopPropagation();
+    filter.bypass=windowBypassInput.checked;
+    invalidateResponseHost(filter,'bypass-change');
+    renderNodes();
+    renderWindow(filter,win);
+    document.dispatchEvent(new CustomEvent('raptor:filterbypasschange',{
+      detail:{filterId:filter.id,filterType:FILTER_TYPE,bypass:filter.bypass}
+    }));
+  });
+  toolbar.appendChild(windowBypass);
 
   const graphs=document.createElement('section');
   graphs.className='mpgd-filter-graphs';

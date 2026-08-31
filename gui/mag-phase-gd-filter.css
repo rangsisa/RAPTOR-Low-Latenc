@@ -1659,3 +1659,18 @@
     font-size:7.5px
   }
 }
+
+/* 2026-08-31 workspace toolbar cleanup. */
+.mpgd-filter-toolbar-bypass{
+  margin-left:auto;
+  flex:0 0 auto
+}
+.mpgd-filter-window-head .mpgd-filter-window-close{
+  margin-left:auto
+}
+.mpgd-filter-idchip{
+  display:none!important
+}
+
+.mpgd-filter-window-bypass{margin-left:0}
+.mpgd-filter-toolbar-bypass{margin-left:auto}
