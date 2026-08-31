@@ -18,6 +18,161 @@ const MODEL='LINKWITZ_RILEY_BILINEAR_V1';
 let activeCard=null;
 let sequence=1;
 let persistentWireGroup=null;
+let parameterPopover=null;
+let parameterPopoverFilterId=null;
+
+function formatCompactFrequency(value){
+  const f=Number(value);
+  if(!Number.isFinite(f)) return '—';
+  if(f>=1000){
+    const k=f/1000;
+    const text=k>=10?k.toFixed(k%1?1:0):k.toFixed(k%1?2:0);
+    return text.replace(/\.0+$|(?<=\.[0-9])0+$/,'')+' kHz';
+  }
+  return (Number.isInteger(f)?String(f):String(Number(f.toFixed(2))))+' Hz';
+}
+
+function slopeIconMarkup(type){
+  const path=type==='highpass'
+    ?'M8 34 C18 34 24 32 30 25 C36 17 40 10 50 8'
+    :'M8 8 C18 8 24 10 30 17 C36 25 40 32 50 34';
+  return '<svg viewBox="0 0 58 42" aria-hidden="true"><path class="xo-filter-slope-axis" d="M7 36 H52 M7 6 V36"/><path class="xo-filter-slope-curve" d="'+path+'"/></svg>';
+}
+
+function updateSlopeSummary(button,filter){
+  if(!button||!filter) return;
+  const summary=button.querySelector('.xo-filter-slope-summary');
+  if(summary) summary.textContent=filter.slopeDbOct+' dB • '+formatCompactFrequency(filter.frequencyHz);
+  button.setAttribute('aria-label','Edit '+labelFor(filter.type)+' slope and frequency. '+filter.slopeDbOct+' dB per octave at '+formatCompactFrequency(filter.frequencyHz));
+  button.title='Edit slope and frequency';
+}
+
+function closeParameterPopover(){
+  if(parameterPopover?.isConnected) parameterPopover.remove();
+  parameterPopover=null;
+  parameterPopoverFilterId=null;
+}
+
+function clampPopoverPosition(anchor,popover){
+  const rect=anchor.getBoundingClientRect();
+  const width=popover.offsetWidth||250;
+  const height=popover.offsetHeight||150;
+  const margin=8;
+  let left=rect.left+rect.width/2-width/2;
+  let top=rect.bottom+8;
+  if(top+height>window.innerHeight-margin) top=rect.top-height-8;
+  left=Math.max(margin,Math.min(window.innerWidth-width-margin,left));
+  top=Math.max(margin,Math.min(window.innerHeight-height-margin,top));
+  return {left,top};
+}
+
+function openParameterPopover(anchor,filter){
+  if(parameterPopoverFilterId===filter.id&&parameterPopover?.isConnected){
+    closeParameterPopover();
+    return;
+  }
+  closeParameterPopover();
+
+  const popover=document.createElement('section');
+  popover.className='xo-filter-parameter-popover';
+  popover.dataset.filterId=filter.id;
+  popover.setAttribute('role','dialog');
+  popover.setAttribute('aria-label',labelFor(filter.type)+' settings');
+
+  const head=document.createElement('header');
+  head.className='xo-filter-parameter-popover-head';
+  const title=document.createElement('strong');
+  title.textContent=labelFor(filter.type);
+  const close=document.createElement('button');
+  close.type='button';
+  close.className='xo-filter-parameter-popover-close';
+  close.setAttribute('aria-label','Close filter settings');
+  close.textContent='×';
+  close.addEventListener('click',event=>{
+    event.stopPropagation();
+    closeParameterPopover();
+  });
+  head.append(title,close);
+
+  const body=document.createElement('div');
+  body.className='xo-filter-parameter-popover-body';
+
+  const slopeLabel=document.createElement('label');
+  slopeLabel.className='xo-filter-parameter-field';
+  const slopeName=document.createElement('span');
+  slopeName.textContent='Slope';
+  const slope=document.createElement('select');
+  slope.setAttribute('aria-label','Crossover slope');
+  for(const value of SLOPES){
+    const option=document.createElement('option');
+    option.value=String(value);
+    option.textContent=value+' dB/oct';
+    option.selected=value===filter.slopeDbOct;
+    slope.appendChild(option);
+  }
+  slope.addEventListener('change',()=>{
+    const next=Number(slope.value);
+    if(next===filter.slopeDbOct) return;
+    filter.slopeDbOct=next;
+    updateSlopeSummary(anchor,filter);
+    document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
+      detail:{filterId:filter.id,type:filter.type,slopeDbOct:filter.slopeDbOct,frequencyHz:filter.frequencyHz}
+    }));
+    notifyOutputChange(filter.id,filter.type,'slope-change');
+  });
+  slopeLabel.append(slopeName,slope);
+
+  const frequencyLabel=document.createElement('label');
+  frequencyLabel.className='xo-filter-parameter-field';
+  const frequencyName=document.createElement('span');
+  frequencyName.textContent='Frequency';
+  const frequency=document.createElement('input');
+  frequency.type='number';
+  frequency.inputMode='decimal';
+  frequency.step='any';
+  frequency.min='0.000001';
+  frequency.value=String(filter.frequencyHz);
+  frequency.setAttribute('aria-label','Crossover frequency in Hz');
+  const maxFrequency=maxFrequencyForFilter(filter);
+  if(maxFrequency) frequency.max=String(maxFrequency);
+
+  const commit=()=>{
+    const ok=commitFrequencyInput(filter,frequency);
+    if(ok) updateSlopeSummary(anchor,filter);
+    return ok;
+  };
+  frequency.addEventListener('change',commit);
+  frequency.addEventListener('blur',commit);
+  frequency.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){
+      event.preventDefault();
+      if(commit()) frequency.blur();
+    }else if(event.key==='Escape'){
+      event.preventDefault();
+      frequency.value=String(filter.frequencyHz);
+      frequency.removeAttribute('aria-invalid');
+      closeParameterPopover();
+    }
+  });
+  frequencyLabel.append(frequencyName,frequency);
+
+  body.append(slopeLabel,frequencyLabel);
+  popover.append(head,body);
+  popover.addEventListener('pointerdown',event=>event.stopPropagation());
+  popover.addEventListener('contextmenu',event=>event.stopPropagation());
+  document.body.appendChild(popover);
+
+  parameterPopover=popover;
+  parameterPopoverFilterId=filter.id;
+  requestAnimationFrame(()=>{
+    if(!popover.isConnected) return;
+    const pos=clampPopoverPosition(anchor,popover);
+    popover.style.left=pos.left+'px';
+    popover.style.top=pos.top+'px';
+    frequency.focus({preventScroll:true});
+    frequency.select();
+  });
+}
 
 function makeId(type){
   return (type==='lowpass'?'lp':'hp')+'-'+Date.now().toString(36)+'-'+(sequence++);
@@ -468,62 +623,24 @@ function buildNode(filter,index){
   const controls=document.createElement('div');
   controls.className='xo-filter-controls';
 
-  const slopeLabel=document.createElement('label');
-  slopeLabel.className='xo-filter-control';
-  slopeLabel.innerHTML='<span>Slope</span>';
-  const slope=document.createElement('select');
-  slope.setAttribute('aria-label','Crossover slope');
-  for(const value of SLOPES){
-    const option=document.createElement('option');
-    option.value=String(value);
-    option.textContent=value+' dB/oct';
-    option.selected=value===filter.slopeDbOct;
-    slope.appendChild(option);
-  }
-  slope.addEventListener('change',()=>{
-    filter.slopeDbOct=Number(slope.value);
-    document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
-      detail:{filterId:filter.id,type:filter.type,slopeDbOct:filter.slopeDbOct,frequencyHz:filter.frequencyHz}
-    }));
-    notifyOutputChange(filter.id,filter.type,'slope-change');
+  const slopeButton=document.createElement('button');
+  slopeButton.type='button';
+  slopeButton.className='xo-filter-slope-button';
+  slopeButton.dataset.filterType=filter.type;
+  slopeButton.innerHTML='<span class="xo-filter-slope-icon">'+slopeIconMarkup(filter.type)+'</span><strong class="xo-filter-slope-summary"></strong>';
+  updateSlopeSummary(slopeButton,filter);
+  slopeButton.addEventListener('click',event=>{
+    event.stopPropagation();
+    openParameterPopover(slopeButton,filter);
   });
-  slopeLabel.appendChild(slope);
 
-  const frequencyLabelEl=document.createElement('label');
-  frequencyLabelEl.className='xo-filter-control';
-  frequencyLabelEl.innerHTML='<span>Frequency</span>';
-  const frequency=document.createElement('input');
-  frequency.type='number';
-  frequency.inputMode='decimal';
-  frequency.step='any';
-  frequency.min='0.000001';
-  frequency.value=String(filter.frequencyHz);
-  frequency.setAttribute('aria-label','Crossover frequency in Hz');
-  frequency.setAttribute('title','Enter crossover frequency in Hz');
-  const maxFrequency=maxFrequencyForFilter(filter);
-  if(maxFrequency) frequency.max=String(maxFrequency);
-
-  frequency.addEventListener('change',()=>commitFrequencyInput(filter,frequency));
-  frequency.addEventListener('blur',()=>commitFrequencyInput(filter,frequency));
-  frequency.addEventListener('keydown',event=>{
-    if(event.key==='Enter'){
-      event.preventDefault();
-      if(commitFrequencyInput(filter,frequency)) frequency.blur();
-    }else if(event.key==='Escape'){
-      frequency.value=String(filter.frequencyHz);
-      frequency.removeAttribute('aria-invalid');
-      frequency.blur();
-    }
-  });
-  frequencyLabelEl.appendChild(frequency);
-
-  controls.append(slopeLabel,frequencyLabelEl);
+  controls.appendChild(slopeButton);
 
   const outputPane=document.createElement('div');
   outputPane.className='xo-filter-output-pane';
   const outputCopy=document.createElement('div');
   outputCopy.className='xo-filter-output-copy';
-  outputCopy.innerHTML='<span>OUTPUT</span><strong>Canonical V1</strong>';
+  outputCopy.innerHTML='<span>OUTPUT</span>';
   const output=document.createElement('button');
   output.type='button';
   output.className='xo-filter-output';
@@ -609,6 +726,7 @@ function buildNode(filter,index){
 }
 
 function removeRenderedNodes(){
+  closeParameterPopover();
   canvas.querySelectorAll('.xo-filter-node').forEach(node=>{
     const filterId=node.dataset.filterId;
     if(filterId) api.unregisterInput?.('xo:'+filterId+':input');
@@ -786,6 +904,17 @@ function renderConnections(){
     group.append(hit,path,flow);
   }
 }
+
+document.addEventListener('pointerdown',event=>{
+  if(!parameterPopover?.isConnected) return;
+  if(parameterPopover.contains(event.target)) return;
+  if(event.target.closest('.xo-filter-slope-button')) return;
+  closeParameterPopover();
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&parameterPopover?.isConnected) closeParameterPopover();
+});
+window.addEventListener('resize',closeParameterPopover);
 
 document.addEventListener('raptor:pipelinefilterrequest',event=>{
   const type=event.detail?.filterType;
