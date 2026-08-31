@@ -20,6 +20,7 @@ let sequence=1;
 let persistentWireGroup=null;
 let parameterPopover=null;
 let parameterPopoverFilterId=null;
+let parameterPopoverAnchor=null;
 
 function formatCompactFrequency(value){
   const f=Number(value);
@@ -34,9 +35,9 @@ function formatCompactFrequency(value){
 
 function slopeIconMarkup(type){
   const path=type==='highpass'
-    ?'M8 34 C18 34 24 32 30 25 C36 17 40 10 50 8'
-    :'M8 8 C18 8 24 10 30 17 C36 25 40 32 50 34';
-  return '<svg viewBox="0 0 58 42" aria-hidden="true"><path class="xo-filter-slope-axis" d="M7 36 H52 M7 6 V36"/><path class="xo-filter-slope-curve" d="'+path+'"/></svg>';
+    ?'M4 49 C23 49 34 47 45 39 C58 29 67 12 96 5'
+    :'M4 5 C23 5 34 7 45 15 C58 25 67 42 96 49';
+  return '<svg viewBox="0 0 100 54" aria-hidden="true"><path class="xo-filter-slope-axis" d="M3 51 H97 M3 3 V51"/><path class="xo-filter-slope-curve" d="'+path+'"/></svg>';
 }
 
 function updateSlopeSummary(button,filter){
@@ -51,19 +52,35 @@ function closeParameterPopover(){
   if(parameterPopover?.isConnected) parameterPopover.remove();
   parameterPopover=null;
   parameterPopoverFilterId=null;
+  parameterPopoverAnchor=null;
 }
 
 function clampPopoverPosition(anchor,popover){
   const rect=anchor.getBoundingClientRect();
   const width=popover.offsetWidth||250;
   const height=popover.offsetHeight||150;
+  const viewport=window.visualViewport||null;
+  const viewportLeft=viewport?.offsetLeft||0;
+  const viewportTop=viewport?.offsetTop||0;
+  const viewportWidth=viewport?.width||window.innerWidth;
+  const viewportHeight=viewport?.height||window.innerHeight;
+  const viewportRight=viewportLeft+viewportWidth;
+  const viewportBottom=viewportTop+viewportHeight;
   const margin=8;
+
   let left=rect.left+rect.width/2-width/2;
   let top=rect.bottom+8;
-  if(top+height>window.innerHeight-margin) top=rect.top-height-8;
-  left=Math.max(margin,Math.min(window.innerWidth-width-margin,left));
-  top=Math.max(margin,Math.min(window.innerHeight-height-margin,top));
+  if(top+height>viewportBottom-margin) top=rect.top-height-8;
+  left=Math.max(viewportLeft+margin,Math.min(viewportRight-width-margin,left));
+  top=Math.max(viewportTop+margin,Math.min(viewportBottom-height-margin,top));
   return {left,top};
+}
+
+function repositionParameterPopover(){
+  if(!parameterPopover?.isConnected||!parameterPopoverAnchor?.isConnected) return;
+  const pos=clampPopoverPosition(parameterPopoverAnchor,parameterPopover);
+  parameterPopover.style.left=pos.left+'px';
+  parameterPopover.style.top=pos.top+'px';
 }
 
 function openParameterPopover(anchor,filter){
@@ -164,13 +181,19 @@ function openParameterPopover(anchor,filter){
 
   parameterPopover=popover;
   parameterPopoverFilterId=filter.id;
+  parameterPopoverAnchor=anchor;
   requestAnimationFrame(()=>{
     if(!popover.isConnected) return;
-    const pos=clampPopoverPosition(anchor,popover);
-    popover.style.left=pos.left+'px';
-    popover.style.top=pos.top+'px';
-    frequency.focus({preventScroll:true});
-    frequency.select();
+    repositionParameterPopover();
+
+    // On touch/coarse-pointer devices, forcing focus here opens the virtual
+    // keyboard and changes the visual viewport immediately. Let the user tap
+    // the field explicitly so the popover remains stable.
+    const coarsePointer=window.matchMedia?.('(pointer: coarse)')?.matches===true;
+    if(!coarsePointer){
+      frequency.focus({preventScroll:true});
+      frequency.select();
+    }
   });
 }
 
@@ -914,7 +937,9 @@ document.addEventListener('pointerdown',event=>{
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&parameterPopover?.isConnected) closeParameterPopover();
 });
-window.addEventListener('resize',closeParameterPopover);
+window.addEventListener('resize',()=>requestAnimationFrame(repositionParameterPopover));
+window.visualViewport?.addEventListener('resize',()=>requestAnimationFrame(repositionParameterPopover));
+window.visualViewport?.addEventListener('scroll',()=>requestAnimationFrame(repositionParameterPopover));
 
 document.addEventListener('raptor:pipelinefilterrequest',event=>{
   const type=event.detail?.filterType;
