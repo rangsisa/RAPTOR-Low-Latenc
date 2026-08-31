@@ -1619,3 +1619,8 @@
 
 .mpgd-filter-window-bypass{margin-left:0}
 .mpgd-filter-toolbar-bypass{margin-left:auto}
+
+/* Clip only the Magnitude SVG to its own graph viewport.
+   The trace keeps its true unclamped geometry, but disappears exactly at
+   the +/-40 dB frame instead of leaking through the inset around the graph. */
+.mpgd-filter-svg--mag{overflow:hidden}
