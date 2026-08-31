@@ -1201,6 +1201,7 @@ function buildPhaseReader(views){
 
   const unwrapped=new Float64Array(phase.length);
   unwrapped.fill(NaN);
+  const wrapPrefix=new Uint32Array(phase.length+1);
   const runs=[];
   let start=null;
   let previous=null;
@@ -1214,6 +1215,7 @@ function buildPhaseReader(views){
   };
 
   for(let i=0;i<frequency.length;i++){
+    wrapPrefix[i+1]=wrapPrefix[i];
     const f=Number(frequency[i]);
     const p=Number(phase[i]);
     const valid=Number.isFinite(f)&&Number.isFinite(p)&&f>=F0&&f<=F1;
@@ -1243,7 +1245,10 @@ function buildPhaseReader(views){
     if(delta>180) delta-=360;
     else if(delta<-180) delta+=360;
 
-    if(Math.abs(rawDelta)>180) wraps+=1;
+    if(Math.abs(rawDelta)>180){
+      wraps+=1;
+      wrapPrefix[i+1]+=1;
+    }
     const nextUnwrapped=previousUnwrapped+delta;
     unwrapped[i]=nextUnwrapped;
 
@@ -1253,12 +1258,22 @@ function buildPhaseReader(views){
   }
 
   if(start!==null&&previous!==null) flush(previous);
-  return Object.freeze({unwrapped,runs:Object.freeze(runs)});
+  return Object.freeze({
+    unwrapped,
+    wrapPrefix,
+    runs:Object.freeze(runs)
+  });
 }
 
 function phaseRunForIndex(reader,index){
-  for(const run of reader?.runs||[]){
-    if(index>=run.start&&index<=run.end) return run;
+  const runs=reader?.runs||[];
+  let lo=0,hi=runs.length-1;
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    const run=runs[mid];
+    if(index<run.start) hi=mid-1;
+    else if(index>run.end) lo=mid+1;
+    else return run;
   }
   return null;
 }
@@ -1340,12 +1355,10 @@ function weightedPhaseFit(views,reader,start,end){
   const rmse=Math.sqrt(sse/Math.max(1,sw));
   const r2=sst>1e-12?Math.max(0,1-sse/sst):(rmse<1e-6?1:0);
 
-  let wrapCount=0;
-  const wrapped=views.phase_deg;
-  for(let i=Math.max(start+1,1);i<=end;i++){
-    const a=Number(wrapped[i-1]),b=Number(wrapped[i]);
-    if(Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(b-a)>180) wrapCount+=1;
-  }
+  const prefix=reader.wrapPrefix;
+  const wrapStart=Math.max(0,Math.min(start+1,prefix?.length?prefix.length-1:0));
+  const wrapEnd=Math.max(wrapStart,Math.min(end+1,prefix?.length?prefix.length-1:0));
+  const wrapCount=prefix?.length?Number(prefix[wrapEnd]-prefix[wrapStart]):0;
 
   const residualLimit=Math.max(4,Math.abs(deltaPhase)*.06);
   const readable=
@@ -1879,11 +1892,14 @@ function restoreIdleGraphReadout(win,filter,kind){
 
 function bindPlot(win,filter,plot){
   const kind=plot.dataset.kind;
-  plot.addEventListener('pointermove',event=>{
+  let pointerFrame=0;
+  let latestPointer=null;
+
+  const processPointer=point=>{
     const views=win._mpgdDisplayViews||displayViewsForFilter(filter);
     if(!views?.frequency_hz) return;
     const rect=plot.getBoundingClientRect();
-    const ratio=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));
+    const ratio=Math.max(0,Math.min(1,(point.clientX-rect.left)/Math.max(1,rect.width)));
     const target=frequencyAtRatio(ratio);
     const i=nearestIndex(views.frequency_hz,target);
     const f=views.frequency_hz[i];
@@ -1897,7 +1913,7 @@ function bindPlot(win,filter,plot){
         :formatFrequency(f)+' · '+mag.toFixed(2)+' dB';
     }
 
-    const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top)/Math.max(1,rect.height)));
+    const yRatio=Math.max(0,Math.min(1,(point.clientY-rect.top)/Math.max(1,rect.height)));
     const rawValue=kind==='phase'?180-yRatio*360:40-yRatio*80;
     const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
     if(pointer){
@@ -1906,7 +1922,12 @@ function bindPlot(win,filter,plot){
         :formatFrequency(target)+' · '+rawValue.toFixed(2)+' dB';
     }
 
-    if(kind==='phase') inspectPhaseBranchAtPointer(win,plot,event,views);
+    if(kind==='phase'){
+      inspectPhaseBranchAtPointer(win,plot,{
+        clientX:point.clientX,
+        clientY:point.clientY
+      },views);
+    }
 
     const x=xOf(f);
     const ui=filter.ui||{};
@@ -1918,14 +1939,28 @@ function bindPlot(win,filter,plot){
       const y=targetKind==='phase'?yPhase(phase):yMagnitude(mag);
       setCursor(cursor,x,y,ui.sync!==false||targetKind===kind);
     }
+  };
+
+  plot.addEventListener('pointermove',event=>{
+    latestPointer={clientX:event.clientX,clientY:event.clientY};
+    if(pointerFrame) return;
+    pointerFrame=requestAnimationFrame(()=>{
+      pointerFrame=0;
+      const point=latestPointer;
+      latestPointer=null;
+      if(point) processPointer(point);
+    });
   });
 
   plot.addEventListener('pointerleave',()=>{
+    latestPointer=null;
+    if(pointerFrame){
+      cancelAnimationFrame(pointerFrame);
+      pointerFrame=0;
+    }
     restoreIdleGraphReadout(win,filter,kind);
     win.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
   });
-
-
 
   plot.addEventListener('contextmenu',event=>openBandContext(event,filter,kind));
 }
