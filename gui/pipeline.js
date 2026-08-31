@@ -644,7 +644,8 @@ function startWire(event,source,handle){
   const format=source.format||canonical?.format||null;
   if(canonical){
     try{canonicalV1.validate(canonical);}catch{return false;}
-  }else if(format!==canonicalV1.FORMAT){
+  }else if(!format){
+    // Non-Canonical transports must declare their own explicit format.
     return false;
   }
 
@@ -713,8 +714,14 @@ function startWire(event,source,handle){
         inputId:magnet.input.id,
         sourceKind,
         sourceId,
+        filterId:source.filterId||null,
+        outputKind:source.outputKind||null,
+        pairId:source.pairId||null,
+        hostId:source.hostId||null,
         color,
-        format:format||canonicalV1.FORMAT
+        format:format||canonicalV1.FORMAT,
+        payload:source.payload||null,
+        projection:source.projection||null
       });
     }
 
@@ -842,6 +849,7 @@ window.RaptorPipeline={
   refresh:renderFiles,
   registerInput,
   unregisterInput,
+  startDataWire:startWire,
   startCanonicalWire,
   routeWire,
   importMeasurementFiles:importFiles,

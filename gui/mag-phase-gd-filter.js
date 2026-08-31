@@ -652,17 +652,34 @@ function buildNode(filter,index){
       event.stopPropagation();
       const host=responseHostForFilter(filter);
       const projection=host?responseHost.project(host,kind):null;
+      if(!projection) return;
+
+      const wireSource={
+        kind:'filter',
+        id:filter.id,
+        filterId:filter.id,
+        outputKind:kind,
+        format:projection.format,
+        color:sourceColor(filter),
+        sampleRate:projection.sampleRateHz||null,
+        pairId:projection.pairId||null,
+        hostId:projection.hostId||null,
+        payload:projection,
+        projection
+      };
+
+      api.startDataWire?.(event,wireSource,handle);
       document.dispatchEvent(new CustomEvent('raptor:filteroutputwirestart',{
         detail:{
           filterId:filter.id,
           outputKind:kind,
-          format:projection?.format||null,
+          format:projection.format,
           bypass:filter.bypass===true,
           sourceMeasurementId:filter.input?.id||null,
-          color:sourceColor(filter),
+          color:wireSource.color,
           hostFormat:host?.format||null,
-          hostId:host?.id||null,
-          pairId:projection?.pairId||null,
+          hostId:projection.hostId||null,
+          pairId:projection.pairId||null,
           payload:projection,
           projection
         }
