@@ -1622,3 +1622,40 @@
   font-size:8px;
   letter-spacing:.04em
 }
+
+/* Linked node/workspace Bypass control in the floating window title bar. */
+.mpgd-filter-window-bypass{
+  height:25px;
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:0 8px;
+  border:1px solid #c2cbd2;
+  border-radius:4px;
+  background:#fff;
+  color:#4d5a65;
+  font-size:8px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.mpgd-filter-window-bypass input{
+  width:12px;
+  height:12px;
+  margin:0;
+  accent-color:#3ca45e
+}
+.mpgd-filter-window.is-bypassed .mpgd-filter-window-bypass{
+  border-color:#79bb8d;
+  background:#f2fbf4;
+  color:#347548
+}
+.mpgd-filter-window-head .mpgd-filter-window-close{margin-left:0}
+@media(max-width:700px){
+  .mpgd-filter-window-bypass{
+    height:24px;
+    padding:0 6px;
+    font-size:7.5px
+  }
+}
