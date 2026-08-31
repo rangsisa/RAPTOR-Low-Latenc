@@ -1076,11 +1076,14 @@ document.addEventListener('raptor:filteroutputchange',event=>{
   if(event.detail?.filterType!=='mag-phase-gd'||!activeCard) return;
   const sourceId=String(event.detail?.filterId||'');
   if(!sourceId) return;
+  const affectedSourceIds=Array.isArray(event.detail?.affectedFilterIds)
+    ?new Set(event.detail.affectedFilterIds.map(id=>String(id)))
+    :new Set([sourceId]);
 
   let affected=false;
   for(const filter of activeFilters()){
     const ref=sourceRef(filter);
-    if(ref?.kind!=='filter'||String(ref.id)!==sourceId) continue;
+    if(ref?.kind!=='filter'||!affectedSourceIds.has(String(ref.id))) continue;
     affected=true;
     filter.sampleRateHz=sampleRateFor(filter);
     notifyOutputChange(filter.id,filter.type,'upstream-mag-change');

@@ -210,33 +210,55 @@ function sourceEntry(filter){
     return entry?{...entry,sourceKind:'measurement',lineageActive:true}:null;
   }
 
-  const crossover=window.RaptorCrossoverFilter||null;
-  const upstream=crossover?.get?.(ref.id)||null;
-  if(!upstream) return null;
-
-  let canonical=crossover?.getOutput?.(ref.id)||null;
   const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
+  const crossover=window.RaptorCrossoverFilter||null;
+  const crossoverUpstream=crossover?.get?.(ref.id)||null;
+
+  if(crossoverUpstream){
+    let canonical=crossover?.getOutput?.(ref.id)||null;
+    if(canonical){
+      try{canonicalApi?.validate(canonical);}catch{canonical=null;}
+    }
+
+    const lineage=crossover?.getLineage?.(ref.id)||{
+      active:!!canonical,
+      color:'#8FA6B8',
+      measurementId:null
+    };
+
+    return {
+      id:ref.id,
+      name:crossoverUpstream.label?crossoverUpstream.label+' · '+ref.id:(canonical?.source_name||ref.id),
+      color:lineage.color||'#8FA6B8',
+      lineageActive:lineage.active===true,
+      sampleRate:canonical?.sample_rate_hz||crossoverUpstream.sampleRateHz||null,
+      canonical,
+      format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
+      sourceKind:'filter',
+      filterType:crossoverUpstream.type||null,
+      hasData:!!canonical
+    };
+  }
+
+  const magUpstream=filterById(ref.id);
+  if(!magUpstream) return null;
+
+  let canonical=canonicalOutputForFilter(magUpstream);
   if(canonical){
     try{canonicalApi?.validate(canonical);}catch{canonical=null;}
   }
-
-  const lineage=crossover?.getLineage?.(ref.id)||{
-    active:!!canonical,
-    color:'#8FA6B8',
-    measurementId:null
-  };
-  const color=lineage.color||'#8FA6B8';
+  const lineage=magLineageInfo(magUpstream);
 
   return {
     id:ref.id,
-    name:upstream?.label?upstream.label+' · '+ref.id:(canonical?.source_name||ref.id),
-    color,
+    name:magUpstream.label?magUpstream.label+' · '+ref.id:(canonical?.source_name||ref.id),
+    color:lineage.color||'#8FA6B8',
     lineageActive:lineage.active===true,
-    sampleRate:canonical?.sample_rate_hz||upstream.sampleRateHz||null,
+    sampleRate:canonical?.sample_rate_hz||magUpstream.sampleRateHz||null,
     canonical,
     format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
     sourceKind:'filter',
-    filterType:upstream?.type||null,
+    filterType:FILTER_TYPE,
     hasData:!!canonical
   };
 }
@@ -246,14 +268,7 @@ function sourceColor(filter){
 }
 
 function lineageMeasurementName(filter){
-  const ref=sourceRef(filter);
-  if(!ref) return null;
-
-  if(ref.kind==='measurement'){
-    return api.getMeasurement?.(ref.id)?.name||null;
-  }
-
-  const lineage=window.RaptorCrossoverFilter?.getLineage?.(ref.id)||null;
+  const lineage=magLineageInfo(filter);
   if(!lineage?.active||!lineage.measurementId) return null;
   return api.getMeasurement?.(lineage.measurementId)?.name||null;
 }
@@ -274,15 +289,40 @@ function hostSignature(filter,entry){
   ]);
 }
 
+function downstreamMagOutputIds(filterId){
+  const rootId=String(filterId||'');
+  if(!rootId) return [];
+  const affected=new Set([rootId]);
+
+  // Dependency traversal only: this does not reject or restrict topology.
+  let expanded=true;
+  while(expanded){
+    expanded=false;
+    for(const candidate of activeFilters()){
+      const candidateId=String(candidate.id||'');
+      if(!candidateId||affected.has(candidateId)) continue;
+      const ref=sourceRef(candidate);
+      if(ref?.kind==='filter'&&affected.has(String(ref.id))){
+        affected.add(candidateId);
+        expanded=true;
+      }
+    }
+  }
+  return [...affected];
+}
+
 function invalidateResponseHost(filter,reason='processing-change'){
   if(!filter) return;
-  hostCache.delete(filter.id);
+  const affectedFilterIds=downstreamMagOutputIds(filter.id);
+  for(const filterId of affectedFilterIds) hostCache.delete(filterId);
+
   document.dispatchEvent(new CustomEvent('raptor:filteroutputchange',{
     detail:{
       filterId:filter.id,
       filterType:FILTER_TYPE,
       reason,
-      outputs:['canonical']
+      outputs:['canonical'],
+      affectedFilterIds
     }
   }));
 }
@@ -380,9 +420,18 @@ function canonicalOutputForFilter(filter){
   return output;
 }
 
-function magLineageInfo(filter){
+function magLineageInfo(filter,seen=new Set()){
+  if(!filter) return {active:false,color:'#8FA6B8',measurementId:null};
+  const filterId=String(filter.id||'');
+  if(filterId&&seen.has(filterId)){
+    return {active:false,color:'#8FA6B8',measurementId:null};
+  }
+  const nextSeen=new Set(seen);
+  if(filterId) nextSeen.add(filterId);
+
   const ref=sourceRef(filter);
   if(!ref) return {active:false,color:'#8FA6B8',measurementId:null};
+
   if(ref.kind==='measurement'){
     const entry=api.getMeasurement?.(ref.id)||null;
     return {
@@ -391,9 +440,18 @@ function magLineageInfo(filter){
       measurementId:entry?ref.id:null
     };
   }
-  const lineage=window.RaptorCrossoverFilter?.getLineage?.(ref.id)||null;
-  return lineage
-    ?{active:lineage.active===true,color:lineage.color||'#8FA6B8',measurementId:lineage.measurementId||null}
+
+  const crossover=window.RaptorCrossoverFilter||null;
+  if(crossover?.get?.(ref.id)){
+    const lineage=crossover.getLineage?.(ref.id)||null;
+    return lineage
+      ?{active:lineage.active===true,color:lineage.color||'#8FA6B8',measurementId:lineage.measurementId||null}
+      :{active:false,color:'#8FA6B8',measurementId:null};
+  }
+
+  const upstreamMag=filterById(ref.id);
+  return upstreamMag
+    ?magLineageInfo(upstreamMag,nextSeen)
     :{active:false,color:'#8FA6B8',measurementId:null};
 }
 
@@ -418,10 +476,17 @@ function crossoverHandle(filterId){
   return node?.querySelector('.xo-filter-output')||null;
 }
 
+function magHandle(filterId){
+  const node=[...canvas.querySelectorAll('.mpgd-filter-node')]
+    .find(candidate=>candidate.dataset.filterId===String(filterId));
+  return node?.querySelector('.mpgd-filter-output')||null;
+}
+
 function sourceHandle(filter){
   const ref=sourceRef(filter);
   if(!ref) return null;
-  return ref.kind==='filter'?crossoverHandle(ref.id):measurementHandle(ref.id);
+  if(ref.kind==='measurement') return measurementHandle(ref.id);
+  return crossoverHandle(ref.id)||magHandle(ref.id);
 }
 
 function canvasPointFor(element){
@@ -2634,6 +2699,37 @@ for(const eventName of [
 ]){
   document.addEventListener(eventName,refreshFilterSources);
 }
+
+function refreshMagOutputSources(event){
+  if(!activeCard||event.detail?.filterType!==FILTER_TYPE) return;
+  const sourceId=String(event.detail?.filterId||'');
+  if(!sourceId) return;
+
+  const affectedIds=Array.isArray(event.detail?.affectedFilterIds)
+    ?new Set(event.detail.affectedFilterIds.map(id=>String(id)))
+    :new Set([sourceId]);
+
+  let affected=false;
+  for(const filter of activeFilters()){
+    if(String(filter.id)===sourceId||!affectedIds.has(String(filter.id))) continue;
+    const ref=sourceRef(filter);
+    if(ref?.kind!=='filter') continue;
+
+    const entry=sourceEntry(filter);
+    filter.sampleRateHz=Number(entry?.sampleRate??entry?.canonical?.sample_rate_hz)||null;
+
+    const node=canvas.querySelector('.mpgd-filter-node[data-filter-id="'+filter.id+'"]');
+    if(node) applyNodeLineage(node,filter);
+
+    const win=windows.get(filter.id);
+    if(win?.isConnected&&!win.hidden) renderWindow(filter,win);
+    affected=true;
+  }
+
+  if(affected) requestAnimationFrame(renderConnections);
+}
+
+document.addEventListener('raptor:filteroutputchange',refreshMagOutputSources);
 document.addEventListener('raptor:crossoverlineagechange',refreshCrossoverLineages);
 
 new MutationObserver(()=>requestAnimationFrame(renderConnections))
