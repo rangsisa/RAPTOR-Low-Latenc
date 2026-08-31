@@ -904,6 +904,13 @@ function yMagnitude(value){
   const v=Math.max(-40,Math.min(40,value));
   return GRAPH_HEIGHT-((v+40)/80)*GRAPH_HEIGHT;
 }
+
+// Trace geometry must preserve the real magnitude even outside the visible
+// ±40 dB viewport. The parent plot clips it naturally at the graph boundary,
+// so a response below -40 dB dives out of view instead of riding the bottom edge.
+function yMagnitudeTrace(value){
+  return GRAPH_HEIGHT-((Number(value)+40)/80)*GRAPH_HEIGHT;
+}
 function formatFrequency(value,withUnit=true){
   if(!Number.isFinite(value)||value<=0) return '—';
   let text='';
@@ -1099,7 +1106,7 @@ function magnitudePathFromViews(views,indices){
   for(const i of indices){
     const f=frequency[i],value=magnitude[i];
     if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
-    const x=xOf(f),y=yMagnitude(value);
+    const x=xOf(f),y=yMagnitudeTrace(value);
     path+=(path?'L':'M')+x.toFixed(2)+' '+y.toFixed(2)+' ';
   }
   return path.trim();
