@@ -1624,3 +1624,47 @@
    The trace keeps its true unclamped geometry, but disappears exactly at
    the +/-40 dB frame instead of leaking through the inset around the graph. */
 .mpgd-filter-svg--mag{overflow:hidden}
+
+
+/* Click-only Phase Turn Inspector. Pointer movement remains the normal graph cursor path. */
+.phase-turn-selection{
+  fill:none;stroke:#7b4bb7;stroke-width:4;stroke-linecap:round;
+  opacity:.42;vector-effect:non-scaling-stroke;pointer-events:none
+}
+.phase-turn-marker{
+  stroke:#fff;stroke-width:1.25;vector-effect:non-scaling-stroke;pointer-events:none
+}
+.phase-turn-marker--start{fill:#16a34a}
+.phase-turn-marker--reference{fill:#f4c430}
+.phase-turn-marker--end{fill:#dc2626}
+.mpgd-phase-turn-panel{
+  position:absolute;z-index:12;top:9px;right:9px;
+  width:min(360px,calc(100% - 34px));max-height:calc(100% - 28px);
+  overflow:hidden;padding:5px 6px;
+  border:1px solid rgba(92,64,135,.42);border-radius:5px;
+  background:rgba(252,250,255,.94);box-shadow:0 2px 8px rgba(37,29,48,.12);
+  color:#39434b;font-size:6.7px;line-height:1.25;
+  font-variant-numeric:tabular-nums;pointer-events:none
+}
+.mpgd-phase-turn-panel[hidden]{display:none}
+.mpgd-phase-turn-panel header{display:flex;align-items:center;gap:5px;margin-bottom:4px}
+.mpgd-phase-turn-panel header strong{font-size:7.2px;color:#5e3b82}
+.mpgd-phase-turn-panel header span{
+  margin-left:auto;padding:1px 4px;border-radius:3px;
+  background:#eee7f6;color:#5e3b82;font-weight:700
+}
+.mpgd-phase-turn-panel header button{
+  border:1px solid #b9a7ca;border-radius:3px;background:#fff;color:#5e3b82;
+  font-size:6.5px;padding:1px 4px;cursor:pointer;pointer-events:auto
+}
+.mpgd-phase-turn-points{
+  display:grid;grid-template-columns:31px minmax(0,1fr);
+  gap:2px 5px;padding:3px 0;
+  border-top:1px solid #ded4e7;border-bottom:1px solid #ded4e7
+}
+.mpgd-phase-turn-points b{color:#6d5a7e;font-size:6.3px}
+.mpgd-phase-turn-points span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mpgd-phase-turn-summary{display:grid;grid-template-columns:1fr;gap:1px;padding-top:3px}
+@media (max-width:700px){
+  .mpgd-phase-turn-panel{left:8px;right:8px;width:auto;max-height:72%;font-size:7px}
+}

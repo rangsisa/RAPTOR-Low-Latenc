@@ -166,6 +166,7 @@ function closeBandContext(){
 function closeAllWindows(){
   for(const win of windows.values()){
     removeBandEditor(win);
+    win._phaseTurnInspector?.destroy?.();
     win.remove();
   }
   windows.clear();
@@ -314,7 +315,10 @@ function downstreamMagOutputIds(filterId){
 function invalidateResponseHost(filter,reason='processing-change'){
   if(!filter) return;
   const affectedFilterIds=downstreamMagOutputIds(filter.id);
-  for(const filterId of affectedFilterIds) hostCache.delete(filterId);
+  for(const filterId of affectedFilterIds){
+    hostCache.delete(filterId);
+    clearPhaseTurnInspector(filterId,reason);
+  }
 
   document.dispatchEvent(new CustomEvent('raptor:filteroutputchange',{
     detail:{
@@ -625,6 +629,7 @@ function deleteFilter(filterId){
   const win=windows.get(filterId);
   if(win){
     removeBandEditor(win);
+    win._phaseTurnInspector?.destroy?.();
     win.remove();
   }
   windows.delete(filterId);
@@ -1299,6 +1304,20 @@ function buildGraph(kind){
   trace.setAttribute('class','trace');
   svg.appendChild(trace);
 
+  if(kind==='phase'){
+    const selection=document.createElementNS(SVG_NS,'path');
+    selection.setAttribute('class','phase-turn-selection');
+    svg.appendChild(selection);
+
+    for(const key of ['start','reference','end']){
+      const marker=document.createElementNS(SVG_NS,'circle');
+      marker.setAttribute('class','phase-turn-marker phase-turn-marker--'+key);
+      marker.setAttribute('r',key==='reference'?'4':'3.5');
+      marker.setAttribute('visibility','hidden');
+      svg.appendChild(marker);
+    }
+  }
+
   const y=document.createElement('div');
   y.className='mpgd-filter-ylabels';
   y.innerHTML=kind==='phase'
@@ -1313,7 +1332,28 @@ function buildGraph(kind){
   bandMarkers.className='mpgd-band-markers';
   bandMarkers.dataset.kind=kind;
 
-  plot.append(grid,svg,y,x,bandMarkers);
+  if(kind==='phase'){
+    const panel=document.createElement('section');
+    panel.className='mpgd-phase-turn-panel';
+    panel.hidden=true;
+    panel.innerHTML=
+      '<header><strong>PHASE TURN INSPECTOR</strong><span data-inspector="status">—</span><button type="button" data-phase-turn-clear>Clear</button></header>'+
+      '<div class="mpgd-phase-turn-points">'+
+        '<b>START</b><span data-inspector="start">—</span>'+
+        '<b>REF</b><span data-inspector="reference">—</span>'+
+        '<b>END</b><span data-inspector="end">—</span>'+
+      '</div>'+
+      '<div class="mpgd-phase-turn-summary">'+
+        '<span data-inspector="travel">—</span>'+
+        '<span data-inspector="delay">—</span>'+
+        '<span data-inspector="fit">—</span>'+
+        '<span data-inspector="quality">—</span>'+
+        '<span data-inspector="reason">—</span>'+
+      '</div>';
+    plot.append(grid,svg,y,x,bandMarkers,panel);
+  }else{
+    plot.append(grid,svg,y,x,bandMarkers);
+  }
   card.append(head,plot);
   return card;
 }
@@ -1478,6 +1518,112 @@ function setCursor(cursor,x,y,visible){
   cursor.p.setAttribute('cx',x);cursor.p.setAttribute('cy',y);
 }
 
+function clearPhaseTurnInspector(filterId,reason='response-change'){
+  const win=windows.get(String(filterId));
+  win?._phaseTurnInspector?.invalidate?.(reason);
+}
+function inspectorNumber(value,digits=2){
+  return Number.isFinite(Number(value))?Number(value).toFixed(digits):'—';
+}
+function inspectorFrequency(value){
+  return Number.isFinite(Number(value))
+    ?Number(value).toFixed(Number(value)>=1000?1:2)+' Hz'
+    :'—';
+}
+function clippedInspectorSegment(segment){
+  let [x1,y1,x2,y2]=segment;
+  if((x1<0&&x2<0)||(x1>GRAPH_WIDTH&&x2>GRAPH_WIDTH)) return null;
+  if(x1<0){
+    const t=(0-x1)/(x2-x1);y1=y1+(y2-y1)*t;x1=0;
+  }else if(x1>GRAPH_WIDTH){
+    const t=(GRAPH_WIDTH-x1)/(x2-x1);y1=y1+(y2-y1)*t;x1=GRAPH_WIDTH;
+  }
+  if(x2<0){
+    const t=(0-x1)/(x2-x1);y2=y1+(y2-y1)*t;x2=0;
+  }else if(x2>GRAPH_WIDTH){
+    const t=(GRAPH_WIDTH-x1)/(x2-x1);y2=y1+(y2-y1)*t;x2=GRAPH_WIDTH;
+  }
+  return [x1,y1,x2,y2];
+}
+function renderPhaseTurnInspector(win,result){
+  win._phaseTurnResult=result||null;
+  const panel=win.querySelector('.mpgd-phase-turn-panel');
+  const svg=win.querySelector('.mpgd-filter-svg--phase');
+  const path=svg?.querySelector('.phase-turn-selection');
+  const marks={
+    start:svg?.querySelector('.phase-turn-marker--start'),
+    reference:svg?.querySelector('.phase-turn-marker--reference'),
+    end:svg?.querySelector('.phase-turn-marker--end')
+  };
+  if(!result){
+    if(panel) panel.hidden=true;
+    if(path) path.setAttribute('d','');
+    Object.values(marks).forEach(mark=>mark?.setAttribute('visibility','hidden'));
+    return;
+  }
+
+  if(panel){
+    panel.hidden=false;
+    const set=(key,value)=>{
+      const el=panel.querySelector('[data-inspector="'+key+'"]');
+      if(el) el.textContent=value;
+    };
+    const pointText=item=>item
+      ?inspectorFrequency(item.frequencyHz)+' · '+inspectorNumber(item.wrappedPhaseDeg,1)+'° · U '+inspectorNumber(item.unwrappedPhaseDeg,1)+'°'
+      :'—';
+    set('status',result.status+(result.delayInterpretation?.includes('TIME_ADVANCE')?' · TIME ADVANCE':''));
+    set('start',pointText(result.start));
+    set('reference',pointText(result.reference));
+    set('end',pointText(result.end));
+    set('travel',inspectorNumber(result.phaseTravelDeg,2)+'° · '+inspectorNumber(result.rotations,3)+' turn');
+    set('delay','fit '+inspectorNumber(result.fittedDelayMs,4)+' ms · avg '+inspectorNumber(result.equivalentDelayMs,4)+' ms');
+    set('fit','slope '+inspectorNumber(result.slopeDegPerHz,6)+' °/Hz · R² '+inspectorNumber(result.r2,5)+' · RMSE '+inspectorNumber(result.rmse,3)+'°');
+    set('quality','coh '+inspectorNumber(result.coherenceMedian,3)+' · pts '+String(result.pointsUsed??'—')+'/'+String(result.pointsAvailable??'—')+' · reject '+String(result.pointsRejected??'—'));
+    set('reason',result.reason||'—');
+  }
+
+  const geometry=result.geometry;
+  if(path){
+    const d=(geometry?.segments||[])
+      .map(clippedInspectorSegment)
+      .filter(Boolean)
+      .map(seg=>'M'+seg[0].toFixed(2)+' '+seg[1].toFixed(2)+' L'+seg[2].toFixed(2)+' '+seg[3].toFixed(2))
+      .join(' ');
+    path.setAttribute('d',d);
+  }
+  for(const key of ['start','reference','end']){
+    const mark=marks[key],point=geometry?.[key];
+    if(!mark) continue;
+    if(point&&point.x>=0&&point.x<=GRAPH_WIDTH){
+      mark.setAttribute('cx',point.x.toFixed(2));
+      mark.setAttribute('cy',point.y.toFixed(2));
+      mark.setAttribute('visibility','visible');
+    }else{
+      mark.setAttribute('visibility','hidden');
+    }
+  }
+}
+function ensurePhaseTurnInspector(win,filter,plot){
+  if(win._phaseTurnInspector||!window.RaptorPhaseTurnInspector) return;
+  const clearButton=plot.querySelector('[data-phase-turn-clear]');
+  clearButton?.addEventListener('click',event=>{
+    event.preventDefault();
+    event.stopPropagation();
+    win._phaseTurnInspector?.clear?.('clear-button');
+  });
+  win._phaseTurnInspector=window.RaptorPhaseTurnInspector.create({
+    plot,
+    getViews:()=>win._mpgdDisplayViews||displayViewsForFilter(filter),
+    getDisplayIndices:views=>pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence),
+    frequencyAtRatio,
+    xOf,
+    yPhase,
+    options:{graphWidth:GRAPH_WIDTH,graphHeight:GRAPH_HEIGHT,hitRadiusPx:12},
+    shouldIgnoreEvent:event=>!!event.target?.closest?.('.mpgd-band-marker,.mpgd-phase-turn-panel'),
+    onResult:result=>renderPhaseTurnInspector(win,result)
+  });
+}
+
 function restoreIdleGraphReadout(win,filter,kind){
   const entry=sourceEntry(filter);
   const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
@@ -1533,6 +1679,7 @@ function bindPlot(win,filter,plot){
   });
 
   plot.addEventListener('contextmenu',event=>openBandContext(event,filter,kind));
+  if(kind==='phase') ensurePhaseTurnInspector(win,filter,plot);
 }
 
 function activeBand(filter,win){
@@ -2143,6 +2290,10 @@ document.addEventListener('keydown',event=>{
     const front=[...windows.values()].filter(win=>!win.hidden).sort((a,b)=>(Number(b.style.zIndex)||0)-(Number(a.style.zIndex)||0))[0];
     if(front?._bandEditor){
       removeBandEditor(front);
+      return;
+    }
+    if(front?._phaseTurnInspector?.getResult?.()){
+      front._phaseTurnInspector.clear('escape');
       return;
     }
     if(front) front.hidden=true;
