@@ -539,8 +539,19 @@ function sourceCanonical(filter){
 function canConnectInput(filter,source){
   if(!filter||filter.input?.id||!source?.id) return false;
   if(api.wouldCreateFilterCycle?.(source,filter.id)) return false;
+
+  const canonical=source.canonical||null;
+  const expectedFormat=canonicalApi.FORMAT;
+  const format=source.format||canonical?.format||null;
+  if(format!==expectedFormat) return false;
+
+  // Topology and data readiness are separate concerns:
+  // filter outputs may be wired while floating, before any Measurement exists.
+  // Measurement sources still require a valid Canonical payload.
+  if(!canonical) return source.kind==='filter';
+
   try{
-    canonicalApi.validate(source.canonical);
+    canonicalApi.validate(canonical);
     return true;
   }catch{
     return false;
@@ -982,8 +993,7 @@ function deleteFilter(filterId){
   return true;
 }
 function connectInput(filter,source,meta={}){
-  if(!filter||!source||filter.input?.id) return false;
-  if(api.wouldCreateFilterCycle?.(source,filter.id)) return false;
+  if(!canConnectInput(filter,source)) return false;
   const kind=meta.sourceKind==='filter'||source.kind==='filter'?'filter':'measurement';
   const sourceId=String(meta.sourceId??source.id??'');
   if(!sourceId) return false;
@@ -996,10 +1006,15 @@ function connectInput(filter,source,meta={}){
       canonical=getOutput(sourceId)||window.RaptorMagPhaseGdFilter?.getOutput?.(sourceId)||null;
     }
   }
-  try{canonicalApi.validate(canonical)}catch{return false;}
+
+  if(canonical){
+    try{canonicalApi.validate(canonical)}catch{return false;}
+  }else if(kind!=='filter'){
+    return false;
+  }
 
   filter.input={kind,id:sourceId};
-  const sourceRate=Number(source.sampleRate??canonical.sample_rate_hz);
+  const sourceRate=Number(source.sampleRate??canonical?.sample_rate_hz);
   filter.sampleRateHz=Number.isFinite(sourceRate)&&sourceRate>0?sourceRate:null;
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
