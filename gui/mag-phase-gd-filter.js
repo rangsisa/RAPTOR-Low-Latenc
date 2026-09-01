@@ -21,6 +21,8 @@ const UNCERTAINTY_NEEDLE_MAX_HEIGHT=GRAPH_HEIGHT*.30;
 const UNCERTAINTY_NEEDLE_MIN_SPACING=10;
 const UNCERTAINTY_MAG_RELIEF_DB=6;
 const UNCERTAINTY_CONFIDENCE_FLOOR=.25;
+const PHASE_LIFT_GAIN_MIN_DEG=-180;
+const PHASE_LIFT_GAIN_MAX_DEG=180;
 const FREQ_TICKS=[
   20,40,80,
   100,200,300,400,500,600,700,800,900,
@@ -128,6 +130,10 @@ function normalizeFilterInPlace(filter){
   if(!Array.isArray(filter.bands)) filter.bands=[];
   for(const band of filter.bands){
     band.graphKind=band.graphKind==='phase'?'phase':'magnitude';
+    if(band.graphKind==='phase'){
+      band.gainDb=clampPhaseLiftGainDeg(band.gainDb);
+      band.q=Math.max(.05,Math.min(50,Number(band.q)||1.41421356));
+    }
   }
   if(!filter.ui) filter.ui={phase:true,magnitude:true,wrap:false,sync:true,bandPoints:true};
   if(filter.ui.phase===undefined) filter.ui.phase=true;
@@ -366,14 +372,15 @@ function responseHostForFilter(filter){
       filterType:FILTER_TYPE,
       bypass:filter.bypass===true,
       frequencyDomainApplied:filter.bypass!==true,
-      phaseBandRule:'PHASE_ONLY_UNIT_MAGNITUDE',
+      phaseBandRule:'ADDITIVE_PHASE_LIFT_BELL_UNIT_MAGNITUDE',
       magnitudeBandRule:'RBJ_MAGNITUDE_PLUS_COUPLED_PHASE',
       bands:filter.bands.map(band=>({
         id:band.id,
-        type:'peaking',
+        type:band.graphKind==='phase'?'phase-lift-bell':'peaking',
         graphKind:band.graphKind,
         frequencyHz:Number(band.frequencyHz),
-        gainDb:Number(band.gainDb),
+        gainDb:band.graphKind==='phase'?null:Number(band.gainDb),
+        gainDeg:band.graphKind==='phase'?clampPhaseLiftGainDeg(band.gainDb):null,
         q:Number(band.q)
       }))
     },
@@ -948,6 +955,35 @@ function baseViewsForFilter(filter){
   }
 }
 
+function clampPhaseLiftGainDeg(value){
+  const number=Number(value);
+  if(!Number.isFinite(number)) return 0;
+  return Math.max(PHASE_LIFT_GAIN_MIN_DEG,Math.min(PHASE_LIFT_GAIN_MAX_DEG,number));
+}
+
+function phaseLiftBellWeight(frequencyHz,centerHz,q){
+  const f=Number(frequencyHz);
+  const f0=Number(centerHz);
+  const quality=Math.max(.05,Math.min(50,Number(q)));
+  if(!(Number.isFinite(f)&&Number.isFinite(f0)&&Number.isFinite(quality)&&f>0&&f0>0)) return 0;
+
+  // Symmetric in log-frequency because r -> 1/r only flips the sign.
+  // This is target-shaping geometry, not an all-pass/IIR transfer function.
+  const ratio=f/f0;
+  const detune=ratio-1/ratio;
+  const x=quality*detune;
+  return 1/Math.sqrt(1+x*x);
+}
+
+function phaseLiftDeltaDeg(frequencyHz,band){
+  if(!band||band.graphKind!=='phase') return 0;
+  return clampPhaseLiftGainDeg(band.gainDb)*phaseLiftBellWeight(
+    frequencyHz,
+    band.frequencyHz,
+    band.q
+  );
+}
+
 function displayViewsForFilter(filter){
   const base=baseViewsForFilter(filter);
   if(!base) return null;
@@ -962,7 +998,11 @@ function displayViewsForFilter(filter){
   if(!(frequency&&magnitude&&phase)) return base;
 
   try{
-    const operations=filter.bands.map(band=>rbj.normalizeOperation(band,fs));
+    // Phase bands are no longer RBJ/AP-like responses. They are direct
+    // additive phase-target lift bells. Only Magnitude bands enter RBJ.
+    const operations=filter.bands.map(band=>
+      band.graphKind==='phase'?null:rbj.normalizeOperation(band,fs)
+    );
     const outMagnitude=new Float64Array(frequency.length);
     const outPhase=new Float64Array(frequency.length);
     let phaseOnlyCount=0;
@@ -974,40 +1014,42 @@ function displayViewsForFilter(filter){
 
     for(let i=0;i<frequency.length;i++){
       const f=Number(frequency[i]);
-      if(!(Number.isFinite(f)&&f>0&&f<=fs/2)) return base;
+      const sourceMagnitude=Number(magnitude[i]);
+      const sourcePhaseDeg=Number(phase[i]);
+      if(!(Number.isFinite(f)&&f>0&&f<=fs/2&&Number.isFinite(sourceMagnitude)&&Number.isFinite(sourcePhaseDeg))) return base;
 
       let totalReal=1;
       let totalImag=0;
       let deltaMagnitudeDb=0;
+      let deltaPhaseLiftDeg=0;
 
       for(let n=0;n<operations.length;n++){
+        const band=filter.bands[n];
+
+        if(band.graphKind==='phase'){
+          deltaPhaseLiftDeg+=phaseLiftDeltaDeg(f,band);
+          continue;
+        }
+
         const h=rbj.responseAt(f,operations[n],fs);
         const hMagnitude=Math.hypot(h.real,h.imag);
         if(!(hMagnitude>0)) continue;
 
-        // Both band families contribute their RBJ phase geometry.
-        // Phase bands are normalized to unity magnitude.
+        // Magnitude bands retain their existing RBJ magnitude + coupled phase.
         const ur=h.real/hMagnitude;
         const ui=h.imag/hMagnitude;
         const nr=totalReal*ur-totalImag*ui;
         const ni=totalReal*ui+totalImag*ur;
         totalReal=nr;
         totalImag=ni;
-
-        // Only Magnitude bands are allowed to modify Magnitude.
-        if(filter.bands[n].graphKind!=='phase'){
-          deltaMagnitudeDb+=h.magnitudeDb;
-        }
+        deltaMagnitudeDb+=h.magnitudeDb;
       }
 
-      const sourcePhase=Number(phase[i])*Math.PI/180;
-      const sr=Math.cos(sourcePhase);
-      const si=Math.sin(sourcePhase);
-      const rr=sr*totalReal-si*totalImag;
-      const ri=sr*totalImag+si*totalReal;
-
-      outMagnitude[i]=Number(magnitude[i])+deltaMagnitudeDb;
-      outPhase[i]=Math.atan2(ri,rr)*180/Math.PI;
+      const coupledMagnitudePhaseDeg=Math.atan2(totalImag,totalReal)*180/Math.PI;
+      outMagnitude[i]=sourceMagnitude+deltaMagnitudeDb;
+      outPhase[i]=principalRad(
+        (sourcePhaseDeg+deltaPhaseLiftDeg+coupledMagnitudePhaseDeg)*Math.PI/180
+      )*180/Math.PI;
     }
 
     return Object.freeze({
@@ -1015,8 +1057,8 @@ function displayViewsForFilter(filter){
       magnitude_db:outMagnitude,
       phase_deg:outPhase,
       filter_geometry:Object.freeze({
-        model:'RAPTOR_MAG_PHASE_GD_SPLIT_GEOMETRY',
-        phase_band_rule:'PHASE_ONLY_UNIT_MAGNITUDE',
+        model:'RAPTOR_MAG_PHASE_GD_SPLIT_GEOMETRY_V2',
+        phase_band_rule:'ADDITIVE_PHASE_LIFT_BELL_UNIT_MAGNITUDE',
         magnitude_band_rule:'RBJ_MAGNITUDE_PLUS_COUPLED_PHASE',
         phase_only_count:phaseOnlyCount,
         magnitude_count:magnitudeCount,
@@ -1786,7 +1828,9 @@ function openBandEditor(win,filter,bandId){
     '</header>'+
     '<div class="mpgd-band-editor-fields">'+
       '<label><span>Frequency</span><input type="number" step="1" min="20" max="20000" data-band-frequency><b>Hz</b></label>'+
-      '<label><span>Gain</span><input type="number" step="0.1" min="-24" max="24" data-band-gain><b>dB</b></label>'+
+      (band.graphKind==='phase'
+        ?'<label><span>G</span><input type="number" step="1" min="-180" max="180" data-band-gain><b>deg</b></label>'
+        :'<label><span>Gain</span><input type="number" step="0.1" min="-24" max="24" data-band-gain><b>dB</b></label>')+
       '<label><span>Q</span><input type="number" step="0.01" min="0.05" max="50" data-band-q><b>Q</b></label>'+
       '<button type="button" class="mpgd-band-delete" data-band-delete>Delete Band</button>'+
     '</div>';
@@ -1803,11 +1847,11 @@ function openBandEditor(win,filter,bandId){
     const fs=Number(filter.sampleRateHz??sourceEntry(filter)?.sampleRate??sourceEntry(filter)?.canonical?.sample_rate_hz);
     const maxF=Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
     const frequencyHz=Math.max(F0,Math.min(maxF,Number(fInput.value)));
-    const gainDb=Math.max(-24,Math.min(24,Number(gInput.value)));
+    const gain=clampBandGain(band,Number(gInput.value));
     const q=Math.max(.05,Math.min(50,Number(qInput.value)));
-    if(!(Number.isFinite(frequencyHz)&&Number.isFinite(gainDb)&&Number.isFinite(q))) return;
+    if(!(Number.isFinite(frequencyHz)&&Number.isFinite(gain)&&Number.isFinite(q))) return;
     band.frequencyHz=frequencyHz;
-    band.gainDb=gainDb;
+    band.gainDb=gain;
     band.q=q;
     invalidateResponseHost(filter,'band-edit');
     renderWindow(filter,win);
@@ -1849,7 +1893,8 @@ function openBandEditor(win,filter,bandId){
 }
 
 
-function clampBandGain(value){
+function clampBandGain(band,value){
+  if(band?.graphKind==='phase') return clampPhaseLiftGainDeg(value);
   return Math.max(-24,Math.min(24,Number(value)));
 }
 
@@ -1872,9 +1917,12 @@ function beginBandGainDrag(event,filter,win,band){
     if(moveEvent.pointerId!==pointerId) return;
     if(moveEvent.cancelable) moveEvent.preventDefault();
 
-    // Vertical movement controls Gain only. Frequency is intentionally locked.
+    // Vertical movement controls G only. Frequency is intentionally locked.
+    // Phase uses the graph's degree-per-pixel scale so the marker follows the
+    // pointer naturally; Magnitude keeps its established dB sensitivity.
     const deltaY=moveEvent.clientY-startY;
-    band.gainDb=clampBandGain(startGain-deltaY*.12);
+    const sensitivity=band.graphKind==='phase'?(360/GRAPH_HEIGHT):.12;
+    band.gainDb=clampBandGain(band,startGain-deltaY*sensitivity);
     invalidateResponseHost(filter,'band-gain');
     renderWindow(filter,win);
     renderNodes();
@@ -1927,7 +1975,7 @@ function renderBandMarkers(filter,win,views){
     marker.type='button';
     marker.className='mpgd-band-marker';
     marker.dataset.bandId=band.id;
-    marker.title='Band '+(index+1)+' · '+formatFrequency(band.frequencyHz)+' · Drag ↑↓ Gain · Wheel Q · Double-click Edit';
+    marker.title='Band '+(index+1)+' · '+formatFrequency(band.frequencyHz)+' · Drag ↑↓ '+(kind==='phase'?'G°':'Gain')+' · Wheel Q · Double-click Edit';
     marker.setAttribute('aria-label','Edit Band '+(index+1));
     marker.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
     marker.style.top=((kind==='phase'?yPhase(value):yMagnitude(value))/GRAPH_HEIGHT*100)+'%';
@@ -1958,7 +2006,7 @@ function buildBandRackSection(kind){
   const head=document.createElement('header');
   head.className='mpgd-band-rack-head';
   const title=document.createElement('strong');
-  title.textContent=kind==='phase'?'PHASE BANDS':'MAG BANDS';
+  title.textContent=kind==='phase'?'PHASE LIFT BANDS':'MAG BANDS';
   const count=document.createElement('span');
   count.dataset.rackCount=kind;
   count.textContent='0';
@@ -2007,7 +2055,7 @@ function renderBandRack(filter,win){
       const name=document.createElement('strong');
       name.textContent='Band '+(index+1);
       const meta=document.createElement('span');
-      meta.textContent=formatFrequency(band.frequencyHz)+' · G '+Number(band.gainDb).toFixed(1)+' · Q '+Number(band.q).toFixed(2);
+      meta.textContent=formatFrequency(band.frequencyHz)+' · G '+Number(band.gainDb).toFixed(1)+(kind==='phase'?'°':' dB')+' · Q '+Number(band.q).toFixed(2);
       info.append(name,meta);
 
       const actions=document.createElement('div');
@@ -2270,7 +2318,16 @@ function setBands(filterId,bands,sampleRateHz=null){
   }));
 
   if(fs&&rbj){
-    next.forEach(band=>rbj.normalizeOperation(band,fs));
+    next.forEach(band=>{
+      if(band.graphKind==='phase'){
+        if(!(band.frequencyHz>0&&band.frequencyHz<fs/2)) throw new RangeError('Phase Lift frequencyHz must satisfy 0 < f0 < Fs/2');
+        band.gainDb=clampPhaseLiftGainDeg(band.gainDb);
+        band.q=Math.max(.05,Math.min(50,Number(band.q)));
+        if(!Number.isFinite(band.q)) throw new RangeError('Phase Lift Q must be finite');
+      }else{
+        rbj.normalizeOperation(band,fs);
+      }
+    });
   }
 
   filter.bands=next;
