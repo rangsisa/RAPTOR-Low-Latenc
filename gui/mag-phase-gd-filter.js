@@ -1647,7 +1647,15 @@ function restoreIdleGraphReadout(win,filter,kind){
   const entry=sourceEntry(filter);
   const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
   const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
-  if(readout) readout.textContent=entry?.name||'No input';
+
+  // Keep Measurement filenames visible at idle, but never expose internal
+  // filter labels / generated filter IDs in the graph readout. Filter-backed
+  // graphs show only live cursor values while the pointer is over the plot.
+  if(readout){
+    readout.textContent=entry?.sourceKind==='filter'
+      ?'—'
+      :(entry?.name||'No input');
+  }
   if(pointer) pointer.textContent='—';
 }
 
