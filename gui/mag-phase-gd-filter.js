@@ -1047,9 +1047,8 @@ function displayViewsForFilter(filter){
 
       const coupledMagnitudePhaseDeg=Math.atan2(totalImag,totalReal)*180/Math.PI;
       outMagnitude[i]=sourceMagnitude+deltaMagnitudeDb;
-      outPhase[i]=principalRad(
-        (sourcePhaseDeg+deltaPhaseLiftDeg+coupledMagnitudePhaseDeg)*Math.PI/180
-      )*180/Math.PI;
+      const outputPhaseRad=(sourcePhaseDeg+deltaPhaseLiftDeg+coupledMagnitudePhaseDeg)*Math.PI/180;
+      outPhase[i]=Math.atan2(Math.sin(outputPhaseRad),Math.cos(outputPhaseRad))*180/Math.PI;
     }
 
     return Object.freeze({
