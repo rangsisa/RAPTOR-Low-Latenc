@@ -142,11 +142,61 @@ function onDelete(card){
 
 function registerInput(id,element,options={}){
   if(!id||!element) return;
-  inputRegistry.set(id,{id,element,...options});
+  const inferredOwnerId=element.closest?.('[data-filter-id]')?.dataset?.filterId||null;
+  inputRegistry.set(id,{
+    id,
+    element,
+    ...options,
+    ownerFilterId:String(options.ownerFilterId||inferredOwnerId||'')||null
+  });
 }
 
 function unregisterInput(id){
   inputRegistry.delete(id);
+}
+
+function registeredInputForFilter(filterId){
+  const id=String(filterId||'');
+  if(!id) return null;
+  for(const input of inputRegistry.values()){
+    if(String(input.ownerFilterId||'')===id) return input;
+  }
+  return null;
+}
+
+function currentSourceRefForFilter(filterId){
+  const input=registeredInputForFilter(filterId);
+  if(input&&typeof input.getCurrentSourceRef==='function'){
+    const ref=input.getCurrentSourceRef();
+    if(ref?.id){
+      return {
+        kind:ref.kind==='filter'?'filter':'measurement',
+        id:String(ref.id)
+      };
+    }
+  }
+  return null;
+}
+
+function wouldCreateFilterCycle(source,targetFilterId){
+  if(!source||source.kind!=='filter') return false;
+  const sourceId=String(source.filterId??source.id??'');
+  const targetId=String(targetFilterId||'');
+  if(!sourceId||!targetId) return false;
+  if(sourceId===targetId) return true;
+
+  const seen=new Set();
+  let cursor=sourceId;
+  while(cursor){
+    if(cursor===targetId) return true;
+    if(seen.has(cursor)) return true;
+    seen.add(cursor);
+
+    const ref=currentSourceRefForFilter(cursor);
+    if(!ref||ref.kind!=='filter'||!ref.id) return false;
+    cursor=String(ref.id);
+  }
+  return false;
 }
 
 function clearRegisteredInputHighlights(){
@@ -160,6 +210,7 @@ function eligibleRegisteredInputs(entry){
   for(const input of inputRegistry.values()){
     const element=input.element;
     if(!element?.isConnected) continue;
+    if(wouldCreateFilterCycle(entry,input.ownerFilterId)) continue;
     if(typeof input.canAccept==='function'&&!input.canAccept(entry)) continue;
     eligible.push(input);
   }
@@ -855,6 +906,7 @@ window.RaptorPipeline={
   importMeasurementFiles:importFiles,
   getMeasurement,
   getMeasurementCanonical,
-  getActiveLine
+  getActiveLine,
+  wouldCreateFilterCycle
 };
 })();

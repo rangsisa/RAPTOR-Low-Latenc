@@ -538,6 +538,7 @@ function sourceCanonical(filter){
 }
 function canConnectInput(filter,source){
   if(!filter||filter.input?.id||!source?.id) return false;
+  if(api.wouldCreateFilterCycle?.(source,filter.id)) return false;
   try{
     canonicalApi.validate(source.canonical);
     return true;
@@ -940,6 +941,8 @@ function renderNodes(){
     const input=node.querySelector('.xo-filter-input');
     api.registerInput?.('xo:'+filter.id+':input',input,{
       radius:50,
+      ownerFilterId:filter.id,
+      getCurrentSourceRef:()=>sourceRef(filter),
       canAccept:source=>canConnectInput(filter,source),
       onConnect:(source,meta)=>connectInput(filter,source,meta)
     });
@@ -980,6 +983,7 @@ function deleteFilter(filterId){
 }
 function connectInput(filter,source,meta={}){
   if(!filter||!source||filter.input?.id) return false;
+  if(api.wouldCreateFilterCycle?.(source,filter.id)) return false;
   const kind=meta.sourceKind==='filter'||source.kind==='filter'?'filter':'measurement';
   const sourceId=String(meta.sourceId??source.id??'');
   if(!sourceId) return false;

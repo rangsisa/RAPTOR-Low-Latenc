@@ -564,6 +564,7 @@ function applyNodeLineage(node,filter){
 
 function canConnectInput(filter,source){
   if(!filter||!source||filter.input?.id) return false;
+  if(api.wouldCreateFilterCycle?.(source,filter.id)) return false;
   const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
   const canonical=source.canonical||null;
   const expectedFormat=canonicalApi?.FORMAT||'raptor.measurement.canonical.v1';
@@ -869,6 +870,8 @@ function renderNodes(){
     const input=node.querySelector('.mpgd-filter-input');
     api.registerInput?.('mpgd:'+filter.id+':input',input,{
       radius:50,
+      ownerFilterId:filter.id,
+      getCurrentSourceRef:()=>sourceRef(filter),
       canAccept:source=>canConnectInput(filter,source),
       onConnect:(source,meta)=>connectInput(filter,source,meta)
     });
