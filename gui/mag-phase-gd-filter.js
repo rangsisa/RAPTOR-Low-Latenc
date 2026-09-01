@@ -18,6 +18,7 @@ const GRAPH_WIDTH=1000;
 const GRAPH_HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
 const UNCERTAINTY_NEEDLE_MAX_HEIGHT=GRAPH_HEIGHT*.30;
+const UNCERTAINTY_NEEDLE_MIN_SPACING=10;
 const UNCERTAINTY_MAG_RELIEF_DB=6;
 const UNCERTAINTY_CONFIDENCE_FLOOR=.25;
 const FREQ_TICKS=[
@@ -1162,16 +1163,31 @@ function uncertaintyNeedlePath(views,indices){
   const coherence=views.coherence;
   const magnitude=views.magnitude_db;
   if(!coherence) return '';
-  let path='';
+
+  // Display-only density guard:
+  // dense measurement bins can overlap into a solid red block. Bucket only
+  // the uncertainty needles in graph-X space and keep the worst uncertainty
+  // in each bucket. Canonical/coherence/DSP arrays remain untouched.
+  const buckets=new Map();
   for(const i of indices){
     const f=frequency[i],c0=coherence[i],mag=magnitude[i];
     if(!Number.isFinite(f)||!Number.isFinite(c0)) continue;
     const loss=1-Math.max(0,Math.min(1,c0));
     if(loss<=0) continue;
     const relief=uncertaintyMagnitudeRelief(mag);
+    const height=loss*relief*UNCERTAINTY_NEEDLE_MAX_HEIGHT;
+    if(!(height>0)) continue;
     const x=xOf(f);
-    const yTop=GRAPH_HEIGHT-loss*relief*UNCERTAINTY_NEEDLE_MAX_HEIGHT;
-    path+='M'+x.toFixed(2)+' '+GRAPH_HEIGHT+' L'+x.toFixed(2)+' '+yTop.toFixed(2)+' ';
+    const bucket=Math.floor(x/UNCERTAINTY_NEEDLE_MIN_SPACING);
+    const current=buckets.get(bucket);
+    if(!current||height>current.height) buckets.set(bucket,{x,height});
+  }
+
+  let path='';
+  const needles=[...buckets.values()].sort((a,b)=>a.x-b.x);
+  for(const needle of needles){
+    const yTop=GRAPH_HEIGHT-needle.height;
+    path+='M'+needle.x.toFixed(2)+' '+GRAPH_HEIGHT+' L'+needle.x.toFixed(2)+' '+yTop.toFixed(2)+' ';
   }
   return path.trim();
 }
