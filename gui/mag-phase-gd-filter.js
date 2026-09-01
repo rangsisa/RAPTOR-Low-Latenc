@@ -70,7 +70,7 @@ function defaultFilterState(position={x:360,y:120}){
     bypass:false,
     sampleRateHz:null,
     bands:[],
-    ui:{phase:true,magnitude:true,wrap:false,sync:true,bandPoints:true}
+    ui:{phase:true,magnitude:true,wrap:false,sync:true,bandPoints:true,magToPhase:false}
   };
 }
 
@@ -105,7 +105,8 @@ function cloneFilter(filter,rekey=false){
       magnitude:filter.ui?.magnitude!==false,
       wrap:filter.ui?.wrap===true,
       sync:filter.ui?.sync!==false,
-      bandPoints:filter.ui?.bandPoints!==false
+      bandPoints:filter.ui?.bandPoints!==false,
+      magToPhase:filter.ui?.magToPhase===true
     }
   };
 }
@@ -135,12 +136,14 @@ function normalizeFilterInPlace(filter){
       band.q=Math.max(.05,Math.min(50,Number(band.q)||1.41421356));
     }
   }
-  if(!filter.ui) filter.ui={phase:true,magnitude:true,wrap:false,sync:true,bandPoints:true};
+  if(!filter.ui) filter.ui={phase:true,magnitude:true,wrap:false,sync:true,bandPoints:true,magToPhase:false};
   if(filter.ui.phase===undefined) filter.ui.phase=true;
   if(filter.ui.magnitude===undefined) filter.ui.magnitude=true;
   if(filter.ui.wrap===undefined) filter.ui.wrap=false;
   if(filter.ui.sync===undefined) filter.ui.sync=true;
   if(filter.ui.bandPoints===undefined) filter.ui.bandPoints=true;
+  if(filter.ui.magToPhase===undefined) filter.ui.magToPhase=false;
+  filter.ui.magToPhase=filter.ui.magToPhase===true;
   return filter;
 }
 
@@ -292,6 +295,7 @@ function hostSignature(filter,entry){
   return JSON.stringify([
     entry?.id||null,
     filter.bypass===true,
+    filter.ui?.magToPhase===true,
     Number(filter.sampleRateHz)||null,
     bands
   ]);
@@ -373,7 +377,10 @@ function responseHostForFilter(filter){
       bypass:filter.bypass===true,
       frequencyDomainApplied:filter.bypass!==true,
       phaseBandRule:'ADDITIVE_PHASE_LIFT_BELL_UNIT_MAGNITUDE',
-      magnitudeBandRule:'RBJ_MAGNITUDE_PLUS_COUPLED_PHASE',
+      magnitudeBandRule:filter.ui?.magToPhase===true
+        ?'RBJ_MAGNITUDE_PLUS_COUPLED_PHASE'
+        :'RBJ_MAGNITUDE_ONLY_PHASE_DECOUPLED',
+      magnitudePhaseCoupled:filter.ui?.magToPhase===true,
       bands:filter.bands.map(band=>({
         id:band.id,
         type:band.graphKind==='phase'?'phase-lift-bell':'peaking',
@@ -1035,13 +1042,16 @@ function displayViewsForFilter(filter){
         const hMagnitude=Math.hypot(h.real,h.imag);
         if(!(hMagnitude>0)) continue;
 
-        // Magnitude bands retain their existing RBJ magnitude + coupled phase.
-        const ur=h.real/hMagnitude;
-        const ui=h.imag/hMagnitude;
-        const nr=totalReal*ur-totalImag*ui;
-        const ni=totalReal*ui+totalImag*ur;
-        totalReal=nr;
-        totalImag=ni;
+        // Magnitude is always applied. Coupled RBJ phase is opt-in because
+        // RAPTOR keeps Magnitude and Phase targets independent by default.
+        if(filter.ui?.magToPhase===true){
+          const ur=h.real/hMagnitude;
+          const ui=h.imag/hMagnitude;
+          const nr=totalReal*ur-totalImag*ui;
+          const ni=totalReal*ui+totalImag*ur;
+          totalReal=nr;
+          totalImag=ni;
+        }
         deltaMagnitudeDb+=h.magnitudeDb;
       }
 
@@ -1058,7 +1068,10 @@ function displayViewsForFilter(filter){
       filter_geometry:Object.freeze({
         model:'RAPTOR_MAG_PHASE_GD_SPLIT_GEOMETRY_V2',
         phase_band_rule:'ADDITIVE_PHASE_LIFT_BELL_UNIT_MAGNITUDE',
-        magnitude_band_rule:'RBJ_MAGNITUDE_PLUS_COUPLED_PHASE',
+        magnitude_band_rule:filter.ui?.magToPhase===true
+          ?'RBJ_MAGNITUDE_PLUS_COUPLED_PHASE'
+          :'RBJ_MAGNITUDE_ONLY_PHASE_DECOUPLED',
+        magnitude_phase_coupled:filter.ui?.magToPhase===true,
         phase_only_count:phaseOnlyCount,
         magnitude_count:magnitudeCount,
         sample_rate_hz:fs,
@@ -2203,7 +2216,8 @@ function buildFilterWindow(filter){
     ['magnitude','Show Magnitude'],
     ['wrap','Wrap phase'],
     ['sync','Sync cursor'],
-    ['bandPoints','Band Points']
+    ['bandPoints','Band Points'],
+    ['magToPhase','Mag → Phase']
   ];
   for(const [key,label] of controls){
     const item=document.createElement('label');
@@ -2213,6 +2227,10 @@ function buildFilterWindow(filter){
     input.checked=!!filter.ui[key];
     input.addEventListener('change',()=>{
       filter.ui[key]=input.checked;
+      if(key==='magToPhase'){
+        invalidateResponseHost(filter,'mag-phase-coupling');
+        renderNodes();
+      }
       renderWindow(filter,win);
     });
     const text=document.createElement('span');
