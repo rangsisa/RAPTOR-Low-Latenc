@@ -1668,3 +1668,46 @@
 @media (max-width:700px){
   .mpgd-phase-turn-panel{left:8px;right:8px;width:auto;max-height:72%;font-size:7px}
 }
+
+/* 2026-09-02 Phase graph dark analysis surface.
+   Reuse the Pipeline dark-canvas base color, but keep the graph clean
+   (no canvas dot pattern). Scoped strictly to data-kind="phase". */
+.mpgd-filter-plot[data-kind="phase"]{
+  background:#262c31
+}
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-grid{
+  border-color:rgba(255,255,255,.56);
+  background:
+    linear-gradient(to bottom,transparent calc(25% - .5px),rgba(255,255,255,.17) calc(25% - .5px),rgba(255,255,255,.17) calc(25% + .5px),transparent calc(25% + .5px)),
+    linear-gradient(to bottom,transparent calc(50% - .5px),rgba(255,255,255,.28) calc(50% - .5px),rgba(255,255,255,.28) calc(50% + .5px),transparent calc(50% + .5px)),
+    linear-gradient(to bottom,transparent calc(75% - .5px),rgba(255,255,255,.17) calc(75% - .5px),rgba(255,255,255,.17) calc(75% + .5px),transparent calc(75% + .5px))
+}
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-grid-line{
+  background:#fff;
+  opacity:.20
+}
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-zero-line{
+  background:#fff;
+  opacity:.62
+}
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-svg--phase .trace{
+  stroke:#fff
+}
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-svg--phase .wrap-markers{
+  stroke:#fff;
+  opacity:.36
+}
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-svg--phase .cursor{
+  stroke:#fff;
+  opacity:.58
+}
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-svg--phase .cursor-point{
+  fill:#fff;
+  stroke:#262c31
+}
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-ylabels,
+.mpgd-filter-plot[data-kind="phase"] .mpgd-filter-xlabels span{
+  color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.86),1px 0 2px rgba(0,0,0,.72),-1px 0 2px rgba(0,0,0,.72)
+}
+
