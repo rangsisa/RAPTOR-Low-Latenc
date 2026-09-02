@@ -1785,57 +1785,59 @@
 
 /* Full marker body below the graph trace: soft and partially transparent. */
 .mpgd-band-marker-visual--back{
-  border:2px solid rgba(255,255,255,.48);
-  background:var(--band-color);
-  opacity:.34;
-  filter:blur(.65px);
-  box-shadow:
-    0 0 0 1px var(--band-color),
-    0 2px 5px rgba(20,30,40,.16)
+  border:2px solid rgba(255,255,255,.58);
+  background:color-mix(in srgb,var(--band-color) 72%,transparent);
+  opacity:.46;
+  filter:none;
+  box-shadow:none
 }
 
 /* Clear upper cap above the trace.
    Slightly more than half is clipped so the trace crossing stays unobstructed. */
 .mpgd-band-marker-visual--front{
   display:block;
-  overflow:visible;
+  width:18px;
+  height:9px;
   border:2px solid #fff;
+  border-bottom:0;
+  border-radius:999px 999px 0 0;
   background:var(--band-color);
   color:#fff;
-  clip-path:inset(0 0 52% 0);
-  box-shadow:
-    0 0 0 1.5px var(--band-color),
-    0 2px 4px rgba(20,30,40,.18);
+  transform:translate(-50%,-100%);
+  box-shadow:0 -1px 0 1px color-mix(in srgb,var(--band-color) 78%,#fff 22%);
   text-shadow:0 1px 2px rgba(0,0,0,.68)
 }
 .mpgd-band-marker-number{
   position:absolute;
-  top:1px;
   left:50%;
+  bottom:0;
   transform:translateX(-50%);
   color:#fff;
   font-size:6.5px;
   font-weight:900;
-  line-height:7px;
+  line-height:8px;
   white-space:nowrap
 }
 
 /* Keep the marker calm; only modestly strengthen the soft back while active. */
 .mpgd-band-marker-visual--back.is-hovered,
 .mpgd-band-marker-visual--back.is-gain-dragging{
-  opacity:.42;
-  filter:blur(.45px)
+  opacity:.58
 }
 
 @media(max-width:700px){
-  .mpgd-band-marker-visual{
+  .mpgd-band-marker-visual--back{
     width:20px;
     height:20px
   }
+  .mpgd-band-marker-visual--front{
+    width:20px;
+    height:10px
+  }
   .mpgd-band-marker-number{
-    top:1.5px;
+    bottom:0;
     font-size:7px;
-    line-height:8px
+    line-height:9px
   }
   .mpgd-band-marker{
     width:34px!important;
