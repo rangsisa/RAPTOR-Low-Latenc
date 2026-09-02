@@ -1691,7 +1691,7 @@
   opacity:.62
 }
 .mpgd-filter-plot[data-kind="phase"] .mpgd-filter-svg--phase .trace{
-  stroke:#fff
+  stroke:var(--source-lineage-color,#fff)
 }
 .mpgd-filter-plot[data-kind="phase"] .mpgd-filter-svg--phase .wrap-markers{
   stroke:#fff;
