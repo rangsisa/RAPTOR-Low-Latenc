@@ -771,112 +771,859 @@
   cursor:pointer
 }
 
-/* Per-band control points.
-   Visual marker is split into three layers:
-   BACK full-circle below the graph trace, FRONT clear top-half above the trace,
-   and a transparent HIT target above both. This keeps the curve readable while
-   preserving the original drag / wheel-Q / double-click interaction area. */
-.mpgd-filter-svg{
-  z-index:3
-}
+/* Per-band control points. The layer uses plot coordinates while the
+   markers remain true CSS circles even though the SVG graph is non-uniformly scaled. */
 .mpgd-band-markers{
   position:absolute;
+  z-index:9;
   inset:4px;
   pointer-events:none
 }
-.mpgd-band-markers--back{z-index:2}
-.mpgd-band-markers--front{z-index:5}
-.mpgd-band-markers--hit{z-index:9}
-
-.mpgd-band-marker-visual{
+.mpgd-band-marker{
   --band-color:#FF1744;
   position:absolute;
   width:18px;
   height:18px;
-  box-sizing:border-box;
-  border-radius:50%;
-  transform:translate(-50%,-50%);
-  pointer-events:none;
-  transition:transform 90ms ease,opacity 90ms ease,filter 90ms ease
-}
-.mpgd-band-marker-visual--back{
-  border:2px solid rgba(255,255,255,.48);
-  background:var(--band-color);
-  opacity:.34;
-  filter:blur(.65px);
-  box-shadow:
-    0 0 0 1px var(--band-color),
-    0 2px 5px rgba(20,30,40,.16)
-}
-.mpgd-band-marker-visual--front{
-  display:block;
+  display:grid;
+  place-items:center;
+  padding:0;
   border:2px solid #fff;
+  border-radius:50%;
   background:var(--band-color);
   color:#fff;
-  clip-path:inset(0 0 52% 0);
   box-shadow:
     0 0 0 1.5px var(--band-color),
-    0 2px 4px rgba(20,30,40,.18);
-  text-shadow:0 1px 2px rgba(0,0,0,.68)
-}
-.mpgd-band-marker-number{
-  position:absolute;
-  top:1px;
-  left:50%;
-  transform:translateX(-50%);
-  font-size:6.5px;
-  font-weight:900;
-  line-height:7px;
-  color:#fff;
-  white-space:nowrap
-}
-.mpgd-band-marker-visual.is-hovered,
-.mpgd-band-marker-visual.is-gain-dragging{
-  transform:translate(-50%,-50%) scale(1.12)
-}
-.mpgd-band-marker-visual--back.is-hovered,
-.mpgd-band-marker-visual--back.is-gain-dragging{
-  opacity:.42;
-  filter:blur(.45px)
-}
-
-/* Interaction target only: intentionally invisible and larger than the visual marker. */
-.mpgd-band-marker{
-  --band-color:#FF1744;
-  position:absolute;
-  width:30px;
-  height:30px;
-  padding:0;
-  border:0;
-  border-radius:50%;
-  background:transparent;
-  color:transparent;
-  box-shadow:none;
+    0 2px 5px rgba(20,30,40,.24);
   transform:translate(-50%,-50%);
+  font-size:7px;
+  font-weight:900;
+  line-height:1;
+  text-shadow:0 1px 2px rgba(0,0,0,.65);
   pointer-events:auto;
   cursor:pointer;
-  touch-action:manipulation
+  touch-action:manipulation;
+  transition:transform 90ms ease,box-shadow 90ms ease
 }
+.mpgd-band-marker:hover,
 .mpgd-band-marker:focus-visible{
-  outline:1px dashed color-mix(in srgb,var(--band-color) 70%,white);
-  outline-offset:-4px
+  outline:none;
+  transform:translate(-50%,-50%) scale(1.18);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px var(--band-color),
+    0 3px 8px rgba(20,30,40,.25)
+}
+.mpgd-band-marker:active{
+  transform:translate(-50%,-50%) scale(1.08)
 }
 
 @media(max-width:700px){
-  .mpgd-band-marker-visual{
-    width:20px;
-    height:20px
-  }
-  .mpgd-band-marker-number{
-    top:1.5px;
-    font-size:7px;
-    line-height:8px
-  }
   .mpgd-band-marker{
-    width:34px;
-    height:34px
+    width:20px;
+    height:20px;
+    font-size:7.5px
   }
 }
+
+
+/* 2026-08-29: Filter workspace rack + touch-movable floating windows. */
+.mpgd-filter-window{
+  overscroll-behavior:contain
+}
+.mpgd-filter-window-head{
+  touch-action:none;
+  cursor:grab
+}
+.mpgd-filter-window-head:active{cursor:grabbing}
+
+.mpgd-filter-main{
+  grid-template-rows:42px minmax(0,1fr)
+}
+.mpgd-filter-workspace{
+  min-width:0;
+  min-height:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(210px,24%);
+  gap:6px
+}
+.mpgd-filter-graphs{
+  min-width:0;
+  min-height:0;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+  gap:6px
+}
+
+/* The right rack mirrors the exact two graph rows:
+   Phase list beside Phase graph, Magnitude list beside Magnitude graph. */
+.mpgd-band-rack{
+  min-width:0;
+  min-height:0;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+  gap:6px
+}
+.mpgd-band-rack-section{
+  min-width:0;
+  min-height:0;
+  display:grid;
+  grid-template-rows:31px minmax(0,1fr);
+  overflow:hidden;
+  border:1px solid #9faab3;
+  border-radius:6px;
+  background:#fff;
+  box-shadow:0 1px 3px rgba(24,32,42,.035)
+}
+.mpgd-band-rack-head{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:0 8px;
+  border-bottom:1px solid #c2cbd2;
+  background:#fafbfc
+}
+.mpgd-band-rack-head strong{
+  color:#3a4751;
+  font-size:8.5px;
+  letter-spacing:.045em
+}
+.mpgd-band-rack-head span{
+  margin-left:auto;
+  min-width:18px;
+  height:17px;
+  display:grid;
+  place-items:center;
+  border:1px solid #ccd3d8;
+  border-radius:999px;
+  background:#fff;
+  color:#6d7a84;
+  font-size:7px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums
+}
+.mpgd-band-rack-list{
+  min-height:0;
+  overflow:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  padding:5px;
+  background:#f8fafb;
+  touch-action:pan-y
+}
+.mpgd-band-rack-empty{
+  height:100%;
+  min-height:52px;
+  display:grid;
+  place-items:center;
+  padding:8px;
+  box-sizing:border-box;
+  color:#9aa4ab;
+  font-size:7.5px;
+  text-align:center
+}
+.mpgd-band-rack-row{
+  --band-color:#FF1744;
+  min-width:0;
+  min-height:37px;
+  display:grid;
+  grid-template-columns:13px minmax(0,1fr) auto;
+  align-items:center;
+  gap:5px;
+  padding:4px 4px 4px 6px;
+  border:1px solid #d2d8dd;
+  border-left:3px solid var(--band-color);
+  border-radius:5px;
+  background:#fff
+}
+.mpgd-band-rack-row+.mpgd-band-rack-row{margin-top:4px}
+.mpgd-band-rack-dot{
+  width:10px;
+  height:10px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:var(--band-color);
+  box-shadow:0 0 0 1px var(--band-color)
+}
+.mpgd-band-rack-info{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  line-height:1.08
+}
+.mpgd-band-rack-info strong{
+  color:#34414b;
+  font-size:8px;
+  font-weight:850
+}
+.mpgd-band-rack-info span{
+  margin-top:3px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#74818b;
+  font-size:6.4px;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap
+}
+.mpgd-band-rack-edit{
+  width:36px;
+  height:23px;
+  padding:0;
+  border:1px solid #b9c3ca;
+  border-radius:4px;
+  background:#fff;
+  color:#4b5964;
+  font-size:7px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.mpgd-band-rack-edit:hover,
+.mpgd-band-rack-edit:focus-visible{
+  outline:none;
+  border-color:var(--band-color);
+  color:#27333d;
+  box-shadow:inset 0 0 0 1px var(--band-color)
+}
+
+/* Band Points is intentionally rendered by the same checkbox component
+   as Phase / Magnitude / Wrap / Sync, so it reads as one coherent toolbar. */
+
+/* Band Edit is a true floating child window, not an in-panel overlay. */
+.mpgd-band-editor{
+  position:fixed;
+  z-index:2490;
+  left:0;
+  top:0;
+  right:auto;
+  width:310px;
+  border:1px solid #9faab4;
+  border-top:3px solid var(--band-color,var(--raptor-active));
+  border-radius:7px;
+  background:#fff;
+  box-shadow:0 14px 32px rgba(24,32,42,.22);
+  overflow:hidden;
+  touch-action:auto
+}
+.mpgd-band-editor-head{
+  height:34px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  padding:0 5px 0 9px!important;
+  border-bottom:1px solid #c7d0d7!important;
+  background:linear-gradient(#fff,#f5f7f9)!important;
+  cursor:grab;
+  touch-action:none;
+  user-select:none
+}
+.mpgd-band-editor-head:active{cursor:grabbing}
+.mpgd-band-editor-dot{
+  flex:0 0 auto;
+  width:10px;
+  height:10px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:var(--band-color);
+  box-shadow:0 0 0 1px var(--band-color)
+}
+.mpgd-band-editor-head strong{
+  color:#33404b;
+  font-size:9px
+}
+.mpgd-band-editor-head [data-band-id]{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#84909a;
+  font-size:6.5px;
+  white-space:nowrap
+}
+.mpgd-band-editor-head [data-band-close]{
+  margin-left:auto
+}
+
+/* Main-window controls remain tap targets even though the title bar owns drag. */
+.mpgd-filter-toolbar,
+.mpgd-filter-check,
+.mpgd-filter-check input,
+.mpgd-filter-idchip,
+.mpgd-band-rack,
+.mpgd-band-rack button{
+  touch-action:manipulation
+}
+
+@media(max-width:700px){
+  .mpgd-filter-workspace{
+    grid-template-columns:minmax(0,1fr) minmax(178px,34%);
+    gap:4px
+  }
+  .mpgd-band-rack,
+  .mpgd-filter-graphs{gap:4px}
+  .mpgd-band-rack-section{grid-template-rows:28px minmax(0,1fr)}
+  .mpgd-band-rack-head{padding:0 5px}
+  .mpgd-band-rack-head strong{font-size:7.2px}
+  .mpgd-band-rack-row{
+    grid-template-columns:11px minmax(0,1fr) 34px;
+    gap:3px;
+    padding-left:4px
+  }
+  .mpgd-band-rack-edit{width:32px;font-size:6.5px}
+  .mpgd-band-editor{
+    width:min(300px,calc(100vw - 10px))
+  }
+}
+
+
+/* Band Rack actions: Edit + Delete are deliberately separate and compact. */
+.mpgd-band-rack-actions{
+  display:flex;
+  align-items:center;
+  gap:3px
+}
+.mpgd-band-rack-delete{
+  width:42px;
+  height:23px;
+  padding:0;
+  border:1px solid #c79a9a;
+  border-radius:4px;
+  background:#fff;
+  color:#963f3f;
+  font-size:6.8px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.mpgd-band-rack-delete:hover,
+.mpgd-band-rack-delete:focus-visible{
+  outline:none;
+  border-color:#b66f6f;
+  background:#fff3f3;
+  color:#8b3030
+}
+
+/* Band Edit readability +10% from the previous typography scale. */
+.mpgd-band-editor-head strong{font-size:10px}
+.mpgd-band-editor-head [data-band-id]{font-size:7.2px}
+.mpgd-band-editor-fields label{font-size:8.25px}
+.mpgd-band-editor-fields input,
+.mpgd-band-editor-fields select{font-size:9.35px}
+.mpgd-band-editor-fields b{font-size:7.7px}
+.mpgd-band-delete{font-size:8.8px}
+
+/* On narrow/mobile layouts give the graph materially more horizontal room. */
+@media(max-width:700px){
+  .mpgd-filter-workspace{
+    grid-template-columns:minmax(0,1fr) minmax(168px,25%);
+  }
+  .mpgd-band-rack-row{
+    grid-template-columns:10px minmax(0,1fr) auto;
+  }
+  .mpgd-band-rack-actions{gap:2px}
+  .mpgd-band-rack-edit{width:30px}
+  .mpgd-band-rack-delete{width:36px;font-size:6.2px}
+}
+
+
+/* 2026-08-29 direct-band controls + unified Filter typography. */
+
+/* Give each Band Point a generous invisible mouse-wheel / drag hit target,
+   while keeping the visible circle at the established size. */
+.mpgd-band-marker{
+  width:30px;
+  height:30px;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.65)
+}
+.mpgd-band-marker::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:18px;
+  height:18px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:var(--band-color);
+  box-shadow:
+    0 0 0 1.5px var(--band-color),
+    0 2px 5px rgba(20,30,40,.24);
+  transform:translate(-50%,-50%);
+  transition:transform 90ms ease,box-shadow 90ms ease
+}
+.mpgd-band-marker{
+  z-index:1
+}
+.mpgd-band-marker::after{
+  content:attr(data-band-number);
+  position:absolute;
+  z-index:2;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  font-size:7px;
+  font-weight:900;
+  line-height:1
+}
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus-visible,
+.mpgd-band-marker.is-gain-dragging{
+  transform:translate(-50%,-50%)
+}
+.mpgd-band-marker:hover::before,
+.mpgd-band-marker:focus-visible::before,
+.mpgd-band-marker.is-gain-dragging::before{
+  transform:translate(-50%,-50%) scale(1.18);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px var(--band-color),
+    0 3px 8px rgba(20,30,40,.25)
+}
+.mpgd-band-marker.is-gain-dragging{cursor:ns-resize}
+.mpgd-band-marker:hover{cursor:ns-resize}
+
+/* Unified readable typography: use the Band Edit scale as the baseline
+   throughout the whole filter workspace rather than the previous micro type. */
+.mpgd-filter-window-title strong{font-size:11px}
+.mpgd-filter-window-title span{font-size:8.25px}
+.mpgd-filter-check{font-size:9.35px}
+.mpgd-filter-idchip{font-size:8.25px}
+.mpgd-filter-card-head strong{font-size:10px}
+.mpgd-filter-readout{font-size:8.8px}
+.mpgd-filter-pointer-readout{font-size:8.8px}
+.mpgd-filter-unit{font-size:7.7px}
+.mpgd-filter-ylabels{font-size:8.25px}
+.mpgd-filter-xlabels span{font-size:8.25px}
+
+.mpgd-band-rack-head strong{font-size:9.35px}
+.mpgd-band-rack-head span{font-size:7.7px}
+.mpgd-band-rack-empty{font-size:8.25px}
+.mpgd-band-rack-info strong{font-size:8.8px}
+.mpgd-band-rack-info span{font-size:7.2px}
+.mpgd-band-rack-edit{font-size:7.7px}
+.mpgd-band-rack-delete{font-size:7.4px}
+
+.mpgd-filter-node-title strong{font-size:10.5px}
+.mpgd-filter-node-title span{font-size:7.2px}
+.mpgd-filter-input-copy span,
+.mpgd-filter-output-copy span{font-size:6.6px}
+.mpgd-filter-input-copy strong{font-size:8.25px}
+.mpgd-filter-output-copy strong{font-size:9.35px}
+.mpgd-filter-bypass{font-size:8.25px}
+.mpgd-filter-band-count{font-size:7.2px}
+.mpgd-filter-delete--footer{font-size:8.25px}
+
+/* Shrink the Band Rack again and return horizontal authority to the graphs. */
+.mpgd-filter-workspace{
+  grid-template-columns:minmax(0,1fr) minmax(175px,18%);
+}
+.mpgd-band-rack-row{
+  grid-template-columns:10px minmax(0,1fr) auto;
+  gap:3px;
+  padding:3px 3px 3px 4px
+}
+.mpgd-band-rack-list{padding:4px}
+.mpgd-band-rack-actions{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:2px
+}
+.mpgd-band-rack-edit,
+.mpgd-band-rack-delete{
+  width:34px;
+  height:20px
+}
+
+@media(max-width:700px){
+  .mpgd-filter-workspace{
+    grid-template-columns:minmax(0,1fr) minmax(145px,20%);
+  }
+  .mpgd-filter-check{font-size:8.25px}
+  .mpgd-filter-card-head strong{font-size:9.35px}
+  .mpgd-filter-readout,
+  .mpgd-filter-pointer-readout{font-size:8.25px}
+  .mpgd-filter-ylabels,
+  .mpgd-filter-xlabels span{font-size:7.7px}
+  .mpgd-band-rack-head strong{font-size:8.25px}
+  .mpgd-band-rack-info strong{font-size:8.25px}
+  .mpgd-band-rack-info span{font-size:6.8px}
+  .mpgd-band-rack-edit,
+  .mpgd-band-rack-delete{
+    width:31px;
+    font-size:6.8px
+  }
+}
+
+
+/* 2026-08-29 Phase Inspect + unified boxed graph-header readouts. */
+.mpgd-filter-card{
+  grid-template-rows:38px minmax(0,1fr)
+}
+.mpgd-filter-card-head{
+  height:38px;
+  min-width:0;
+  gap:5px;
+  padding:0 6px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none
+}
+.mpgd-filter-card-head::-webkit-scrollbar{display:none}
+.mpgd-filter-card-head strong{
+  flex:0 0 auto;
+  font-size:10.5px
+}
+
+/* All numeric/readout values use the same compact framed language.
+   Width follows content instead of reserving arbitrary fixed slots. */
+.mpgd-filter-readout,
+.mpgd-filter-pointer-readout,
+.mpgd-filter-value-pill,
+.mpgd-filter-unit{
+  box-sizing:border-box;
+  width:auto;
+  min-width:0;
+  height:25px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 1 auto;
+  padding:0 7px;
+  border:1px solid #c8d1d7;
+  border-radius:5px;
+  background:#fff;
+  font-size:10px;
+  font-weight:750;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  white-space:nowrap
+}
+.mpgd-filter-readout{
+  max-width:220px;
+  margin-left:auto;
+  color:#4e5c67;
+  border-color:#bdc7ce;
+  background:#fff;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.mpgd-filter-pointer-readout{
+  max-width:none;
+  color:#277a42;
+  border-color:#85c49a;
+  background:#f2fbf5;
+  text-align:center
+}
+.mpgd-filter-value-pill{
+  flex:0 0 auto
+}.mpgd-filter-unit{
+  flex:0 0 auto;
+  padding:0 6px;
+  color:#6f7c86;
+  border-color:#d2d8dd;
+  background:#f8fafb;
+  font-size:8.8px;
+  font-weight:800
+}
+
+/* Larger axis numbers to match the revised Filter typography. */
+.mpgd-filter-ylabels,
+.mpgd-filter-xlabels span{
+  font-size:9.2px
+}
+
+/* Keep Phase/Magnitude rack headers vertically aligned with graph headers. */
+.mpgd-band-rack-section{
+  grid-template-rows:38px minmax(0,1fr)
+}
+.mpgd-band-rack-head{
+  min-height:38px
+}
+
+@media(max-width:700px){
+  .mpgd-filter-card{
+    grid-template-rows:36px minmax(0,1fr)
+  }
+  .mpgd-filter-card-head{
+    height:36px;
+    gap:4px;
+    padding:0 4px
+  }
+  .mpgd-filter-readout,
+  .mpgd-filter-pointer-readout,
+  .mpgd-filter-value-pill{
+    height:24px;
+    padding:0 6px;
+    font-size:9.4px
+  }
+  .mpgd-filter-readout{max-width:145px}
+  .mpgd-filter-unit{
+    height:24px;
+    font-size:8.2px
+  }
+  .mpgd-filter-ylabels,
+  .mpgd-filter-xlabels span{
+    font-size:8.5px
+  }
+  .mpgd-band-rack-section{
+    grid-template-rows:36px minmax(0,1fr)
+  }
+  .mpgd-band-rack-head{min-height:36px}
+}
+
+
+/* 2026-08-29 calm band interaction + source-title cleanup. */
+
+/* Keep Band Points visually fixed while editing. Only the frequency-zone ripple moves. */
+.mpgd-band-marker,
+.mpgd-band-marker::before{
+  transition:none!important
+}
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus-visible,
+.mpgd-band-marker.is-gain-dragging{
+  transform:translate(-50%,-50%)!important
+}
+.mpgd-band-marker:hover::before,
+.mpgd-band-marker:focus-visible::before,
+.mpgd-band-marker.is-gain-dragging::before{
+  transform:translate(-50%,-50%)!important;
+  box-shadow:
+    0 0 0 1.5px var(--band-color),
+    0 2px 5px rgba(20,30,40,.24)!important
+}
+
+/* Water-like activity centered on the band's fixed frequency.
+   This is display-only and does not alter the graph or DSP data. */
+.mpgd-band-zone-ripple{
+  --band-color:#2979FF;
+  position:absolute;
+  z-index:0;
+  top:0;
+  bottom:0;
+  width:2px;
+  transform:translateX(-50%);
+  pointer-events:none;
+  overflow:visible
+}
+.mpgd-band-zone-ripple::before,
+.mpgd-band-zone-ripple::after{
+  content:"";
+  position:absolute;
+  top:3%;
+  bottom:3%;
+  left:50%;
+  width:8px;
+  transform:translateX(-50%);
+  border-left:1px solid var(--band-color);
+  border-right:1px solid var(--band-color);
+  border-radius:50%;
+  opacity:0
+}
+.mpgd-band-zone-ripple.is-active::before{
+  animation:mpgd-band-water 1.05s ease-out infinite
+}
+.mpgd-band-zone-ripple.is-active::after{
+  animation:mpgd-band-water 1.05s .34s ease-out infinite
+}
+@keyframes mpgd-band-water{
+  0%{
+    width:8px;
+    opacity:.28
+  }
+  70%{
+    width:54px;
+    opacity:.08
+  }
+  100%{
+    width:72px;
+    opacity:0
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .mpgd-band-zone-ripple.is-active::before,
+  .mpgd-band-zone-ripple.is-active::after{
+    animation:none;
+    width:42px;
+    opacity:.10
+  }
+}
+
+/* Use the normal pointing hand rather than browser-specific grab/grabbing cursors. */
+.mpgd-filter-window-head,
+.mpgd-filter-window-head:active,
+.mpgd-band-editor-head,
+.mpgd-band-editor-head:active,
+.mpgd-filter-node-head,
+.mpgd-filter-node.is-dragging .mpgd-filter-node-head{
+  cursor:pointer!important
+}
+
+/* Source identity now lives in the filter title and may grow with the filename. */
+.mpgd-filter-window-title{
+  min-width:0;
+  max-width:calc(100% - 42px)
+}
+.mpgd-filter-window-title strong{
+  display:block;
+  max-width:min(720px,72vw);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+
+/* Make the per-band rack substantially easier to read without widening it again. */
+.mpgd-band-rack-info strong{
+  font-size:10.2px!important;
+  line-height:1.12
+}
+.mpgd-band-rack-info span{
+  margin-top:4px!important;
+  font-size:8.6px!important;
+  line-height:1.18!important
+}
+.mpgd-band-rack-row{
+  min-height:44px
+}
+.mpgd-band-rack-dot{
+  width:11px;
+  height:11px
+}
+.mpgd-band-rack-edit,
+.mpgd-band-rack-delete{
+  font-size:7.8px!important
+}
+
+@media(max-width:700px){
+  .mpgd-band-rack-info strong{font-size:9.4px!important}
+  .mpgd-band-rack-info span{font-size:7.8px!important}
+  .mpgd-band-rack-row{min-height:41px}
+}
+
+
+/* 2026-08-29 static Band Points + stronger zero references. */
+
+/* Band Points are intentionally calm: no ripple, pulse, scale, or hover animation.
+   The invisible hit area remains for Gain drag / Q wheel interaction. */
+.mpgd-band-zone-ripple{
+  display:none!important
+}
+.mpgd-band-marker,
+.mpgd-band-marker::before,
+.mpgd-band-marker::after{
+  transition:none!important;
+  animation:none!important
+}
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus-visible,
+.mpgd-band-marker:active,
+.mpgd-band-marker.is-gain-dragging{
+  transform:translate(-50%,-50%)!important
+}
+.mpgd-band-marker:hover::before,
+.mpgd-band-marker:focus-visible::before,
+.mpgd-band-marker:active::before,
+.mpgd-band-marker.is-gain-dragging::before{
+  transform:translate(-50%,-50%)!important;
+  box-shadow:
+    0 0 0 1.5px var(--band-color),
+    0 2px 5px rgba(20,30,40,.24)!important
+}
+
+/* 0° / 0 dB reference.
+   Same 1 px geometry as the existing graph grid, but black for clear authority. */
+.mpgd-filter-zero-line{
+  position:absolute;
+  z-index:3;
+  left:0;
+  right:0;
+  top:50%;
+  height:1px;
+  transform:translateY(-.5px);
+  background:#111;
+  opacity:.92;
+  pointer-events:none
+}
+
+/* Combined Canonical output: one ordinary OUTPUT port. */
+.mpgd-filter-outputs{
+  display:flex;
+  align-items:stretch
+}
+.mpgd-filter-output-row{
+  flex:1 1 auto;
+  width:100%;
+  min-height:72px;
+  border-bottom:0!important
+}
+.mpgd-filter-output-copy{
+  justify-content:center
+}
+.mpgd-filter-output-copy strong{
+  margin-top:0;
+  color:#4b5963;
+  font-size:8px;
+  letter-spacing:.04em
+}
+
+/* Linked node/workspace Bypass control in the floating window title bar. */
+.mpgd-filter-window-bypass{
+  height:25px;
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:0 8px;
+  border:1px solid #c2cbd2;
+  border-radius:4px;
+  background:#fff;
+  color:#4d5a65;
+  font-size:8px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.mpgd-filter-window-bypass input{
+  width:12px;
+  height:12px;
+  margin:0;
+  accent-color:#3ca45e
+}
+.mpgd-filter-window.is-bypassed .mpgd-filter-window-bypass{
+  border-color:#79bb8d;
+  background:#f2fbf4;
+  color:#347548
+}
+.mpgd-filter-window-head .mpgd-filter-window-close{margin-left:0}
+@media(max-width:700px){
+  .mpgd-filter-window-bypass{
+    height:24px;
+    padding:0 6px;
+    font-size:7.5px
+  }
+}
+
+/* 2026-08-31 workspace toolbar cleanup. */
+.mpgd-filter-toolbar-bypass{
+  margin-left:auto;
+  flex:0 0 auto
+}
+.mpgd-filter-window-head .mpgd-filter-window-close{
+  margin-left:auto
+}
+.mpgd-filter-idchip{
+  display:none!important
+}
+
+.mpgd-filter-window-bypass{margin-left:0}
+.mpgd-filter-toolbar-bypass{margin-left:auto}
+
+/* Clip only the Magnitude SVG to its own graph viewport.
+   The trace keeps its true unclamped geometry, but disappears exactly at
+   the +/-40 dB frame instead of leaking through the inset around the graph. */
+.mpgd-filter-svg--mag{overflow:hidden}
 
 
 /* Click-only Phase Turn Inspector. Pointer movement remains the normal graph cursor path. */
@@ -962,5 +1709,137 @@
 .mpgd-filter-plot[data-kind="phase"] .mpgd-filter-xlabels span{
   color:#fff;
   text-shadow:0 1px 2px rgba(0,0,0,.86),1px 0 2px rgba(0,0,0,.72),-1px 0 2px rgba(0,0,0,.72)
+}
+
+/* 2026-09-02 Layered Band Marker hotfix.
+   IMPORTANT: this override is appended after restoring the complete pre-layered
+   MPGD stylesheet. It changes only Band Point presentation/stacking and leaves
+   all workspace/rack/graph sizing authority untouched. */
+
+/* Graph trace is the visual authority through the marker center. */
+.mpgd-filter-svg{
+  z-index:3
+}
+
+/* Three marker layers generated by mag-phase-gd-filter.js. */
+.mpgd-band-markers{
+  position:absolute;
+  inset:4px;
+  pointer-events:none
+}
+.mpgd-band-markers--back{z-index:2}
+.mpgd-band-markers--front{z-index:5}
+.mpgd-band-markers--hit{z-index:9}
+
+/* Disable the legacy visible marker pseudo-elements.
+   The legacy button remains only as the transparent interaction target. */
+.mpgd-band-marker::before,
+.mpgd-band-marker::after{
+  content:none!important;
+  display:none!important
+}
+
+/* Interaction target only: preserve drag / wheel-Q / double-click ergonomics. */
+.mpgd-band-marker{
+  position:absolute!important;
+  width:30px!important;
+  height:30px!important;
+  display:block!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:transparent!important;
+  color:transparent!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  transform:translate(-50%,-50%)!important;
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  touch-action:manipulation!important
+}
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus-visible,
+.mpgd-band-marker:active,
+.mpgd-band-marker.is-gain-dragging{
+  transform:translate(-50%,-50%)!important;
+  box-shadow:none!important
+}
+.mpgd-band-marker:focus-visible{
+  outline:1px dashed color-mix(in srgb,var(--band-color) 70%,white);
+  outline-offset:-4px
+}
+
+/* Shared visual geometry. */
+.mpgd-band-marker-visual{
+  --band-color:#FF1744;
+  position:absolute;
+  width:18px;
+  height:18px;
+  box-sizing:border-box;
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  transition:none!important;
+  animation:none!important
+}
+
+/* Full marker body below the graph trace: soft and partially transparent. */
+.mpgd-band-marker-visual--back{
+  border:2px solid rgba(255,255,255,.48);
+  background:var(--band-color);
+  opacity:.34;
+  filter:blur(.65px);
+  box-shadow:
+    0 0 0 1px var(--band-color),
+    0 2px 5px rgba(20,30,40,.16)
+}
+
+/* Clear upper cap above the trace.
+   Slightly more than half is clipped so the trace crossing stays unobstructed. */
+.mpgd-band-marker-visual--front{
+  display:block;
+  overflow:visible;
+  border:2px solid #fff;
+  background:var(--band-color);
+  color:#fff;
+  clip-path:inset(0 0 52% 0);
+  box-shadow:
+    0 0 0 1.5px var(--band-color),
+    0 2px 4px rgba(20,30,40,.18);
+  text-shadow:0 1px 2px rgba(0,0,0,.68)
+}
+.mpgd-band-marker-number{
+  position:absolute;
+  top:1px;
+  left:50%;
+  transform:translateX(-50%);
+  color:#fff;
+  font-size:6.5px;
+  font-weight:900;
+  line-height:7px;
+  white-space:nowrap
+}
+
+/* Keep the marker calm; only modestly strengthen the soft back while active. */
+.mpgd-band-marker-visual--back.is-hovered,
+.mpgd-band-marker-visual--back.is-gain-dragging{
+  opacity:.42;
+  filter:blur(.45px)
+}
+
+@media(max-width:700px){
+  .mpgd-band-marker-visual{
+    width:20px;
+    height:20px
+  }
+  .mpgd-band-marker-number{
+    top:1.5px;
+    font-size:7px;
+    line-height:8px
+  }
+  .mpgd-band-marker{
+    width:34px!important;
+    height:34px!important
+  }
 }
 
