@@ -180,14 +180,31 @@ canvas.addEventListener('pointerout',event=>{
   scheduleRender();
 });
 
+function wireHitFromEvent(event){
+  const direct=event.target.closest?.('.pipeline-persistent-wire-hit');
+  if(direct) return direct;
+
+  if(Number.isFinite(event.clientX)&&Number.isFinite(event.clientY)&&document.elementsFromPoint){
+    const stacked=document.elementsFromPoint(event.clientX,event.clientY);
+    const hit=stacked.find(element=>element?.classList?.contains('pipeline-persistent-wire-hit'));
+    if(hit) return hit;
+  }
+
+  return null;
+}
+
 canvas.addEventListener('click',event=>{
-  const hit=event.target.closest?.('.pipeline-persistent-wire-hit');
+  const hit=wireHitFromEvent(event);
   if(hit){
     event.stopPropagation();
     const wireId=hit.dataset.wireId||null;
-    lockedWireId=lockedWireId===wireId?null:wireId;
-    hoveredWireId=null;
-    scheduleRender();
+    if(wireId){
+      // Wire clicks are selection/replace only.
+      // Focus is cleared exclusively by empty-canvas click or Escape.
+      lockedWireId=wireId;
+      hoveredWireId=null;
+      scheduleRender();
+    }
     return;
   }
 
