@@ -142,12 +142,13 @@
 .measurement-summary strong{margin-right:4px;color:#3d4954}
 .measurement-list{min-width:100%;min-height:38px;overflow-x:hidden;overflow-y:auto;background:#fff;scrollbar-gutter:auto}
 .measurement-empty{height:38px;display:flex;align-items:center;padding:0 8px;color:#8a959e;font-size:8.5px;white-space:nowrap}
-.measurement-file{--file-color:#5b6770;--file-tint:rgba(91,103,112,.08);position:relative;min-width:100%;width:max-content;max-width:100%;min-height:38px;display:grid;grid-template-columns:auto auto minmax(70px,max-content) auto;align-items:center;gap:6px;padding:4px 26px 4px 5px;border-bottom:1px solid #d8dde2;border-left:3px solid var(--file-color);background:linear-gradient(90deg,var(--file-tint),#fff 46%)}
+.measurement-file{--file-color:#5b6770;--file-tint:rgba(91,103,112,.08);position:relative;min-width:100%;width:max-content;max-width:100%;min-height:38px;display:grid;grid-template-columns:auto minmax(70px,max-content) auto;align-items:center;gap:6px;padding:4px 26px 4px 5px;border-bottom:1px solid #d8dde2;border-left:3px solid var(--file-color);background:linear-gradient(90deg,var(--file-tint),#fff 46%)}
 .measurement-file:last-child{border-bottom:0}
 .measurement-file.is-selected{background:linear-gradient(90deg,var(--file-tint),#fff3e8 78%)}
 .measurement-file.is-wiring{background:linear-gradient(90deg,var(--file-tint),rgba(255,247,240,.72) 82%)}
 .measurement-file-check{display:none;width:13px;height:13px;margin:0;accent-color:var(--raptor-active)}
 .measurement-node.is-selecting .measurement-file-check{display:block}
+.measurement-node.is-selecting .measurement-file{grid-template-columns:auto auto minmax(70px,max-content) auto}
 .measurement-color{width:13px;height:13px;padding:0;border:1px solid rgba(25,34,42,.28);border-radius:50%;background:var(--file-color);cursor:pointer;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7)}
 .measurement-file-info{min-width:0;max-width:300px;display:flex;flex-direction:column;line-height:1.05}
 .measurement-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#26323d;font-size:9.5px;font-weight:700}
