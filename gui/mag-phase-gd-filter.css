@@ -1735,3 +1735,29 @@
   }
 }
 
+/* 2026-09-03 Band Point calm interaction final authority.
+   The 30px interaction hit target remains invisible in every state.
+   Only the reduced 70% visible circle is allowed to render. */
+.mpgd-band-marker,
+.mpgd-band-marker:hover,
+.mpgd-band-marker:focus,
+.mpgd-band-marker:focus-visible,
+.mpgd-band-marker:active,
+.mpgd-band-marker.is-gain-dragging{
+  outline:none!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  transform:translate(-50%,-50%)!important
+}
+.mpgd-band-marker:hover::before,
+.mpgd-band-marker:focus::before,
+.mpgd-band-marker:focus-visible::before,
+.mpgd-band-marker:active::before,
+.mpgd-band-marker.is-gain-dragging::before{
+  transform:translate(-50%,-50%)!important;
+  box-shadow:
+    0 0 0 1.05px var(--band-color),
+    0 1.4px 3.5px rgba(20,30,40,.24)!important
+}
+
