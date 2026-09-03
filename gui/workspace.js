@@ -252,24 +252,22 @@ function createPipelineCard(name=defaultLineName()){
   card.dataset.lineName=name;
   card._raptorLineState=window.RaptorPipeline?.createState?.() || null;
 
-  const title=document.createElement('div');
-  title.className='pipeline-card-name';
+  const title=document.createElement('button');
+  title.className='pipeline-card-name pipeline-load';
+  title.type='button';
   title.textContent=name;
-
-  const load=document.createElement('button');
-  load.className='pipeline-card-action pipeline-load';
-  load.type='button';
-  load.textContent='Load';
-  load.setAttribute('aria-pressed','false');
-  load.addEventListener('click',()=>window.RaptorPipeline?.load?.(card));
+  title.title='Load '+name;
+  title.setAttribute('aria-label','Load RAPTOR Line '+name);
+  title.setAttribute('aria-pressed','false');
+  title.addEventListener('click',()=>window.RaptorPipeline?.load?.(card));
 
   const edit=document.createElement('button');
-  edit.className='pipeline-card-action';
+  edit.className='pipeline-card-action pipeline-edit';
   edit.type='button';
   edit.textContent='Edit';
   edit.addEventListener('click',()=>openEdit(card));
 
-  card.append(title,load,edit);
+  card.append(title,edit);
   pipelineRow.appendChild(card);
   return card;
 }
@@ -305,7 +303,12 @@ function applyRename(){
     return;
   }
   editingCard.dataset.lineName=next;
-  editingCard.querySelector('.pipeline-card-name').textContent=next;
+  const lineButton=editingCard.querySelector('.pipeline-card-name');
+  if(lineButton){
+    lineButton.textContent=next;
+    lineButton.title='Load '+next;
+    lineButton.setAttribute('aria-label','Load RAPTOR Line '+next);
+  }
   window.RaptorPipeline?.onRename?.(editingCard);
 
   for(const [toolId,context] of toolContexts){
