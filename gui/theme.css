@@ -23,10 +23,11 @@ button.is-active,
   border-color:var(--raptor-active-border);
 }
 
-/* 2026-09-04 staged retirement: remove Matching from Workspace UI only.
-   Keep the underlying Matching files/DOM for now because NGA Auto ZERO still
-   shares Matching layout classes. Deeper cleanup will be done separately. */
+/* 2026-09-04 staged retirement: remove Matching and NGA Auto ZERO from
+   Workspace UI without deleting their shared implementation files yet. */
 .nav-item[data-page="matching"],
-.page-view[data-view="matching"]{
+.page-view[data-view="matching"],
+.nav-item[data-page="nga-auto-zero"],
+.page-view[data-view="nga-auto-zero"]{
   display:none!important;
 }
