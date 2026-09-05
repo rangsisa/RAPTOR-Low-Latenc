@@ -13,27 +13,40 @@
   <link rel="stylesheet" href="./editor-foundation.css" />
   <link rel="stylesheet" href="./mag-phase-gd-filter.css?v=calm-band-marker-final-20260903-1" />
   <link rel="stylesheet" href="./crossover-filter.css?v=bandpass-active-20260831-1" />
+  <style>
+    /* 2026-09-05: retire the top Workspace bar and move primary navigation
+       into a compact hamburger control beside the Pipeline toolbar. */
+    .workspace-shell{grid-template-rows:minmax(0,1fr)!important}
+    .workspace-menu{position:absolute;top:14px;left:16px;z-index:9;width:40px;height:40px}
+    .workspace-menu>summary{width:40px;height:40px;display:grid;place-items:center;list-style:none;border:1px solid #aeb9c4;border-radius:6px;background:#fff;box-shadow:0 2px 7px rgba(28,38,48,.09);cursor:pointer}
+    .workspace-menu>summary::-webkit-details-marker{display:none}
+    .workspace-menu>summary::marker{content:""}
+    .workspace-menu>summary:hover{background:#f0f3f5;border-color:#98a5b0}
+    .workspace-menu[open]>summary{border-color:var(--raptor-active-border);background:var(--raptor-active-soft)}
+    .workspace-menu-icon{width:17px;height:13px;display:flex;flex-direction:column;justify-content:space-between}
+    .workspace-menu-icon span{display:block;width:17px;height:2px;border-radius:2px;background:#34414c}
+    .workspace-menu-popover{position:absolute;top:46px;left:0;width:154px;padding:6px;border:1px solid #aeb9c4;border-radius:6px;background:#fff;box-shadow:0 8px 22px rgba(24,32,42,.16)}
+    .workspace-menu-item{display:block;width:100%;height:34px;min-width:0;margin:0;padding:0 10px;border-radius:4px;text-align:left;font-size:11px}
+    .workspace-menu-item+.workspace-menu-item{margin-top:3px}
+    .workspace-menu-item.is-active,.workspace-menu-item[aria-current="page"]{box-shadow:none}
+    .pipeline-toolbar{left:66px!important}
+    @media(max-height:760px){.workspace-shell{grid-template-rows:minmax(0,1fr)!important}}
+  </style>
 </head>
 <body>
   <main class="workspace-shell">
-    <header class="topbar">
-      <div class="brand" aria-label="RAPTOR FIR home">
-        <span class="brand-mark">R</span>
-        <div class="brand-copy"><strong>RAPTOR</strong><span>FIR WORKSPACE</span></div>
-      </div>
-
-      <nav class="primary-nav" aria-label="RAPTOR workspace">
-        <button class="nav-item" type="button" data-page="welcome">Welcome</button>
-        <button class="nav-item nav-item--tool nav-item--auto" type="button" data-page="nga-auto-zero"><span class="tool-nav-dot"></span>NGA Auto ZERO</button>
-        <button class="nav-item nav-item--pipeline is-active" type="button" data-page="pipeline" aria-current="page"><span class="pipeline-dot"></span>Pipeline</button>
-        <button class="nav-item" type="button" data-page="matching">Matching</button>
-        <button class="nav-item" type="button" data-page="store">Store</button>
-      </nav>
-
-      <div class="topbar-end" aria-hidden="true"></div>
-    </header>
-
     <section class="workspace-canvas" id="workspaceCanvas" data-page="pipeline" aria-live="polite">
+      <details class="workspace-menu">
+        <summary aria-label="Open RAPTOR menu">
+          <span class="workspace-menu-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+        </summary>
+        <nav class="workspace-menu-popover" aria-label="RAPTOR workspace">
+          <button class="nav-item workspace-menu-item" type="button" data-page="welcome" onclick="this.closest('details').removeAttribute('open')">Welcome</button>
+          <button class="nav-item workspace-menu-item is-active" type="button" data-page="pipeline" aria-current="page" onclick="this.closest('details').removeAttribute('open')">Pipeline</button>
+          <button class="nav-item workspace-menu-item" type="button" data-page="store" onclick="this.closest('details').removeAttribute('open')">Store</button>
+        </nav>
+      </details>
+
       <section class="page-view page-view--pipeline is-page-active" data-view="pipeline">
         <div class="pipeline-strip">
           <div class="pipeline-toolbar" role="toolbar" aria-label="Pipeline tools">
