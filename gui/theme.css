@@ -31,3 +31,9 @@ button.is-active,
 .page-view[data-view="nga-auto-zero"]{
   display:none!important;
 }
+
+/* 2026-09-05 hamburger hotfix: pipeline.css keeps the toolbar static inside
+   .pipeline-strip, so reserve the hamburger's 40px width at the strip level. */
+.pipeline-strip{
+  left:66px!important;
+}
