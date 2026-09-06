@@ -4,7 +4,27 @@
 const fileInput=document.getElementById('measurementFileInput');
 if(!fileInput) throw new Error('measurementFileInput is required');
 
+const importTrigger=fileInput.closest('.measurement-import');
+if(!importTrigger) throw new Error('measurement import trigger is required');
+
+// Desktop-safe picker activation: remove the styled native file input from the
+// clickable overlay path, then open it only from an explicit user gesture on
+// the visible + Import control. The existing change/import pipeline stays intact.
+fileInput.hidden=true;
+importTrigger.setAttribute('role','button');
+importTrigger.setAttribute('tabindex','0');
+importTrigger.setAttribute('aria-label','Import measurement files');
+
 let importing=false;
+
+function openFilePicker(event){
+  if(importing) return;
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  fileInput.click();
+}
 
 async function importCurrentSelection(){
   if(importing) return;
@@ -36,6 +56,12 @@ async function importCurrentSelection(){
 
 fileInput.dataset.importState='idle';
 
+importTrigger.addEventListener('click',openFilePicker);
+importTrigger.addEventListener('keydown',event=>{
+  if(event.key!=='Enter'&&event.key!==' ') return;
+  openFilePicker(event);
+});
+
 fileInput.addEventListener('change',()=>{
   importCurrentSelection().catch(error=>{
     console.error('[RAPTOR Measurement Import]',error);
@@ -43,7 +69,8 @@ fileInput.addEventListener('change',()=>{
 });
 
 window.RaptorMeasurementImport=Object.freeze({
-  version:'native-change-only-v3',
-  input:fileInput
+  version:'explicit-user-picker-v4',
+  input:fileInput,
+  trigger:importTrigger
 });
 })();
