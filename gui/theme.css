@@ -37,3 +37,8 @@ button.is-active,
 .pipeline-strip{
   left:66px!important;
 }
+
+/* 2026-09-06 visual alignment: match hamburger top edge to the Pipeline strip. */
+.workspace-menu{
+  top:10px!important;
+}
