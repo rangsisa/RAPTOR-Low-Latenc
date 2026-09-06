@@ -6,6 +6,7 @@ const workspaceView=window.RaptorPipelineWorkspaceView;
 const canonicalApi=window.RaptorMeasurementCanonicalV1;
 const canvas=document.getElementById('pipelineNodeCanvas');
 const wireSvg=document.querySelector('.pipeline-wire-layer');
+const pipelineRow=document.getElementById('pipelineRow');
 if(!api||!workspaceView||!canonicalApi||!canvas||!wireSvg) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
@@ -21,12 +22,12 @@ let wireGroup=null;
 function ensureStyles(){
   let link=document.querySelector('link[data-raptor-target-export-style]');
   if(link){
-    link.href='./target-export.css?v=target-export-center-connect-20260906-2';
+    link.href='./target-export.css?v=target-export-isolated-20260906-1';
     return;
   }
   link=document.createElement('link');
   link.rel='stylesheet';
-  link.href='./target-export.css?v=target-export-center-connect-20260906-2';
+  link.href='./target-export.css?v=target-export-isolated-20260906-1';
   link.dataset.raptorTargetExportStyle='true';
   document.head.appendChild(link);
 }
@@ -36,19 +37,15 @@ function makeId(){
 }
 
 function resolveLoadedCard(){
-  const line=api.getActiveLine?.()||null;
-  if(!line?.id) return null;
-  return [...document.querySelectorAll('.pipeline-card')]
-    .find(card=>String(card.dataset.lineId||'')===String(line.id))||null;
+  return document.querySelector('.pipeline-card.is-loaded')||null;
 }
 
 function syncActiveCard(){
-  const card=resolveLoadedCard();
-  if(card&&card!==activeCard){
-    activeCard=card;
-    ensureNodes(card);
-  }
-  return activeCard;
+  const next=resolveLoadedCard();
+  if(next===activeCard) return false;
+  activeCard=next;
+  if(activeCard) ensureNodes(activeCard);
+  return true;
 }
 
 function defaultNode(position={x:520,y:180}){
@@ -64,9 +61,9 @@ function defaultNode(position={x:520,y:180}){
   };
 }
 
-function cloneNode(node,rekey=false){
+function cloneNode(node){
   return {
-    id:rekey?makeId():String(node?.id||makeId()),
+    id:String(node?.id||makeId()),
     type:TYPE,
     label:LABEL,
     position:{
@@ -79,13 +76,13 @@ function cloneNode(node,rekey=false){
 
 function normalizeNode(node){
   if(!node||typeof node!=='object') return defaultNode();
-  Object.assign(node,cloneNode(node,false));
+  Object.assign(node,cloneNode(node));
   return node;
 }
 
 function ensureNodes(card){
   if(!card) return [];
-  if(!card._raptorLineState) card._raptorLineState={version:1,nodes:{}};
+  if(!card._raptorLineState) card._raptorLineState=api.createState?.()||{version:1,nodes:{}};
   if(!card._raptorLineState.nodes) card._raptorLineState.nodes={};
   if(!Array.isArray(card._raptorLineState.nodes.targetExports)){
     card._raptorLineState.nodes.targetExports=[];
@@ -96,7 +93,6 @@ function ensureNodes(card){
 }
 
 function activeNodes(){
-  syncActiveCard();
   return activeCard?ensureNodes(activeCard):[];
 }
 
@@ -179,11 +175,10 @@ function sourceIdFromWire(source){
 function canAccept(node,source){
   if(!node||node.input?.id||source?.kind!=='filter') return false;
   const sourceId=sourceIdFromWire(source);
-  if(!sourceId||!sourceMeta(sourceId)) return false;
+  if(!sourceId) return false;
 
-  // Target Export is a terminal sink. Every current filter type is accepted.
-  // If a Canonical payload is already available, validate it; floating filters
-  // remain connectable and become export-ready when upstream data arrives.
+  // Sink accepts every filter output. Floating filters are intentionally allowed;
+  // if data already exists, Canonical V1 must still validate fail-closed.
   const canonical=source.canonical||null;
   if(!canonical) return true;
   try{
@@ -201,7 +196,7 @@ function connect(node,source,meta={}){
   node.input={kind:'filter',id:sourceId};
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
-    detail:{filterId:node.id,filterType:TYPE,sourceKind:'filter',sourceId}
+    detail:{filterId:node.id,filterType:TYPE,sourceKind:'filter',sourceId,connected:true}
   }));
   return true;
 }
@@ -293,7 +288,7 @@ function renderConnections(){
     const start=canvasPointFor(source);
     const end=canvasPointFor(target);
     if(!start||!end) continue;
-    const d=api.routeWire?.(start,end)||'';
+    const d=api.routeWire?.(start,end,{sourceElement:source,targetElement:target})||'';
     if(!d) continue;
     const color=sourceColor(node);
 
@@ -438,12 +433,12 @@ function renderNodes(){
     return;
   }
 
-  for(const node of ensureNodes(activeCard)){
+  for(const node of activeNodes()){
     const element=buildNode(node);
     canvas.appendChild(element);
     const input=element.querySelector('.target-export-input');
     api.registerInput?.(INPUT_PREFIX+node.id+':input',input,{
-      radius:56,
+      radius:58,
       ownerFilterId:node.id,
       getCurrentSourceRef:()=>sourceRef(node),
       canAccept:source=>canAccept(node,source),
@@ -456,24 +451,26 @@ function renderNodes(){
 }
 
 function createAt(x,y){
-  if(!syncActiveCard()) return null;
+  syncActiveCard();
+  if(!activeCard) return null;
   const node=defaultNode({
     x:Number.isFinite(Number(x))?Number(x):520,
     y:Number.isFinite(Number(y))?Number(y):180
   });
   ensureNodes(activeCard).push(node);
   renderNodes();
-  return cloneNode(node,false);
+  return cloneNode(node);
 }
 
 function refreshFromSourceEvent(event){
-  if(!syncActiveCard()) return;
+  syncActiveCard();
+  if(!activeCard) return;
   const directId=String(event?.detail?.filterId||'');
   const sourceId=String(event?.detail?.sourceId||'');
 
   if(directId&&event?.type==='raptor:filterdeleted'){
     let changed=false;
-    for(const node of ensureNodes(activeCard)){
+    for(const node of activeNodes()){
       if(node.input?.id===directId){
         node.input=null;
         changed=true;
@@ -489,59 +486,21 @@ function refreshFromSourceEvent(event){
     if(id!==undefined&&id!==null) affected.add(String(id));
   }
 
-  if(!affected.size||ensureNodes(activeCard).some(node=>node.input?.id&&affected.has(String(node.input.id)))){
+  if(!affected.size||activeNodes().some(node=>node.input?.id&&affected.has(String(node.input.id)))){
     renderNodes();
   }
 }
 
 ensureStyles();
+syncActiveCard();
+renderNodes();
 
-const baseCreateState=api.createState?.bind(api);
-if(baseCreateState){
-  api.createState=()=>{
-    const state=baseCreateState();
-    if(!state.nodes) state.nodes={};
-    state.nodes.targetExports=[];
-    return state;
-  };
-}
-
-const baseCloneState=api.cloneState?.bind(api);
-if(baseCloneState){
-  api.cloneState=state=>{
-    const clone=baseCloneState(state);
-    if(!clone.nodes) clone.nodes={};
-    const source=Array.isArray(state?.nodes?.targetExports)?state.nodes.targetExports:[];
-    clone.nodes.targetExports=source.map(item=>{
-      const copy=cloneNode(item,true);
-      copy.input=null;
-      return copy;
-    });
-    return clone;
-  };
-}
-
-const baseLoad=api.load?.bind(api);
-if(baseLoad){
-  api.load=card=>{
-    baseLoad(card);
-    activeCard=card;
-    ensureNodes(card);
-    renderNodes();
-    requestAnimationFrame(renderNodes);
-  };
-}
-
-const baseDelete=api.onDelete?.bind(api);
-if(baseDelete){
-  api.onDelete=card=>{
-    if(card===activeCard){
-      activeCard=null;
-      removeRenderedNodes();
-      ensureWireGroup().replaceChildren();
-    }
-    baseDelete(card);
-  };
+if(pipelineRow){
+  new MutationObserver(()=>{
+    const changed=syncActiveCard();
+    if(changed) renderNodes();
+    else requestAnimationFrame(renderConnections);
+  }).observe(pipelineRow,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 }
 
 document.addEventListener('raptor:pipelinefilterrequest',event=>{
@@ -558,7 +517,7 @@ document.addEventListener('raptor:pipelinedisconnectrequest',event=>{
   node.input=null;
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
-    detail:{filterId:id,filterType:TYPE,sourceKind:null,sourceId:null}
+    detail:{filterId:id,filterType:TYPE,sourceKind:null,sourceId:null,connected:false}
   }));
 });
 
@@ -575,28 +534,16 @@ for(const eventName of [
 
 canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
 document.addEventListener('raptor:pipelinezoomchange',()=>requestAnimationFrame(renderConnections));
-document.addEventListener('raptor:pipelineobstacleschange',event=>{
-  if(event.target===document) requestAnimationFrame(renderConnections);
-});
+document.addEventListener('raptor:pipelineobstacleschange',()=>requestAnimationFrame(renderConnections));
 window.addEventListener('resize',()=>requestAnimationFrame(renderConnections));
-
-// Covers the race where this dynamically loaded sink module finishes after a
-// line was already opened: resolve the real Pipeline card, not a line descriptor.
-const loadedCard=resolveLoadedCard();
-if(loadedCard){
-  activeCard=loadedCard;
-  ensureNodes(loadedCard);
-  renderNodes();
-  requestAnimationFrame(renderNodes);
-}
 
 window.RaptorTargetExport=Object.freeze({
   type:TYPE,
   createAt,
-  list:()=>activeNodes().map(node=>cloneNode(node,false)),
+  list:()=>activeNodes().map(node=>cloneNode(node)),
   get:id=>{
     const node=nodeById(id);
-    return node?cloneNode(node,false):null;
+    return node?cloneNode(node):null;
   },
   export:id=>{
     const node=nodeById(id);
