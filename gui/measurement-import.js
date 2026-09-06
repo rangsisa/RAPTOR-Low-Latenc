@@ -7,9 +7,8 @@ if(!fileInput) throw new Error('measurementFileInput is required');
 const importTrigger=fileInput.closest('.measurement-import');
 if(!importTrigger) throw new Error('measurement import trigger is required');
 
-// Desktop-safe picker activation: remove the styled native file input from the
-// clickable overlay path, then open it only from an explicit user gesture on
-// the visible + Import control. The existing change/import pipeline stays intact.
+// Keep the native file input out of the styled overlay path. The visible
+// + Import control owns activation; the native input owns the actual picker.
 fileInput.hidden=true;
 importTrigger.setAttribute('role','button');
 importTrigger.setAttribute('tabindex','0');
@@ -19,9 +18,25 @@ let importing=false;
 
 function openFilePicker(event){
   if(importing) return;
+
+  // fileInput.click() dispatches a synthetic click that bubbles back through
+  // .measurement-import. Never cancel that native-input click: preventDefault()
+  // there would cancel the file input's activation behavior and suppress the
+  // chooser on both desktop and mobile browsers.
+  if(event?.target===fileInput) return;
+
   if(event){
     event.preventDefault();
     event.stopPropagation();
+  }
+
+  // Prefer the picker API when available; fall back to the historical file
+  // input activation path. Both calls stay inside the original user gesture.
+  if(typeof fileInput.showPicker==='function'){
+    try{
+      fileInput.showPicker();
+      return;
+    }catch{}
   }
   fileInput.click();
 }
@@ -69,7 +84,7 @@ fileInput.addEventListener('change',()=>{
 });
 
 window.RaptorMeasurementImport=Object.freeze({
-  version:'explicit-user-picker-v4',
+  version:'explicit-user-picker-v5',
   input:fileInput,
   trigger:importTrigger
 });
