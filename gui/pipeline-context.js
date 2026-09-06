@@ -9,79 +9,14 @@ const FILTER_COMMANDS=Object.freeze([
   {type:'lowpass',label:'Lowpass Filter'},
   {type:'highpass',label:'Highpass Filter'},
   {type:'bandpass',label:'Bandpass Filter'},
-  {type:'mag-phase-gd',label:'Mag-Phase-GD Filter'},
-  {type:'target-export',label:'Target Export'}
+  {type:'mag-phase-gd',label:'Mag-Phase-GD Filter'}
 ]);
 
 let menu=null;
 let request=null;
-let targetExportLoader=null;
-const pendingTargetExports=[];
 
 function activeLine(){
   return window.RaptorPipeline?.getActiveLine?.()||null;
-}
-
-function flushPendingTargetExports(){
-  const api=window.RaptorTargetExport;
-  if(!api?.createAt) return;
-  while(pendingTargetExports.length){
-    const item=pendingTargetExports.shift();
-    if(!item) continue;
-    const line=activeLine();
-    if(!line||String(line.id)!==String(item.lineId)) continue;
-    api.createAt(item.x,item.y);
-  }
-}
-
-function ensureTargetExportModule(){
-  if(window.RaptorTargetExport?.createAt){
-    flushPendingTargetExports();
-    return Promise.resolve(window.RaptorTargetExport);
-  }
-  if(targetExportLoader) return targetExportLoader;
-
-  targetExportLoader=new Promise((resolve,reject)=>{
-    const existing=document.querySelector('script[data-raptor-target-export]');
-    if(existing){
-      existing.addEventListener('load',()=>{
-        flushPendingTargetExports();
-        resolve(window.RaptorTargetExport||null);
-      },{once:true});
-      existing.addEventListener('error',reject,{once:true});
-      return;
-    }
-
-    const script=document.createElement('script');
-    script.src='./target-export.js?v=target-export-isolated-20260906-1';
-    script.dataset.raptorTargetExport='true';
-    script.addEventListener('load',()=>{
-      flushPendingTargetExports();
-      resolve(window.RaptorTargetExport||null);
-    },{once:true});
-    script.addEventListener('error',reject,{once:true});
-    document.body.appendChild(script);
-  });
-  return targetExportLoader;
-}
-
-function requestTargetExport(current){
-  const line=activeLine();
-  if(!current||!line) return;
-  const item={
-    lineId:line.id,
-    x:Number(current.x)||520,
-    y:Number(current.y)||180
-  };
-  if(window.RaptorTargetExport?.createAt){
-    window.RaptorTargetExport.createAt(item.x,item.y);
-    return;
-  }
-  pendingTargetExports.push(item);
-  ensureTargetExportModule().catch(()=>{
-    const index=pendingTargetExports.indexOf(item);
-    if(index>=0) pendingTargetExports.splice(index,1);
-  });
 }
 
 function ensureMenu(){
@@ -144,12 +79,6 @@ function openCanvasMenu(event){
       const current=request;
       closeMenu();
       if(!current||current.kind!=='canvas'||!activeLine()) return;
-
-      if(command.type==='target-export'){
-        requestTargetExport(current);
-        return;
-      }
-
       document.dispatchEvent(new CustomEvent('raptor:pipelinefilterrequest',{
         detail:{
           lineId:current.lineId,
@@ -206,7 +135,7 @@ canvas.addEventListener('contextmenu',event=>{
     return;
   }
 
-  if(event.target.closest?.('.measurement-node,.mpgd-filter-node,.xo-filter-node,.target-export-node,.pipeline-context-menu')) return;
+  if(event.target.closest?.('.measurement-node,.mpgd-filter-node,.xo-filter-node,.pipeline-context-menu')) return;
   openCanvasMenu(event);
 });
 
