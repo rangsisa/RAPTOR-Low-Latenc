@@ -19,16 +19,36 @@ let sequence=1;
 let wireGroup=null;
 
 function ensureStyles(){
-  if(document.querySelector('link[data-raptor-target-export-style]')) return;
-  const link=document.createElement('link');
+  let link=document.querySelector('link[data-raptor-target-export-style]');
+  if(link){
+    link.href='./target-export.css?v=target-export-center-connect-20260906-2';
+    return;
+  }
+  link=document.createElement('link');
   link.rel='stylesheet';
-  link.href='./target-export.css?v=target-export-20260906-1';
+  link.href='./target-export.css?v=target-export-center-connect-20260906-2';
   link.dataset.raptorTargetExportStyle='true';
   document.head.appendChild(link);
 }
 
 function makeId(){
   return 'target-export-'+Date.now().toString(36)+'-'+(sequence++);
+}
+
+function resolveLoadedCard(){
+  const line=api.getActiveLine?.()||null;
+  if(!line?.id) return null;
+  return [...document.querySelectorAll('.pipeline-card')]
+    .find(card=>String(card.dataset.lineId||'')===String(line.id))||null;
+}
+
+function syncActiveCard(){
+  const card=resolveLoadedCard();
+  if(card&&card!==activeCard){
+    activeCard=card;
+    ensureNodes(card);
+  }
+  return activeCard;
 }
 
 function defaultNode(position={x:520,y:180}){
@@ -59,8 +79,7 @@ function cloneNode(node,rekey=false){
 
 function normalizeNode(node){
   if(!node||typeof node!=='object') return defaultNode();
-  const normalized=cloneNode(node,false);
-  Object.assign(node,normalized);
+  Object.assign(node,cloneNode(node,false));
   return node;
 }
 
@@ -76,9 +95,18 @@ function ensureNodes(card){
   return nodes;
 }
 
-function activeNodes(){return activeCard?ensureNodes(activeCard):[];}
-function nodeById(id){return activeNodes().find(node=>node.id===String(id))||null;}
-function sourceRef(node){return node?.input?.id?{kind:'filter',id:String(node.input.id)}:null;}
+function activeNodes(){
+  syncActiveCard();
+  return activeCard?ensureNodes(activeCard):[];
+}
+
+function nodeById(id){
+  return activeNodes().find(node=>node.id===String(id))||null;
+}
+
+function sourceRef(node){
+  return node?.input?.id?{kind:'filter',id:String(node.input.id)}:null;
+}
 
 function sourceMeta(filterId){
   const id=String(filterId||'');
@@ -144,12 +172,19 @@ function currentCanonical(node){
   }
 }
 
+function sourceIdFromWire(source){
+  return String(source?.filterId??source?.id??'');
+}
+
 function canAccept(node,source){
-  if(!node||node.input?.id||!source?.id) return false;
-  if(source.kind!=='filter') return false;
+  if(!node||node.input?.id||source?.kind!=='filter') return false;
+  const sourceId=sourceIdFromWire(source);
+  if(!sourceId||!sourceMeta(sourceId)) return false;
+
+  // Target Export is a terminal sink. Every current filter type is accepted.
+  // If a Canonical payload is already available, validate it; floating filters
+  // remain connectable and become export-ready when upstream data arrives.
   const canonical=source.canonical||null;
-  const format=source.format||canonical?.format||null;
-  if(format!==canonicalApi.FORMAT) return false;
   if(!canonical) return true;
   try{
     canonicalApi.validate(canonical);
@@ -161,7 +196,7 @@ function canAccept(node,source){
 
 function connect(node,source,meta={}){
   if(!canAccept(node,source)) return false;
-  const sourceId=String(meta.sourceId??source.id??'');
+  const sourceId=String(meta.sourceId??source.filterId??source.id??'');
   if(!sourceId) return false;
   node.input={kind:'filter',id:sourceId};
   renderNodes();
@@ -298,7 +333,7 @@ function deleteNode(nodeId){
 }
 
 function startDrag(event,node,element){
-  if(event.button!==0) return;
+  if(event.button!==undefined&&event.button!==0) return;
   if(event.target.closest('button')) return;
   event.preventDefault();
   event.stopPropagation();
@@ -333,6 +368,18 @@ function buildNode(node){
   element.dataset.filterType=TYPE;
   element.setAttribute('aria-label',LABEL+' node');
 
+  const color=sourceColor(node);
+  element.style.setProperty('--lineage-color',color);
+  element.classList.toggle('has-lineage',!!node.input?.id);
+
+  const input=document.createElement('button');
+  input.className='target-export-input';
+  input.type='button';
+  input.setAttribute('aria-label','Target Export input');
+  input.title='Input from filter';
+  input.style.setProperty('--port-color',color);
+  input.classList.toggle('is-connected',!!node.input?.id);
+
   const head=document.createElement('header');
   head.className='target-export-head';
   const title=document.createElement('strong');
@@ -341,16 +388,7 @@ function buildNode(node){
   file.className='target-export-file';
   file.textContent=sourceFileName(node);
   file.title=file.textContent;
-
-  const input=document.createElement('button');
-  input.className='target-export-input';
-  input.type='button';
-  input.setAttribute('aria-label','Target Export input');
-  input.title='Input from filter';
-  const color=sourceColor(node);
-  input.style.setProperty('--port-color',color);
-  input.classList.toggle('is-connected',!!node.input?.id);
-  head.append(input,title,file);
+  head.append(title,file);
   head.addEventListener('pointerdown',event=>startDrag(event,node,element));
 
   const body=document.createElement('div');
@@ -372,14 +410,14 @@ function buildNode(node){
   const remove=document.createElement('button');
   remove.className='target-export-delete';
   remove.type='button';
-  remove.textContent='Delete Node';
+  remove.textContent='Delete';
   remove.addEventListener('click',event=>{
     event.stopPropagation();
     deleteNode(node.id);
   });
   foot.appendChild(remove);
 
-  element.append(head,body,foot);
+  element.append(input,head,body,foot);
   workspaceView.positionNode(element,node.position.x,node.position.y);
   return element;
 }
@@ -393,18 +431,19 @@ function removeRenderedNodes(){
 }
 
 function renderNodes(){
+  syncActiveCard();
   removeRenderedNodes();
   if(!activeCard){
     ensureWireGroup().replaceChildren();
     return;
   }
 
-  for(const node of activeNodes()){
+  for(const node of ensureNodes(activeCard)){
     const element=buildNode(node);
     canvas.appendChild(element);
     const input=element.querySelector('.target-export-input');
     api.registerInput?.(INPUT_PREFIX+node.id+':input',input,{
-      radius:50,
+      radius:56,
       ownerFilterId:node.id,
       getCurrentSourceRef:()=>sourceRef(node),
       canAccept:source=>canAccept(node,source),
@@ -417,7 +456,7 @@ function renderNodes(){
 }
 
 function createAt(x,y){
-  if(!activeCard) return null;
+  if(!syncActiveCard()) return null;
   const node=defaultNode({
     x:Number.isFinite(Number(x))?Number(x):520,
     y:Number.isFinite(Number(y))?Number(y):180
@@ -428,13 +467,13 @@ function createAt(x,y){
 }
 
 function refreshFromSourceEvent(event){
-  if(!activeCard) return;
+  if(!syncActiveCard()) return;
   const directId=String(event?.detail?.filterId||'');
   const sourceId=String(event?.detail?.sourceId||'');
 
   if(directId&&event?.type==='raptor:filterdeleted'){
     let changed=false;
-    for(const node of activeNodes()){
+    for(const node of ensureNodes(activeCard)){
       if(node.input?.id===directId){
         node.input=null;
         changed=true;
@@ -450,7 +489,7 @@ function refreshFromSourceEvent(event){
     if(id!==undefined&&id!==null) affected.add(String(id));
   }
 
-  if(!affected.size||activeNodes().some(node=>node.input?.id&&affected.has(String(node.input.id)))){
+  if(!affected.size||ensureNodes(activeCard).some(node=>node.input?.id&&affected.has(String(node.input.id)))){
     renderNodes();
   }
 }
@@ -475,8 +514,6 @@ if(baseCloneState){
     const source=Array.isArray(state?.nodes?.targetExports)?state.nodes.targetExports:[];
     clone.nodes.targetExports=source.map(item=>{
       const copy=cloneNode(item,true);
-      // Filter IDs are re-keyed later by their own clone modules. Fail closed
-      // instead of retaining a stale cross-line connection.
       copy.input=null;
       return copy;
     });
@@ -491,8 +528,6 @@ if(baseLoad){
     activeCard=card;
     ensureNodes(card);
     renderNodes();
-    // Crossover/MPGD wrappers load after this module; refresh once on the next
-    // frame so persisted source names/data resolve after all filter modules load.
     requestAnimationFrame(renderNodes);
   };
 }
@@ -510,7 +545,7 @@ if(baseDelete){
 }
 
 document.addEventListener('raptor:pipelinefilterrequest',event=>{
-  if(event.detail?.filterType!==TYPE||!activeCard) return;
+  if(event.detail?.filterType!==TYPE) return;
   createAt(Number(event.detail.x)||520,Number(event.detail.y)||180);
 });
 
@@ -545,12 +580,12 @@ document.addEventListener('raptor:pipelineobstacleschange',event=>{
 });
 window.addEventListener('resize',()=>requestAnimationFrame(renderConnections));
 
-// If this module is loaded dynamically after a RAPTOR Line was already opened,
-// attach to that line immediately instead of waiting for the next load action.
-const currentLine=api.getActiveLine?.()||null;
-if(currentLine){
-  activeCard=currentLine;
-  ensureNodes(currentLine);
+// Covers the race where this dynamically loaded sink module finishes after a
+// line was already opened: resolve the real Pipeline card, not a line descriptor.
+const loadedCard=resolveLoadedCard();
+if(loadedCard){
+  activeCard=loadedCard;
+  ensureNodes(loadedCard);
   renderNodes();
   requestAnimationFrame(renderNodes);
 }
