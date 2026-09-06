@@ -53,7 +53,7 @@ function ensureTargetExportModule(){
     }
 
     const script=document.createElement('script');
-    script.src='./target-export.js?v=target-export-20260906-1';
+    script.src='./target-export.js?v=target-export-isolated-20260906-1';
     script.dataset.raptorTargetExport='true';
     script.addEventListener('load',()=>{
       flushPendingTargetExports();
@@ -220,9 +220,6 @@ document.addEventListener('keydown',event=>{
 
 window.addEventListener('resize',closeMenu);
 canvas.addEventListener('scroll',closeMenu,{passive:true});
-
-// Preload the sink node module so it is normally ready before the first menu use.
-ensureTargetExportModule().catch(()=>{});
 
 window.RaptorPipelineContext=Object.freeze({
   close:closeMenu,
