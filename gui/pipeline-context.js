@@ -25,7 +25,7 @@ function ensureTargetExportStyle(){
   if(document.querySelector('link[data-raptor-target-export-style]')) return;
   const link=document.createElement('link');
   link.rel='stylesheet';
-  link.href='./target-export.css?v=target-export-dual-input-v4-20260907-1';
+  link.href='./target-export.css?v=target-export-channel-colors-v5-20260907-1';
   link.dataset.raptorTargetExportStyle='';
   document.head.appendChild(link);
 }
