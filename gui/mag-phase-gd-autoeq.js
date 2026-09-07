@@ -7,13 +7,18 @@ const rbj=window.RaptorEqGeometryRBJ;
 if(!filterApi||!canonicalApi||!rbj) return;
 
 const panels=new Map();
+const previews=new Map();
 let panelZ=2720;
 let sequence=1;
+
+const AUTO_BAND_PREFIX='autoeq-';
 const AUTO_BAND_LIMIT=16;
 const AUTO_STOP_DB=.50;
 const MIN_GAIN_DB=.05;
 const MIN_Q=.20;
 const MAX_Q=10;
+const NULL_PROTECT_DEPTH_DB=6;
+const NULL_WINDOW_OCT=.25;
 
 function ensureStyle(){
   if(document.getElementById('mpgdAutoEqStyle')) return;
@@ -21,203 +26,125 @@ function ensureStyle(){
   style.id='mpgdAutoEqStyle';
   style.textContent=`
     .mpgd-autoeq-open{
-      height:18px;
-      padding:0 7px;
-      border:1px solid #c58a5d;
-      border-radius:4px;
-      background:#fff7f0;
-      color:#a94a0b;
-      font-size:7px;
-      font-weight:850;
-      line-height:1;
-      cursor:pointer;
-      touch-action:manipulation;
-      user-select:none
+      height:18px;padding:0 7px;border:1px solid #c58a5d;border-radius:4px;
+      background:#fff7f0;color:#a94a0b;font-size:7px;font-weight:850;line-height:1;
+      cursor:pointer;touch-action:manipulation;user-select:none
     }
-    .mpgd-autoeq-open:hover,
-    .mpgd-autoeq-open:focus-visible{
-      outline:none;
-      border-color:var(--raptor-active-border,#e86f17);
-      background:#fff0e3;
+    .mpgd-autoeq-open:hover,.mpgd-autoeq-open:focus-visible{
+      outline:none;border-color:var(--raptor-active-border,#e86f17);background:#fff0e3;
       box-shadow:0 0 0 1px rgba(232,111,23,.12)
     }
     .mpgd-autoeq-window{
-      position:fixed;
-      z-index:2720;
-      width:min(286px,calc(100vw - 12px));
-      display:grid;
-      grid-template-rows:34px auto;
-      border:1px solid #8f9ca7;
-      border-radius:8px;
-      background:#fff;
-      box-shadow:0 16px 36px rgba(21,31,40,.24);
-      overflow:hidden;
-      color:#34414b
+      position:fixed;z-index:2720;width:min(336px,calc(100vw - 12px));
+      display:grid;grid-template-rows:34px minmax(0,1fr);max-height:calc(100vh - 12px);
+      border:1px solid #8f9ca7;border-radius:8px;background:#fff;
+      box-shadow:0 16px 36px rgba(21,31,40,.24);overflow:hidden;color:#34414b
     }
     .mpgd-autoeq-window[hidden]{display:none!important}
     .mpgd-autoeq-head{
-      display:flex;
-      align-items:center;
-      gap:7px;
-      padding:0 6px 0 10px;
-      border-bottom:1px solid #c1c9cf;
-      background:linear-gradient(#fff,#f5f7f8);
-      cursor:grab;
-      touch-action:none;
-      user-select:none
+      display:flex;align-items:center;gap:7px;padding:0 6px 0 10px;
+      border-bottom:1px solid #c1c9cf;background:linear-gradient(#fff,#f5f7f8);
+      cursor:grab;touch-action:none;user-select:none
     }
-    .mpgd-autoeq-head strong{
-      font-size:10px;
-      letter-spacing:.025em
-    }
+    .mpgd-autoeq-head strong{font-size:10px;letter-spacing:.025em}
     .mpgd-autoeq-close{
-      margin-left:auto;
-      width:24px;
-      height:24px;
-      padding:0;
-      border:0;
-      border-radius:4px;
-      background:transparent;
-      color:#65737e;
-      font-size:17px;
-      line-height:1;
-      cursor:pointer
+      margin-left:auto;width:24px;height:24px;padding:0;border:0;border-radius:4px;
+      background:transparent;color:#65737e;font-size:17px;line-height:1;cursor:pointer
     }
     .mpgd-autoeq-close:hover{background:#edf1f3;color:#25313a}
     .mpgd-autoeq-body{
-      display:grid;
-      gap:8px;
-      padding:10px;
-      background:#f8fafb
+      min-height:0;display:grid;gap:7px;padding:9px;overflow:auto;background:#f8fafb
     }
+    .mpgd-autoeq-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
     .mpgd-autoeq-field{
-      min-width:0;
-      min-height:32px;
-      display:grid;
-      grid-template-columns:minmax(0,1fr) 92px;
-      align-items:center;
-      gap:8px;
-      padding:5px 7px;
-      border:1px solid #d0d7dc;
-      border-radius:5px;
-      background:#fff
+      min-width:0;min-height:32px;display:grid;grid-template-columns:minmax(0,1fr) 92px;
+      align-items:center;gap:8px;padding:5px 7px;border:1px solid #d0d7dc;
+      border-radius:5px;background:#fff
     }
-    .mpgd-autoeq-field>span{
-      min-width:0;
-      font-size:8px;
-      font-weight:800;
-      color:#46535d
-    }
+    .mpgd-autoeq-field--compact{grid-template-columns:minmax(0,1fr) 76px}
+    .mpgd-autoeq-field>span{min-width:0;font-size:8px;font-weight:800;color:#46535d}
     .mpgd-autoeq-number{
-      display:grid;
-      grid-template-columns:minmax(0,1fr) 22px;
-      align-items:center;
-      gap:4px
+      display:grid;grid-template-columns:minmax(0,1fr) 22px;align-items:center;gap:4px
     }
-    .mpgd-autoeq-number input{
-      width:100%;
-      min-width:0;
-      height:24px;
-      box-sizing:border-box;
-      padding:0 5px;
-      border:1px solid #aeb9c2;
-      border-radius:4px;
-      background:#fff;
-      color:#26323d;
-      font-size:9px;
-      font-variant-numeric:tabular-nums
+    .mpgd-autoeq-number input,.mpgd-autoeq-count-main input[type="number"]{
+      width:100%;min-width:0;height:24px;box-sizing:border-box;padding:0 5px;
+      border:1px solid #aeb9c2;border-radius:4px;background:#fff;color:#26323d;
+      font-size:9px;font-variant-numeric:tabular-nums
     }
-    .mpgd-autoeq-number b{
-      color:#7a8790;
-      font-size:7px;
-      font-weight:800
-    }
+    .mpgd-autoeq-number b{color:#7a8790;font-size:7px;font-weight:800}
     .mpgd-autoeq-count-row{
-      min-height:32px;
-      display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
-      align-items:center;
-      gap:8px;
-      padding:5px 7px;
-      border:1px solid #d0d7dc;
-      border-radius:5px;
-      background:#fff
+      min-height:32px;display:grid;grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;gap:8px;padding:5px 7px;border:1px solid #d0d7dc;
+      border-radius:5px;background:#fff
     }
     .mpgd-autoeq-count-main{
-      min-width:0;
-      display:grid;
-      grid-template-columns:minmax(0,1fr) 64px;
-      align-items:center;
-      gap:7px
+      min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 64px;align-items:center;gap:7px
     }
-    .mpgd-autoeq-count-main span{
-      font-size:8px;
-      font-weight:800;
-      color:#46535d
+    .mpgd-autoeq-count-main span{font-size:8px;font-weight:800;color:#46535d}
+    .mpgd-autoeq-auto,.mpgd-autoeq-null{
+      height:24px;display:inline-flex;align-items:center;gap:4px;padding:0 6px;
+      border:1px solid #c4ccd2;border-radius:4px;background:#f8fafb;color:#4d5a65;
+      font-size:7.5px;font-weight:800;cursor:pointer
     }
-    .mpgd-autoeq-count-main input[type="number"]{
-      width:64px;
-      height:24px;
-      box-sizing:border-box;
-      padding:0 5px;
-      border:1px solid #aeb9c2;
-      border-radius:4px;
-      font-size:9px;
-      font-variant-numeric:tabular-nums
+    .mpgd-autoeq-null{height:30px;justify-content:center;background:#fff}
+    .mpgd-autoeq-auto input,.mpgd-autoeq-null input{
+      width:11px;height:11px;margin:0;accent-color:var(--raptor-active,#e86f17)
     }
-    .mpgd-autoeq-auto{
-      height:24px;
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-      padding:0 6px;
-      border:1px solid #c4ccd2;
-      border-radius:4px;
-      background:#f8fafb;
-      color:#4d5a65;
-      font-size:7.5px;
-      font-weight:800;
-      cursor:pointer
-    }
-    .mpgd-autoeq-auto input{
-      width:11px;
-      height:11px;
-      margin:0;
-      accent-color:var(--raptor-active,#e86f17)
-    }
-    .mpgd-autoeq-actions{
-      display:flex;
-      align-items:center;
-      gap:7px
-    }
-    .mpgd-autoeq-add{
-      min-width:74px;
-      height:28px;
-      padding:0 11px;
-      border:1px solid #c26828;
-      border-radius:5px;
-      background:#e86f17;
-      color:#fff;
-      font-size:8.5px;
-      font-weight:900;
-      cursor:pointer;
+    .mpgd-autoeq-actions{display:grid;grid-template-columns:auto auto auto minmax(0,1fr);align-items:center;gap:5px}
+    .mpgd-autoeq-button{
+      min-width:62px;height:28px;padding:0 9px;border:1px solid #b5c0c8;border-radius:5px;
+      background:#fff;color:#44515c;font-size:8px;font-weight:850;cursor:pointer;
       touch-action:manipulation
     }
-    .mpgd-autoeq-add:hover{background:#cf5f12}
-    .mpgd-autoeq-add:disabled{opacity:.45;cursor:default}
-    .mpgd-autoeq-status{
-      min-width:0;
-      flex:1 1 auto;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-      color:#74818b;
-      font-size:7px
+    .mpgd-autoeq-button:hover{background:#f0f3f5}
+    .mpgd-autoeq-add{
+      border-color:#c26828;background:#e86f17;color:#fff;font-weight:900
     }
+    .mpgd-autoeq-add:hover{background:#cf5f12}
+    .mpgd-autoeq-clear{border-color:#c79a9a;color:#8b4545}
+    .mpgd-autoeq-button:disabled{opacity:.45;cursor:default}
+    .mpgd-autoeq-status{
+      min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      color:#74818b;font-size:7px
+    }
+    .mpgd-autoeq-preview{
+      min-height:54px;border:1px solid #d0d7dc;border-radius:5px;background:#fff;overflow:hidden
+    }
+    .mpgd-autoeq-preview-head{
+      min-height:27px;display:flex;align-items:center;gap:6px;padding:0 7px;
+      border-bottom:1px solid #d6dde1;background:#fafbfc
+    }
+    .mpgd-autoeq-preview-head strong{font-size:8px;color:#44515c}
+    .mpgd-autoeq-preview-head span{margin-left:auto;font-size:7px;color:#78858e}
+    .mpgd-autoeq-preview-list{
+      max-height:132px;overflow:auto;padding:4px;background:#f8fafb
+    }
+    .mpgd-autoeq-preview-empty{padding:12px 6px;color:#9aa4ab;font-size:7.5px;text-align:center}
+    .mpgd-autoeq-preview-row{
+      min-height:27px;display:grid;grid-template-columns:24px minmax(0,1fr);
+      align-items:center;gap:4px;padding:2px 5px;border:1px solid #d9dfe3;border-radius:4px;
+      background:#fff
+    }
+    .mpgd-autoeq-preview-row+.mpgd-autoeq-preview-row{margin-top:3px}
+    .mpgd-autoeq-preview-row b{font-size:7px;color:#a94a0b}
+    .mpgd-autoeq-preview-row span{
+      min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-size:7px;color:#596771;font-variant-numeric:tabular-nums
+    }
+    .mpgd-autoeq-metrics{
+      display:grid;grid-template-columns:1fr 1fr;gap:5px
+    }
+    .mpgd-autoeq-metric{
+      min-height:31px;padding:5px 6px;border:1px solid #d5dce1;border-radius:4px;background:#fff
+    }
+    .mpgd-autoeq-metric b{display:block;font-size:6.8px;color:#89959e}
+    .mpgd-autoeq-metric span{display:block;margin-top:3px;font-size:8px;font-weight:850;color:#394650}
     @media(max-width:700px){
-      .mpgd-autoeq-window{width:min(274px,calc(100vw - 10px))}
-      .mpgd-autoeq-field{grid-template-columns:minmax(0,1fr) 86px}
+      .mpgd-autoeq-window{width:min(324px,calc(100vw - 10px))}
+      .mpgd-autoeq-grid{grid-template-columns:1fr}
       .mpgd-autoeq-open{padding:0 6px;font-size:6.8px}
+      .mpgd-autoeq-actions{grid-template-columns:auto auto auto}
+      .mpgd-autoeq-status{grid-column:1/-1}
     }
   `;
   document.head.appendChild(style);
@@ -228,21 +155,47 @@ function clamp(value,min,max){
   if(!Number.isFinite(number)) return min;
   return Math.max(min,Math.min(max,number));
 }
-
+function isAutoBand(band){
+  return String(band?.id||'').startsWith(AUTO_BAND_PREFIX);
+}
+function percentileAbs(values,p=.95){
+  const finite=[];
+  for(const value of values){
+    const n=Math.abs(Number(value));
+    if(Number.isFinite(n)) finite.push(n);
+  }
+  if(!finite.length) return NaN;
+  finite.sort((a,b)=>a-b);
+  const index=Math.min(finite.length-1,Math.max(0,Math.ceil(p*finite.length)-1));
+  return finite[index];
+}
+function maxAbs(values){
+  let out=NaN;
+  for(const value of values){
+    const n=Math.abs(Number(value));
+    if(!Number.isFinite(n)) continue;
+    out=Number.isFinite(out)?Math.max(out,n):n;
+  }
+  return out;
+}
+function median(values){
+  const finite=values.filter(Number.isFinite).sort((a,b)=>a-b);
+  if(!finite.length) return NaN;
+  const mid=Math.floor(finite.length/2);
+  return finite.length%2?finite[mid]:(finite[mid-1]+finite[mid])/2;
+}
 function clampPanelPosition(x,y,panel){
-  const width=panel.offsetWidth||286;
-  const height=panel.offsetHeight||230;
+  const width=panel.offsetWidth||336;
+  const height=panel.offsetHeight||380;
   return {
     x:Math.max(5,Math.min(window.innerWidth-width-5,x)),
     y:Math.max(5,Math.min(window.innerHeight-height-5,y))
   };
 }
-
 function bringPanelFront(panel){
   panelZ+=1;
   panel.style.zIndex=String(panelZ);
 }
-
 function startPanelDrag(event,panel){
   if(event.button!==undefined&&event.button!==0) return;
   if(event.target.closest('button,input,label,select,textarea,a')) return;
@@ -254,7 +207,6 @@ function startPanelDrag(event,panel){
   const dx=event.clientX-rect.left;
   const dy=event.clientY-rect.top;
   try{handle.setPointerCapture(pointerId)}catch{}
-
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
     if(moveEvent.cancelable) moveEvent.preventDefault();
@@ -299,14 +251,43 @@ function estimateQ(frequency,residual,index){
   if(!(Number.isFinite(f0)&&f0>0&&Number.isFinite(bandwidth)&&bandwidth>0)) return 1.41421356;
   return clamp(f0/bandwidth,MIN_Q,MAX_Q);
 }
-
 function candidateCorrectionDb(residualValue,maxBoost,maxCut){
   const wanted=-Number(residualValue);
   if(!Number.isFinite(wanted)) return 0;
   return Math.max(-maxCut,Math.min(maxBoost,wanted));
 }
+function localMedianMagnitude(frequency,magnitude,index){
+  const f0=Number(frequency[index]);
+  if(!(f0>0)) return NaN;
+  const bucket=[];
+  for(let i=0;i<frequency.length;i++){
+    const f=Number(frequency[i]);
+    const m=Number(magnitude[i]);
+    if(!(f>0&&Number.isFinite(m))) continue;
+    if(Math.abs(Math.log2(f/f0))<=NULL_WINDOW_OCT) bucket.push(m);
+  }
+  return median(bucket);
+}
+function shouldProtectNull(frequency,baselineMagnitude,index,gainDb){
+  if(!(gainDb>0)) return false;
+  const current=Number(baselineMagnitude[index]);
+  const local=localMedianMagnitude(frequency,baselineMagnitude,index);
+  return Number.isFinite(current)&&Number.isFinite(local)&&(local-current)>=NULL_PROTECT_DEPTH_DB;
+}
+function removeAutoContribution(frequency,magnitude,autoBands,fs){
+  const baseline=new Float64Array(magnitude.length);
+  for(let i=0;i<magnitude.length;i++){
+    let value=Number(magnitude[i]);
+    if(!Number.isFinite(value)){baseline[i]=NaN;continue;}
+    for(const band of autoBands){
+      try{value-=rbj.responseAt(Number(frequency[i]),band,fs).magnitudeDb}catch{}
+    }
+    baseline[i]=value;
+  }
+  return baseline;
+}
 
-function proposeBands(filterId,options){
+function prepareProblem(filterId,options){
   const filter=filterApi.get(filterId);
   const canonical=filterApi.getOutput(filterId);
   if(!filter||!canonical) throw new Error('Connect an input before AutoEQ.');
@@ -314,31 +295,67 @@ function proposeBands(filterId,options){
   const views=canonicalApi.views(canonical);
   const frequency=views.frequency_hz;
   const magnitude=views.magnitude_db;
+  const coherence=views.coherence;
   if(!(frequency&&magnitude&&frequency.length===magnitude.length)) throw new Error('Magnitude data is unavailable.');
 
   const fs=Number(filter.sampleRateHz||canonical.sample_rate_hz);
   if(!(Number.isFinite(fs)&&fs>0)) throw new Error('Sample Rate is required for AutoEQ.');
-  const maxFrequency=Math.min(20000,fs/2*.98);
+
+  const nyquistLimit=Math.min(20000,fs/2*.98);
+  const fMin=clamp(options.fMin,20,nyquistLimit);
+  const fMax=clamp(options.fMax,20,nyquistLimit);
+  if(!(fMax>fMin)) throw new Error('Frequency To must be higher than From.');
+
+  const targetDb=clamp(options.targetDb,-40,40);
+  const minCoherence=clamp(options.minCoherence,0,1);
   const maxBoost=clamp(options.maxBoost,0,24);
   const maxCut=clamp(options.maxCut,0,24);
   const manualCount=Math.round(clamp(options.bandCount,1,24));
   const limit=options.autoCount?AUTO_BAND_LIMIT:manualCount;
 
+  const autoBands=filter.bands.filter(band=>isAutoBand(band)&&band.graphKind!=='phase');
+  const baselineMagnitude=removeAutoContribution(frequency,magnitude,autoBands,fs);
+
   const indexMap=[];
   for(let i=0;i<frequency.length;i++){
     const f=Number(frequency[i]);
-    const m=Number(magnitude[i]);
-    if(Number.isFinite(f)&&f>=20&&f<=maxFrequency&&Number.isFinite(m)) indexMap.push(i);
+    const m=Number(baselineMagnitude[i]);
+    const c=coherence?Number(coherence[i]):1;
+    if(!(Number.isFinite(f)&&f>=fMin&&f<=fMax&&Number.isFinite(m))) continue;
+    if(Number.isFinite(c)&&c<minCoherence) continue;
+    indexMap.push(i);
   }
-  if(indexMap.length<3) throw new Error('Not enough magnitude points in 20 Hz – Nyquist.');
+  if(indexMap.length<3) throw new Error('Not enough trusted points inside the AutoEQ range.');
 
   const fitFrequency=new Float64Array(indexMap.length);
+  const fitBaseline=new Float64Array(indexMap.length);
+  const fitCoherence=new Float64Array(indexMap.length);
   const residual=new Float64Array(indexMap.length);
   for(let n=0;n<indexMap.length;n++){
-    fitFrequency[n]=Number(frequency[indexMap[n]]);
-    residual[n]=Number(magnitude[indexMap[n]]);
+    const i=indexMap[n];
+    fitFrequency[n]=Number(frequency[i]);
+    fitBaseline[n]=Number(baselineMagnitude[i]);
+    const c=coherence?Number(coherence[i]):1;
+    fitCoherence[n]=Number.isFinite(c)?clamp(c,0,1):1;
+    residual[n]=fitBaseline[n]-targetDb;
   }
 
+  return {
+    filter,canonical,fs,fMin,fMax,targetDb,minCoherence,maxBoost,maxCut,limit,
+    autoCount:options.autoCount===true,
+    nullProtect:options.nullProtect!==false,
+    fitFrequency,fitBaseline,fitCoherence,residual
+  };
+}
+
+function proposeBands(filterId,options){
+  const problem=prepareProblem(filterId,options);
+  const {
+    fs,maxBoost,maxCut,limit,autoCount,nullProtect,
+    fitFrequency,fitBaseline,fitCoherence,residual
+  }=problem;
+
+  const beforeResidual=Float64Array.from(residual);
   const proposed=[];
   const usedCenters=[];
   const stamp=Date.now().toString(36);
@@ -352,7 +369,8 @@ function proposeBands(filterId,options){
       const f=fitFrequency[i];
       if(usedCenters.some(center=>Math.abs(Math.log2(f/center))<.08)) continue;
       const gain=candidateCorrectionDb(residual[i],maxBoost,maxCut);
-      const score=Math.abs(gain);
+      if(nullProtect&&shouldProtectNull(fitFrequency,fitBaseline,i,gain)) continue;
+      const score=Math.abs(gain)*(.50+.50*fitCoherence[i]);
       if(score>bestScore){
         bestScore=score;
         bestGain=gain;
@@ -360,11 +378,11 @@ function proposeBands(filterId,options){
       }
     }
 
-    if(bestIndex<0||bestScore<MIN_GAIN_DB) break;
-    if(options.autoCount&&bestScore<AUTO_STOP_DB) break;
+    if(bestIndex<0||Math.abs(bestGain)<MIN_GAIN_DB) break;
+    if(autoCount&&Math.abs(bestGain)<AUTO_STOP_DB) break;
 
     const band={
-      id:'autoeq-'+stamp+'-'+(sequence++),
+      id:AUTO_BAND_PREFIX+stamp+'-'+(sequence++),
       type:'peaking',
       frequencyHz:fitFrequency[bestIndex],
       gainDb:bestGain,
@@ -381,20 +399,114 @@ function proposeBands(filterId,options){
     }
   }
 
-  if(!proposed.length) throw new Error(options.autoCount
-    ?'Magnitude is already inside the AutoEQ stop range.'
+  if(!proposed.length) throw new Error(autoCount
+    ?'No trusted correction remains above the Auto stop range.'
     :'No usable correction band was found.');
 
-  const nextBands=[...filter.bands,...proposed];
-  filterApi.setBands(filterId,nextBands,fs);
-  return proposed;
+  return {
+    filterId:String(filterId),
+    fs,
+    bands:proposed,
+    stats:{
+      pointCount:fitFrequency.length,
+      beforeP95Db:percentileAbs(beforeResidual,.95),
+      afterP95Db:percentileAbs(residual,.95),
+      beforeMaxDb:maxAbs(beforeResidual),
+      afterMaxDb:maxAbs(residual)
+    },
+    options:{
+      fMin:problem.fMin,fMax:problem.fMax,targetDb:problem.targetDb,
+      minCoherence:problem.minCoherence,maxBoost,maxCut,
+      bandCount:problem.limit,autoCount,nullProtect
+    }
+  };
+}
+
+function applyProposal(filterId,proposal){
+  if(!proposal?.bands?.length) throw new Error('Preview AutoEQ before applying.');
+  const filter=filterApi.get(filterId);
+  if(!filter) throw new Error('AutoEQ filter no longer exists.');
+  const manualBands=filter.bands.filter(band=>!isAutoBand(band));
+  filterApi.setBands(filterId,[...manualBands,...proposal.bands],proposal.fs);
+  previews.set(String(filterId),proposal);
+  return proposal.bands.length;
+}
+function clearAutoBands(filterId){
+  const filter=filterApi.get(filterId);
+  if(!filter) return 0;
+  const autoCount=filter.bands.filter(isAutoBand).length;
+  if(!autoCount) return 0;
+  const kept=filter.bands.filter(band=>!isAutoBand(band));
+  filterApi.setBands(filterId,kept,filter.sampleRateHz);
+  previews.delete(String(filterId));
+  return autoCount;
+}
+
+function renderPreview(panel,proposal=null){
+  const list=panel.querySelector('[data-autoeq-preview-list]');
+  const summary=panel.querySelector('[data-autoeq-preview-summary]');
+  const before=panel.querySelector('[data-autoeq-before]');
+  const after=panel.querySelector('[data-autoeq-after]');
+  if(!list) return;
+  list.replaceChildren();
+
+  if(!proposal?.bands?.length){
+    const empty=document.createElement('div');
+    empty.className='mpgd-autoeq-preview-empty';
+    empty.textContent='Preview has not been calculated';
+    list.appendChild(empty);
+    if(summary) summary.textContent='0 bands';
+    if(before) before.textContent='—';
+    if(after) after.textContent='—';
+    return;
+  }
+
+  proposal.bands.forEach((band,index)=>{
+    const row=document.createElement('div');
+    row.className='mpgd-autoeq-preview-row';
+    const number=document.createElement('b');
+    number.textContent=String(index+1);
+    const text=document.createElement('span');
+    text.textContent=Math.round(band.frequencyHz*10)/10+' Hz · '+(band.gainDb>=0?'+':'')+
+      band.gainDb.toFixed(2)+' dB · Q '+band.q.toFixed(2);
+    row.append(number,text);
+    list.appendChild(row);
+  });
+  if(summary) summary.textContent=proposal.bands.length+' band'+(proposal.bands.length===1?'':'s');
+  if(before) before.textContent=Number.isFinite(proposal.stats.beforeP95Db)
+    ?proposal.stats.beforeP95Db.toFixed(2)+' dB P95':'—';
+  if(after) after.textContent=Number.isFinite(proposal.stats.afterP95Db)
+    ?proposal.stats.afterP95Db.toFixed(2)+' dB P95':'—';
+}
+
+function readOptions(panel){
+  return {
+    maxBoost:panel.querySelector('[data-autoeq-boost]').value,
+    maxCut:panel.querySelector('[data-autoeq-cut]').value,
+    bandCount:panel.querySelector('[data-autoeq-count]').value,
+    autoCount:panel.querySelector('[data-autoeq-auto]').checked,
+    fMin:panel.querySelector('[data-autoeq-fmin]').value,
+    fMax:panel.querySelector('[data-autoeq-fmax]').value,
+    targetDb:panel.querySelector('[data-autoeq-target]').value,
+    minCoherence:panel.querySelector('[data-autoeq-coherence]').value,
+    nullProtect:panel.querySelector('[data-autoeq-null]').checked
+  };
+}
+function setBusy(panel,busy){
+  panel.querySelectorAll('[data-autoeq-preview],[data-autoeq-add],[data-autoeq-clear]')
+    .forEach(button=>{button.disabled=!!busy;});
+}
+function calculatePreview(filterId,panel){
+  const proposal=proposeBands(filterId,readOptions(panel));
+  previews.set(String(filterId),proposal);
+  renderPreview(panel,proposal);
+  return proposal;
 }
 
 function closePanel(filterId){
   const panel=panels.get(String(filterId));
   if(panel) panel.hidden=true;
 }
-
 function buildPanel(filterId,anchor){
   ensureStyle();
   const panel=document.createElement('section');
@@ -408,15 +520,36 @@ function buildPanel(filterId,anchor){
       '<button type="button" class="mpgd-autoeq-close" aria-label="Close AutoEQ">×</button>'+
     '</header>'+
     '<div class="mpgd-autoeq-body">'+
-      '<label class="mpgd-autoeq-field"><span>Max Boost</span><span class="mpgd-autoeq-number"><input type="number" min="0" max="24" step="0.1" value="6" data-autoeq-boost><b>dB</b></span></label>'+
-      '<label class="mpgd-autoeq-field"><span>Max Cut</span><span class="mpgd-autoeq-number"><input type="number" min="0" max="24" step="0.1" value="12" data-autoeq-cut><b>dB</b></span></label>'+
+      '<div class="mpgd-autoeq-grid">'+
+        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>From</span><span class="mpgd-autoeq-number"><input type="number" min="20" max="20000" step="1" value="20" data-autoeq-fmin><b>Hz</b></span></label>'+
+        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>To</span><span class="mpgd-autoeq-number"><input type="number" min="20" max="20000" step="1" value="20000" data-autoeq-fmax><b>Hz</b></span></label>'+
+      '</div>'+
+      '<label class="mpgd-autoeq-field"><span>Target Level</span><span class="mpgd-autoeq-number"><input type="number" min="-40" max="40" step="0.1" value="0" data-autoeq-target><b>dB</b></span></label>'+
+      '<div class="mpgd-autoeq-grid">'+
+        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>Max Boost</span><span class="mpgd-autoeq-number"><input type="number" min="0" max="24" step="0.1" value="6" data-autoeq-boost><b>dB</b></span></label>'+
+        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>Max Cut</span><span class="mpgd-autoeq-number"><input type="number" min="0" max="24" step="0.1" value="12" data-autoeq-cut><b>dB</b></span></label>'+
+      '</div>'+
+      '<div class="mpgd-autoeq-grid">'+
+        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>Min Coherence</span><span class="mpgd-autoeq-number"><input type="number" min="0" max="1" step="0.05" value="0.5" data-autoeq-coherence><b></b></span></label>'+
+        '<label class="mpgd-autoeq-null"><input type="checkbox" checked data-autoeq-null><span>Protect nulls &gt;6 dB</span></label>'+
+      '</div>'+
       '<div class="mpgd-autoeq-count-row">'+
         '<label class="mpgd-autoeq-count-main"><span>Bands</span><input type="number" min="1" max="24" step="1" value="8" data-autoeq-count></label>'+
         '<label class="mpgd-autoeq-auto"><input type="checkbox" data-autoeq-auto><span>Auto</span></label>'+
       '</div>'+
+      '<section class="mpgd-autoeq-preview">'+
+        '<header class="mpgd-autoeq-preview-head"><strong>Candidate Bands</strong><span data-autoeq-preview-summary>0 bands</span></header>'+
+        '<div class="mpgd-autoeq-preview-list" data-autoeq-preview-list></div>'+
+      '</section>'+
+      '<div class="mpgd-autoeq-metrics">'+
+        '<div class="mpgd-autoeq-metric"><b>Before residual</b><span data-autoeq-before>—</span></div>'+
+        '<div class="mpgd-autoeq-metric"><b>Predicted residual</b><span data-autoeq-after>—</span></div>'+
+      '</div>'+
       '<div class="mpgd-autoeq-actions">'+
-        '<button type="button" class="mpgd-autoeq-add" data-autoeq-add>Add</button>'+
-        '<span class="mpgd-autoeq-status" data-autoeq-status>Ready · target 0 dB</span>'+
+        '<button type="button" class="mpgd-autoeq-button" data-autoeq-preview>Preview</button>'+
+        '<button type="button" class="mpgd-autoeq-button mpgd-autoeq-add" data-autoeq-add>Add</button>'+
+        '<button type="button" class="mpgd-autoeq-button mpgd-autoeq-clear" data-autoeq-clear>Clear Auto</button>'+
+        '<span class="mpgd-autoeq-status" data-autoeq-status>Ready</span>'+
       '</div>'+
     '</div>';
 
@@ -428,33 +561,75 @@ function buildPanel(filterId,anchor){
   const count=panel.querySelector('[data-autoeq-count]');
   const auto=panel.querySelector('[data-autoeq-auto]');
   const status=panel.querySelector('[data-autoeq-status]');
-  const add=panel.querySelector('[data-autoeq-add]');
+  const previewButton=panel.querySelector('[data-autoeq-preview]');
+  const addButton=panel.querySelector('[data-autoeq-add]');
+  const clearButton=panel.querySelector('[data-autoeq-clear]');
 
   head.addEventListener('pointerdown',event=>startPanelDrag(event,panel));
   panel.addEventListener('pointerdown',()=>bringPanelFront(panel));
   panel.querySelector('.mpgd-autoeq-close').addEventListener('click',()=>{panel.hidden=true;});
   auto.addEventListener('change',()=>{
     count.disabled=auto.checked;
-    status.textContent=auto.checked?'Auto band count · target 0 dB':'Manual band count · target 0 dB';
+    previews.delete(String(filterId));
+    renderPreview(panel,null);
+    status.textContent=auto.checked?'Auto band count':'Manual band count';
   });
 
-  add.addEventListener('click',()=>{
-    add.disabled=true;
-    status.textContent='Calculating…';
+  panel.querySelectorAll('input').forEach(input=>{
+    if(input===auto) return;
+    input.addEventListener('input',()=>{
+      previews.delete(String(filterId));
+      renderPreview(panel,null);
+      status.textContent='Settings changed · Preview again';
+    });
+    input.addEventListener('change',()=>{
+      previews.delete(String(filterId));
+      renderPreview(panel,null);
+    });
+  });
+
+  previewButton.addEventListener('click',()=>{
+    setBusy(panel,true);
+    status.textContent='Calculating preview…';
     try{
-      const proposed=proposeBands(filterId,{
-        maxBoost:panel.querySelector('[data-autoeq-boost]').value,
-        maxCut:panel.querySelector('[data-autoeq-cut]').value,
-        bandCount:count.value,
-        autoCount:auto.checked
-      });
-      status.textContent='Added '+proposed.length+' magnitude band'+(proposed.length===1?'':'s');
+      const proposal=calculatePreview(filterId,panel);
+      status.textContent='Preview '+proposal.bands.length+' bands · no changes applied';
+    }catch(error){
+      renderPreview(panel,null);
+      status.textContent=error instanceof Error?error.message:'AutoEQ preview failed';
+    }finally{
+      setBusy(panel,false);
+    }
+  });
+
+  addButton.addEventListener('click',()=>{
+    setBusy(panel,true);
+    status.textContent='Calculating + adding…';
+    try{
+      const proposal=calculatePreview(filterId,panel);
+      const added=applyProposal(filterId,proposal);
+      status.textContent='Added '+added+' AutoEQ band'+(added===1?'':'s')+' · manual bands preserved';
     }catch(error){
       status.textContent=error instanceof Error?error.message:'AutoEQ failed';
     }finally{
-      add.disabled=false;
+      setBusy(panel,false);
     }
   });
+
+  clearButton.addEventListener('click',()=>{
+    setBusy(panel,true);
+    try{
+      const removed=clearAutoBands(filterId);
+      renderPreview(panel,null);
+      status.textContent=removed?'Cleared '+removed+' AutoEQ band'+(removed===1?'':'s'):'No AutoEQ bands to clear';
+    }catch(error){
+      status.textContent=error instanceof Error?error.message:'Could not clear AutoEQ bands';
+    }finally{
+      setBusy(panel,false);
+    }
+  });
+
+  renderPreview(panel,previews.get(String(filterId))||null);
 
   requestAnimationFrame(()=>{
     const rect=anchor?.getBoundingClientRect?.();
@@ -476,9 +651,9 @@ function openPanel(filterId,anchor){
   let panel=panels.get(id);
   if(!panel||!panel.isConnected) panel=buildPanel(id,anchor);
   panel.hidden=false;
+  renderPreview(panel,previews.get(id)||null);
   bringPanelFront(panel);
 }
-
 function enhanceFilterWindow(win){
   if(!(win instanceof HTMLElement)) return;
   const filterId=String(win.dataset.filterId||'');
@@ -506,13 +681,13 @@ function enhanceFilterWindow(win){
     close.addEventListener('click',()=>closePanel(filterId));
   }
 }
-
 function scanWindows(){
   document.querySelectorAll('.mpgd-filter-window').forEach(enhanceFilterWindow);
   for(const [filterId,panel] of panels){
     if(!document.querySelector('.mpgd-filter-window[data-filter-id="'+CSS.escape(filterId)+'"]')){
       panel.remove();
       panels.delete(filterId);
+      previews.delete(filterId);
     }
   }
 }
@@ -538,5 +713,12 @@ document.addEventListener('keydown',event=>{
     .filter(panel=>panel.isConnected&&!panel.hidden)
     .sort((a,b)=>(Number(b.style.zIndex)||0)-(Number(a.style.zIndex)||0))[0];
   if(front) front.hidden=true;
+});
+
+window.RaptorMagPhaseGdAutoEq=Object.freeze({
+  open:openPanel,
+  preview(filterId,options){return proposeBands(filterId,options||{});},
+  apply(filterId,proposal){return applyProposal(filterId,proposal);},
+  clear(filterId){return clearAutoBands(filterId);}
 });
 })();
