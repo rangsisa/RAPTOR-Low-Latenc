@@ -3,10 +3,10 @@
   --lineage-tint:rgba(143,166,184,.10);
   position:absolute;
   z-index:2;
-  width:176px;
-  height:112px;
+  width:194px;
+  height:142px;
   display:grid;
-  grid-template-rows:36px 44px 32px;
+  grid-template-rows:36px 74px 32px;
   border:1px solid #8f9ca7;
   border-radius:7px;
   background:#fff;
@@ -17,12 +17,16 @@
   border-color:var(--lineage-color);
   box-shadow:inset 3px 0 0 var(--lineage-color),0 2px 7px rgba(24,32,42,.08)
 }
+.target-export-node.has-split-lineage{
+  border-color:#8f9ca7;
+  box-shadow:0 2px 7px rgba(24,32,42,.08)
+}
 .target-export-node.is-dragging{box-shadow:0 8px 22px rgba(24,32,42,.16);cursor:grabbing}
 .target-export-head{
   min-width:0;
   display:flex;
   align-items:center;
-  padding:0 9px 0 12px;
+  padding:0 10px 0 12px;
   border-bottom:1px solid #bcc5cd;
   border-radius:6px 6px 0 0;
   background:linear-gradient(90deg,var(--lineage-tint),#f7f9fa 52%);
@@ -33,31 +37,64 @@
 .target-export-node.is-dragging .target-export-head{cursor:grabbing}
 .target-export-title{min-width:0;display:flex;flex-direction:column;line-height:1.05}
 .target-export-title strong{font-size:10.5px;color:#202a33}
-.target-export-title span{max-width:142px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#72808b;font-size:7.5px}
-.target-export-body{display:flex;align-items:center;justify-content:center;padding-left:8px;background:#fff}
-.target-export-button{
-  width:118px;
-  height:28px;
-  padding:0 9px;
-  border:1px solid #9ba7b1;
-  border-radius:5px;
-  background:#fff;
-  color:#34414c;
-  font-size:9px;
-  font-weight:800;
-  cursor:pointer
+.target-export-title span{margin-top:3px;color:#72808b;font-size:7.5px}
+.target-export-body{
+  display:grid;
+  grid-template-rows:1fr 1fr;
+  gap:5px;
+  padding:8px 8px 7px 12px;
+  background:#fff
 }
-.target-export-button:hover:not(:disabled){border-color:var(--raptor-active-border);background:#fff9f4;color:#a94a0b}
-.target-export-button:disabled{opacity:.42;cursor:default}
+.target-export-source-row{
+  --source-color:#8FA6B8;
+  min-width:0;
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr);
+  align-items:center;
+  gap:5px;
+  height:25px;
+  padding:0 6px 0 7px;
+  border-left:2px solid var(--source-color);
+  border-radius:3px;
+  background:#f7f9fa
+}
+.target-export-source-row strong{
+  font-size:8px;
+  color:#46535e;
+  line-height:1
+}
+.target-export-source-row span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#72808b;
+  font-size:7.5px
+}
 .target-export-foot{
   display:flex;
   align-items:center;
-  justify-content:flex-end;
+  justify-content:space-between;
+  gap:7px;
   padding:4px 7px;
   border-top:1px solid #c5cdd4;
   border-radius:0 0 6px 6px;
   background:#f7f9fa
 }
+.target-export-button{
+  height:23px;
+  min-width:88px;
+  padding:0 8px;
+  border:1px solid #9ba7b1;
+  border-radius:4px;
+  background:#fff;
+  color:#34414c;
+  font-size:8.5px;
+  font-weight:800;
+  cursor:pointer
+}
+.target-export-button:hover:not(:disabled){border-color:var(--raptor-active-border);background:#fff9f4;color:#a94a0b}
+.target-export-button:disabled{opacity:.42;cursor:default}
 .target-export-delete{
   height:23px;
   padding:0 8px;
@@ -73,7 +110,6 @@
 .target-export-input{
   position:absolute;
   left:-15px;
-  top:50%;
   z-index:9;
   width:30px;
   height:30px;
@@ -86,6 +122,8 @@
   touch-action:none;
   transform:translateY(-50%)
 }
+.target-export-input--phase{top:56px}
+.target-export-input--magnitude{top:87px}
 .target-export-input::after{
   content:"";
   position:absolute;
@@ -103,9 +141,9 @@
 .target-export-input.is-connected::after{background:var(--port-color,#8FA6B8)}
 .target-export-input.is-wire-available::after,.target-export-input:hover::after{
   transform:translate(-50%,-50%) scale(1.12);
-  box-shadow:0 0 0 1.5px var(--port-color,#8FA6B8),0 0 0 4px var(--lineage-tint)
+  box-shadow:0 0 0 1.5px var(--port-color,#8FA6B8),0 0 0 4px var(--port-tint,rgba(143,166,184,.12))
 }
 .target-export-input.is-wire-magnet::after{
   transform:translate(-50%,-50%) scale(1.20);
-  box-shadow:0 0 0 1.5px var(--port-color,#8FA6B8),0 0 0 6px var(--lineage-tint)
+  box-shadow:0 0 0 1.5px var(--port-color,#8FA6B8),0 0 0 6px var(--port-tint,rgba(143,166,184,.12))
 }
