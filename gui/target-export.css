@@ -1,6 +1,4 @@
 .target-export-node{
-  --lineage-color:#8FA6B8;
-  --lineage-tint:rgba(143,166,184,.10);
   position:absolute;
   z-index:2;
   width:194px;
@@ -13,23 +11,15 @@
   box-shadow:0 2px 7px rgba(24,32,42,.07);
   overflow:visible;
 }
-.target-export-node.has-lineage{
-  border-color:var(--lineage-color);
-  box-shadow:inset 3px 0 0 var(--lineage-color),0 2px 7px rgba(24,32,42,.08)
-}
-.target-export-node.has-split-lineage{
-  border-color:#8f9ca7;
-  box-shadow:0 2px 7px rgba(24,32,42,.08)
-}
 .target-export-node.is-dragging{box-shadow:0 8px 22px rgba(24,32,42,.16);cursor:grabbing}
 .target-export-head{
   min-width:0;
   display:flex;
   align-items:center;
-  padding:0 10px 0 12px;
+  padding:0 88px 0 12px;
   border-bottom:1px solid #bcc5cd;
   border-radius:6px 6px 0 0;
-  background:linear-gradient(90deg,var(--lineage-tint),#f7f9fa 52%);
+  background:#f7f9fa;
   cursor:grab;
   user-select:none;
   touch-action:none
@@ -54,9 +44,10 @@
   gap:5px;
   height:25px;
   padding:0 6px 0 7px;
-  border-left:2px solid var(--source-color);
-  border-radius:3px;
-  background:#f7f9fa
+  border:1px solid color-mix(in srgb,var(--source-color) 42%,#cfd7de);
+  border-left:4px solid var(--source-color);
+  border-radius:4px;
+  background:color-mix(in srgb,var(--source-color) 13%,#fff)
 }
 .target-export-source-row strong{
   font-size:8px;
@@ -68,13 +59,13 @@
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  color:#72808b;
+  color:#5f6c76;
   font-size:7.5px
 }
 .target-export-foot{
   display:flex;
   align-items:center;
-  justify-content:space-between;
+  justify-content:flex-end;
   gap:7px;
   padding:4px 7px;
   border-top:1px solid #c5cdd4;
@@ -82,14 +73,18 @@
   background:#f7f9fa
 }
 .target-export-button{
-  height:23px;
-  min-width:88px;
+  position:absolute;
+  top:6px;
+  right:7px;
+  z-index:10;
+  height:24px;
+  min-width:76px;
   padding:0 8px;
   border:1px solid #9ba7b1;
   border-radius:4px;
   background:#fff;
   color:#34414c;
-  font-size:8.5px;
+  font-size:8px;
   font-weight:800;
   cursor:pointer
 }
