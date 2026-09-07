@@ -206,12 +206,21 @@ function exportTxt(item){
   const frequency=views.frequency_hz;
   const magnitude=views.magnitude_db;
   const phase=views.phase_deg;
+  const coherence=views.coherence;
   const lines=[];
+
+  const sampleRate=Number(canonical.sample_rate_hz);
+  if(Number.isFinite(sampleRate)&&sampleRate>0){
+    lines.push('Sample Rate: '+txtNumber(sampleRate)+' Hz');
+  }
+  lines.push('Frequency_Hz\tMagnitude_dB\tPhase_deg\tCoherence');
+
   for(let index=0;index<canonical.points;index++){
     lines.push(
       txtNumber(frequency[index])+'\t'+
       txtNumber(magnitude[index])+'\t'+
-      txtNumber(phase[index])
+      txtNumber(phase[index])+'\t'+
+      txtNumber(coherence[index])
     );
   }
   const blob=new Blob([lines.join('\n')+'\n'],{type:'text/plain;charset=utf-8'});
