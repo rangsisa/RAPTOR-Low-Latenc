@@ -9,14 +9,53 @@ const FILTER_COMMANDS=Object.freeze([
   {type:'lowpass',label:'Lowpass Filter'},
   {type:'highpass',label:'Highpass Filter'},
   {type:'bandpass',label:'Bandpass Filter'},
-  {type:'mag-phase-gd',label:'Mag-Phase-GD Filter'}
+  {type:'mag-phase-gd',label:'Mag-Phase-GD Filter'},
+  {type:'target-export',label:'Target Export'}
 ]);
 
 let menu=null;
 let request=null;
+let targetExportLoader=null;
 
 function activeLine(){
   return window.RaptorPipeline?.getActiveLine?.()||null;
+}
+
+function ensureTargetExportStyle(){
+  if(document.querySelector('link[data-raptor-target-export-style]')) return;
+  const link=document.createElement('link');
+  link.rel='stylesheet';
+  link.href='./target-export.css?v=target-export-sink-v2-20260907-1';
+  link.dataset.raptorTargetExportStyle='';
+  document.head.appendChild(link);
+}
+
+function ensureTargetExportModule(){
+  if(window.RaptorTargetExport) return Promise.resolve(window.RaptorTargetExport);
+  if(targetExportLoader) return targetExportLoader;
+
+  ensureTargetExportStyle();
+  targetExportLoader=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='./target-export.js?v=target-export-sink-v2-20260907-1';
+    script.async=true;
+    script.dataset.raptorTargetExportModule='';
+    script.addEventListener('load',()=>{
+      if(window.RaptorTargetExport){
+        resolve(window.RaptorTargetExport);
+        return;
+      }
+      targetExportLoader=null;
+      reject(new Error('Target Export module did not initialize'));
+    },{once:true});
+    script.addEventListener('error',()=>{
+      targetExportLoader=null;
+      script.remove();
+      reject(new Error('Target Export module failed to load'));
+    },{once:true});
+    document.body.appendChild(script);
+  });
+  return targetExportLoader;
 }
 
 function ensureMenu(){
@@ -79,6 +118,18 @@ function openCanvasMenu(event){
       const current=request;
       closeMenu();
       if(!current||current.kind!=='canvas'||!activeLine()) return;
+
+      if(command.type==='target-export'){
+        ensureTargetExportModule()
+          .then(module=>{
+            const lineNow=activeLine();
+            if(!lineNow||String(lineNow.id||'')!==String(current.lineId||'')) return;
+            module.createAt?.(current.x,current.y);
+          })
+          .catch(error=>console.error('[RAPTOR Target Export]',error));
+        return;
+      }
+
       document.dispatchEvent(new CustomEvent('raptor:pipelinefilterrequest',{
         detail:{
           lineId:current.lineId,
@@ -135,7 +186,7 @@ canvas.addEventListener('contextmenu',event=>{
     return;
   }
 
-  if(event.target.closest?.('.measurement-node,.mpgd-filter-node,.xo-filter-node,.pipeline-context-menu')) return;
+  if(event.target.closest?.('.measurement-node,.mpgd-filter-node,.xo-filter-node,.target-export-node,.pipeline-context-menu')) return;
   openCanvasMenu(event);
 });
 
