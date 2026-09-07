@@ -37,7 +37,7 @@ function ensureTargetExportModule(){
   ensureTargetExportStyle();
   targetExportLoader=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='./target-export.js?v=target-export-sink-v2-20260907-1';
+    script.src='./target-export.js?v=target-export-roundtrip-v3-20260907-1';
     script.async=true;
     script.dataset.raptorTargetExportModule='';
     script.addEventListener('load',()=>{
