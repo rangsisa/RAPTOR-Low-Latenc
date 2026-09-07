@@ -25,7 +25,7 @@ function ensureTargetExportStyle(){
   if(document.querySelector('link[data-raptor-target-export-style]')) return;
   const link=document.createElement('link');
   link.rel='stylesheet';
-  link.href='./target-export.css?v=target-export-sink-v2-20260907-1';
+  link.href='./target-export.css?v=target-export-dual-input-v4-20260907-1';
   link.dataset.raptorTargetExportStyle='';
   document.head.appendChild(link);
 }
@@ -37,7 +37,7 @@ function ensureTargetExportModule(){
   ensureTargetExportStyle();
   targetExportLoader=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='./target-export.js?v=target-export-roundtrip-v3-20260907-1';
+    script.src='./target-export.js?v=target-export-dual-input-v4-20260907-1';
     script.async=true;
     script.dataset.raptorTargetExportModule='';
     script.addEventListener('load',()=>{
