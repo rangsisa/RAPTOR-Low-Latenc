@@ -1,0 +1,111 @@
+.target-export-node{
+  --lineage-color:#8FA6B8;
+  --lineage-tint:rgba(143,166,184,.10);
+  position:absolute;
+  z-index:2;
+  width:176px;
+  height:112px;
+  display:grid;
+  grid-template-rows:36px 44px 32px;
+  border:1px solid #8f9ca7;
+  border-radius:7px;
+  background:#fff;
+  box-shadow:0 2px 7px rgba(24,32,42,.07);
+  overflow:visible;
+}
+.target-export-node.has-lineage{
+  border-color:var(--lineage-color);
+  box-shadow:inset 3px 0 0 var(--lineage-color),0 2px 7px rgba(24,32,42,.08)
+}
+.target-export-node.is-dragging{box-shadow:0 8px 22px rgba(24,32,42,.16);cursor:grabbing}
+.target-export-head{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  padding:0 9px 0 12px;
+  border-bottom:1px solid #bcc5cd;
+  border-radius:6px 6px 0 0;
+  background:linear-gradient(90deg,var(--lineage-tint),#f7f9fa 52%);
+  cursor:grab;
+  user-select:none;
+  touch-action:none
+}
+.target-export-node.is-dragging .target-export-head{cursor:grabbing}
+.target-export-title{min-width:0;display:flex;flex-direction:column;line-height:1.05}
+.target-export-title strong{font-size:10.5px;color:#202a33}
+.target-export-title span{max-width:142px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#72808b;font-size:7.5px}
+.target-export-body{display:flex;align-items:center;justify-content:center;padding-left:8px;background:#fff}
+.target-export-button{
+  width:118px;
+  height:28px;
+  padding:0 9px;
+  border:1px solid #9ba7b1;
+  border-radius:5px;
+  background:#fff;
+  color:#34414c;
+  font-size:9px;
+  font-weight:800;
+  cursor:pointer
+}
+.target-export-button:hover:not(:disabled){border-color:var(--raptor-active-border);background:#fff9f4;color:#a94a0b}
+.target-export-button:disabled{opacity:.42;cursor:default}
+.target-export-foot{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  padding:4px 7px;
+  border-top:1px solid #c5cdd4;
+  border-radius:0 0 6px 6px;
+  background:#f7f9fa
+}
+.target-export-delete{
+  height:23px;
+  padding:0 8px;
+  border:1px solid #bd8e8e;
+  border-radius:4px;
+  background:#fff;
+  color:#993f3f;
+  font-size:8.5px;
+  font-weight:700;
+  cursor:pointer
+}
+.target-export-delete:hover{background:#fff4f4}
+.target-export-input{
+  position:absolute;
+  left:-15px;
+  top:50%;
+  z-index:9;
+  width:30px;
+  height:30px;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  box-shadow:none;
+  cursor:crosshair;
+  touch-action:none;
+  transform:translateY(-50%)
+}
+.target-export-input::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:13px;
+  height:13px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 0 1.5px var(--port-color,#8FA6B8);
+  transform:translate(-50%,-50%) scale(1);
+  transition:transform 90ms ease,box-shadow 90ms ease,background 90ms ease
+}
+.target-export-input.is-connected::after{background:var(--port-color,#8FA6B8)}
+.target-export-input.is-wire-available::after,.target-export-input:hover::after{
+  transform:translate(-50%,-50%) scale(1.12);
+  box-shadow:0 0 0 1.5px var(--port-color,#8FA6B8),0 0 0 4px var(--lineage-tint)
+}
+.target-export-input.is-wire-magnet::after{
+  transform:translate(-50%,-50%) scale(1.20);
+  box-shadow:0 0 0 1.5px var(--port-color,#8FA6B8),0 0 0 6px var(--lineage-tint)
+}
