@@ -13,6 +13,10 @@ if(!api||!workspaceView||!canonicalApi||!canvas||!wireSvg||!pipelineRow) return;
 const SVG_NS='http://www.w3.org/2000/svg';
 const TYPE='target-export';
 const BASE_COLOR='#8FA6B8';
+const ROLES=Object.freeze([
+  Object.freeze({key:'phaseInput',role:'phase',label:'Phase'}),
+  Object.freeze({key:'magnitudeInput',role:'magnitude',label:'Magnitude'})
+]);
 let activeCard=null;
 let sequence=1;
 let wireGroup=null;
@@ -25,12 +29,29 @@ function loadedCard(){
   return pipelineRow.querySelector('.pipeline-card.is-loaded')||null;
 }
 
+function normalizeItem(item){
+  if(!item) return item;
+  const hasDual=Object.prototype.hasOwnProperty.call(item,'phaseInput')||
+    Object.prototype.hasOwnProperty.call(item,'magnitudeInput');
+  if(!hasDual){
+    const legacy=item.input?.id?{...item.input}:null;
+    item.phaseInput=legacy?{...legacy}:null;
+    item.magnitudeInput=legacy?{...legacy}:null;
+  }else{
+    if(!item.phaseInput?.id) item.phaseInput=null;
+    if(!item.magnitudeInput?.id) item.magnitudeInput=null;
+  }
+  if(Object.prototype.hasOwnProperty.call(item,'input')) delete item.input;
+  return item;
+}
+
 function ensureExports(card){
   if(!card) return [];
   const state=card._raptorLineState;
   if(!state) return [];
   if(!state.nodes) state.nodes={};
   if(!Array.isArray(state.nodes.targetExports)) state.nodes.targetExports=[];
+  for(const item of state.nodes.targetExports) normalizeItem(item);
   return state.nodes.targetExports;
 }
 
@@ -40,6 +61,25 @@ function activeExports(){
 
 function exportById(id){
   return activeExports().find(item=>String(item.id)===String(id))||null;
+}
+
+function roleSpec(role){
+  return ROLES.find(item=>item.role===role)||null;
+}
+
+function inputRef(item,role){
+  const spec=roleSpec(role);
+  if(!spec) return null;
+  normalizeItem(item);
+  return item?.[spec.key]||null;
+}
+
+function setInputRef(item,role,value){
+  const spec=roleSpec(role);
+  if(!spec||!item) return false;
+  normalizeItem(item);
+  item[spec.key]=value?.id?value:null;
+  return true;
 }
 
 function filterSource(id){
@@ -71,26 +111,32 @@ function filterSource(id){
   return null;
 }
 
-function sourceExists(item){
-  return !!(item?.input?.id&&filterSource(item.input.id));
+function sourceForRole(item,role){
+  const ref=inputRef(item,role);
+  return ref?.id?filterSource(ref.id):null;
 }
 
-function sourceCanonical(item){
-  if(!item?.input?.id) return null;
-  const canonical=filterSource(item.input.id)?.canonical||null;
+function sourceExists(item,role){
+  return !!sourceForRole(item,role);
+}
+
+function sourceCanonical(item,role){
+  const canonical=sourceForRole(item,role)?.canonical||null;
   if(!canonical) return null;
   try{canonicalApi.validate(canonical)}catch{return null;}
   return canonical;
 }
 
-function sourceColor(item){
-  const source=item?.input?.id?filterSource(item.input.id):null;
-  return source?.lineage?.color||item?.input?.color||BASE_COLOR;
+function sourceColor(item,role){
+  const ref=inputRef(item,role);
+  const source=sourceForRole(item,role);
+  return source?.lineage?.color||ref?.color||BASE_COLOR;
 }
 
-function sourceFileName(item){
-  if(!item?.input?.id) return 'Not connected';
-  const source=filterSource(item.input.id);
+function sourceFileName(item,role){
+  const ref=inputRef(item,role);
+  if(!ref?.id) return 'Not connected';
+  const source=sourceForRole(item,role);
   const measurementId=source?.lineage?.measurementId||null;
   const measurement=measurementId?api.getMeasurement?.(measurementId):null;
   if(measurement?.name) return measurement.name;
@@ -110,7 +156,7 @@ function canAcceptSource(source){
 }
 
 function clampPosition(position,node=null){
-  const width=node?.offsetWidth||176;
+  const width=node?.offsetWidth||194;
   const maxX=Math.max(8,workspaceView.logicalScrollWidth()-width-12);
   return {
     x:Math.max(8,Math.min(maxX,Number(position?.x)||8)),
@@ -126,64 +172,133 @@ function hexTint(hex,alpha=.10){
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+alpha+')';
 }
 
-function applyLineage(node,item){
-  const connected=sourceExists(item);
-  const color=sourceColor(item);
-  node.classList.toggle('has-lineage',connected);
-  node.style.setProperty('--lineage-color',color);
-  node.style.setProperty('--lineage-tint',hexTint(color,.10));
+function compatibleFrequency(a,b){
+  if(a.length!==b.length) return false;
+  for(let index=0;index<a.length;index++){
+    const av=Number(a[index]);
+    const bv=Number(b[index]);
+    const scale=Math.max(1,Math.abs(av),Math.abs(bv));
+    if(Math.abs(av-bv)>scale*1e-9) return false;
+  }
+  return true;
+}
 
-  const fileName=node.querySelector('[data-target-export-file]');
-  if(fileName){
-    fileName.textContent=sourceFileName(item);
-    fileName.title=sourceFileName(item);
+function combinedTarget(item){
+  const phaseCanonical=sourceCanonical(item,'phase');
+  const magnitudeCanonical=sourceCanonical(item,'magnitude');
+  if(!phaseCanonical||!magnitudeCanonical){
+    return {ready:false,reason:'Connect valid Phase and Magnitude filter inputs first'};
+  }
+  if(phaseCanonical.points!==magnitudeCanonical.points){
+    return {ready:false,reason:'Phase and Magnitude targets must use the same frequency grid'};
   }
 
-  const input=node.querySelector('.target-export-input');
-  if(input){
-    input.classList.toggle('is-connected',connected);
-    input.style.setProperty('--port-color',color);
+  const phaseViews=canonicalApi.views(phaseCanonical);
+  const magnitudeViews=canonicalApi.views(magnitudeCanonical);
+  if(!compatibleFrequency(phaseViews.frequency_hz,magnitudeViews.frequency_hz)){
+    return {ready:false,reason:'Phase and Magnitude targets must use the same frequency grid'};
+  }
+
+  const phaseSampleRate=Number(phaseCanonical.sample_rate_hz);
+  const magnitudeSampleRate=Number(magnitudeCanonical.sample_rate_hz);
+  const phaseHasRate=Number.isFinite(phaseSampleRate)&&phaseSampleRate>0;
+  const magnitudeHasRate=Number.isFinite(magnitudeSampleRate)&&magnitudeSampleRate>0;
+  if(phaseHasRate&&magnitudeHasRate){
+    const scale=Math.max(1,Math.abs(phaseSampleRate),Math.abs(magnitudeSampleRate));
+    if(Math.abs(phaseSampleRate-magnitudeSampleRate)>scale*1e-9){
+      return {ready:false,reason:'Phase and Magnitude targets have different Sample Rates'};
+    }
+  }
+
+  return {
+    ready:true,
+    reason:'',
+    points:phaseCanonical.points,
+    sampleRate:phaseHasRate?phaseSampleRate:(magnitudeHasRate?magnitudeSampleRate:null),
+    frequency:phaseViews.frequency_hz,
+    magnitude:magnitudeViews.magnitude_db,
+    phase:phaseViews.phase_deg,
+    phaseCoherence:phaseViews.coherence,
+    magnitudeCoherence:magnitudeViews.coherence
+  };
+}
+
+function applyLineage(node,item){
+  normalizeItem(item);
+  const phaseConnected=sourceExists(item,'phase');
+  const magnitudeConnected=sourceExists(item,'magnitude');
+  const phaseColor=sourceColor(item,'phase');
+  const magnitudeColor=sourceColor(item,'magnitude');
+  const anyConnected=phaseConnected||magnitudeConnected;
+  const split=phaseConnected&&magnitudeConnected&&phaseColor!==magnitudeColor;
+  const lineageColor=phaseConnected?phaseColor:(magnitudeConnected?magnitudeColor:BASE_COLOR);
+
+  node.classList.toggle('has-lineage',anyConnected);
+  node.classList.toggle('has-split-lineage',split);
+  node.style.setProperty('--lineage-color',lineageColor);
+  node.style.setProperty('--lineage-tint',hexTint(lineageColor,.10));
+
+  for(const spec of ROLES){
+    const color=sourceColor(item,spec.role);
+    const connected=sourceExists(item,spec.role);
+    const fileName=sourceFileName(item,spec.role);
+    const file=node.querySelector('[data-target-export-file="'+spec.role+'"]');
+    if(file){
+      file.textContent=fileName;
+      file.title=fileName;
+      file.style.setProperty('--source-color',color);
+    }
+    const row=node.querySelector('.target-export-source-row[data-input-role="'+spec.role+'"]');
+    row?.style.setProperty('--source-color',color);
+    const input=node.querySelector('.target-export-input[data-input-role="'+spec.role+'"]');
+    if(input){
+      input.classList.toggle('is-connected',connected);
+      input.style.setProperty('--port-color',color);
+      input.style.setProperty('--port-tint',hexTint(color,.12));
+    }
   }
 
   const button=node.querySelector('.target-export-button');
   if(button){
-    const ready=!!sourceCanonical(item);
-    button.disabled=!ready;
-    button.title=ready?'Download current filter target as TXT':'Connect a filter with valid Canonical data first';
+    const combined=combinedTarget(item);
+    button.disabled=!combined.ready;
+    button.title=combined.ready?'Download combined Phase + Magnitude target as TXT':combined.reason;
   }
 }
 
-function connectInput(item,source,meta={}){
-  if(!item||!canAcceptSource(source)) return false;
+function connectInput(item,role,source,meta={}){
+  if(!item||!roleSpec(role)||!canAcceptSource(source)) return false;
   const sourceId=String(meta.sourceId??source.filterId??source.id??'');
   if(!sourceId) return false;
 
-  item.input={
+  setInputRef(item,role,{
     kind:'filter',
     id:sourceId,
     color:meta.color||source.color||BASE_COLOR
-  };
+  });
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
     detail:{
       filterId:item.id,
       filterType:TYPE,
+      inputRole:role,
       sourceKind:'filter',
       sourceId,
       connected:true,
-      color:sourceColor(item)
+      color:sourceColor(item,role)
     }
   }));
   return true;
 }
 
-function disconnectInput(item){
-  if(!item?.input?.id) return false;
-  const sourceId=item.input.id;
-  item.input=null;
+function disconnectInput(item,role){
+  const ref=inputRef(item,role);
+  if(!ref?.id) return false;
+  const sourceId=ref.id;
+  setInputRef(item,role,null);
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
-    detail:{filterId:item.id,filterType:TYPE,sourceKind:'filter',sourceId,connected:false}
+    detail:{filterId:item.id,filterType:TYPE,inputRole:role,sourceKind:'filter',sourceId,connected:false}
   }));
   return true;
 }
@@ -199,35 +314,40 @@ function safeStem(name){
   return cleaned||'target';
 }
 
+function exportFileStem(item){
+  const phaseName=safeStem(sourceFileName(item,'phase'));
+  const magnitudeName=safeStem(sourceFileName(item,'magnitude'));
+  if(phaseName===magnitudeName) return phaseName;
+  return phaseName+'__'+magnitudeName;
+}
+
 function exportTxt(item){
-  const canonical=sourceCanonical(item);
-  if(!canonical) return false;
-  const views=canonicalApi.views(canonical);
-  const frequency=views.frequency_hz;
-  const magnitude=views.magnitude_db;
-  const phase=views.phase_deg;
-  const coherence=views.coherence;
+  const combined=combinedTarget(item);
+  if(!combined.ready) return false;
   const lines=[];
 
-  const sampleRate=Number(canonical.sample_rate_hz);
-  if(Number.isFinite(sampleRate)&&sampleRate>0){
-    lines.push('Sample Rate: '+txtNumber(sampleRate)+' Hz');
+  if(Number.isFinite(combined.sampleRate)&&combined.sampleRate>0){
+    lines.push('Sample Rate: '+txtNumber(combined.sampleRate)+' Hz');
   }
   lines.push('Frequency_Hz\tMagnitude_dB\tPhase_deg\tCoherence');
 
-  for(let index=0;index<canonical.points;index++){
+  for(let index=0;index<combined.points;index++){
+    const coherence=Math.min(
+      Number(combined.phaseCoherence[index]),
+      Number(combined.magnitudeCoherence[index])
+    );
     lines.push(
-      txtNumber(frequency[index])+'\t'+
-      txtNumber(magnitude[index])+'\t'+
-      txtNumber(phase[index])+'\t'+
-      txtNumber(coherence[index])
+      txtNumber(combined.frequency[index])+'\t'+
+      txtNumber(combined.magnitude[index])+'\t'+
+      txtNumber(combined.phase[index])+'\t'+
+      txtNumber(coherence)
     );
   }
   const blob=new Blob([lines.join('\n')+'\n'],{type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const anchor=document.createElement('a');
   anchor.href=url;
-  anchor.download=safeStem(sourceFileName(item))+'_target.txt';
+  anchor.download=exportFileStem(item)+'_target.txt';
   anchor.style.display='none';
   document.body.appendChild(anchor);
   anchor.click();
@@ -266,7 +386,30 @@ function startNodeDrag(event,node,item){
   window.addEventListener('pointercancel',end);
 }
 
+function buildInput(role,label){
+  const input=document.createElement('button');
+  input.type='button';
+  input.className='target-export-input target-export-input--'+role;
+  input.dataset.inputRole=role;
+  input.title=label+' filter input';
+  input.setAttribute('aria-label','Target Export '+label+' filter input');
+  return input;
+}
+
+function buildSourceRow(role,label){
+  const row=document.createElement('div');
+  row.className='target-export-source-row';
+  row.dataset.inputRole=role;
+  const roleLabel=document.createElement('strong');
+  roleLabel.textContent=label;
+  const file=document.createElement('span');
+  file.dataset.targetExportFile=role;
+  row.append(roleLabel,file);
+  return row;
+}
+
 function buildNode(item){
+  normalizeItem(item);
   const node=document.createElement('section');
   node.className='target-export-node';
   node.dataset.filterId=item.id;
@@ -276,12 +419,8 @@ function buildNode(item){
   item.position=clampPosition(item.position||{x:8,y:8});
   workspaceView.positionNode(node,item.position.x,item.position.y);
 
-  const input=document.createElement('button');
-  input.type='button';
-  input.className='target-export-input';
-  input.dataset.filterInput=item.id;
-  input.title='Filter input';
-  input.setAttribute('aria-label','Target Export filter input');
+  const phaseInput=buildInput('phase','Phase');
+  const magnitudeInput=buildInput('magnitude','Magnitude');
 
   const head=document.createElement('header');
   head.className='target-export-head';
@@ -289,13 +428,20 @@ function buildNode(item){
   title.className='target-export-title';
   const strong=document.createElement('strong');
   strong.textContent='Target Export';
-  const file=document.createElement('span');
-  file.dataset.targetExportFile='';
-  title.append(strong,file);
+  const subtitle=document.createElement('span');
+  subtitle.textContent='Phase + Magnitude';
+  title.append(strong,subtitle);
   head.appendChild(title);
 
   const body=document.createElement('div');
   body.className='target-export-body';
+  body.append(
+    buildSourceRow('phase','Phase'),
+    buildSourceRow('magnitude','Magnitude')
+  );
+
+  const foot=document.createElement('footer');
+  foot.className='target-export-foot';
   const exportButton=document.createElement('button');
   exportButton.type='button';
   exportButton.className='target-export-button';
@@ -304,10 +450,6 @@ function buildNode(item){
     event.stopPropagation();
     exportTxt(item);
   });
-  body.appendChild(exportButton);
-
-  const foot=document.createElement('footer');
-  foot.className='target-export-foot';
   const remove=document.createElement('button');
   remove.type='button';
   remove.className='target-export-delete';
@@ -316,19 +458,25 @@ function buildNode(item){
     event.stopPropagation();
     deleteExport(item.id);
   });
-  foot.appendChild(remove);
+  foot.append(exportButton,remove);
 
-  node.append(input,head,body,foot);
+  node.append(phaseInput,magnitudeInput,head,body,foot);
   node.addEventListener('pointerdown',event=>startNodeDrag(event,node,item));
   node.addEventListener('contextmenu',event=>event.stopPropagation());
   applyLineage(node,item);
   return node;
 }
 
+function inputRegistryId(itemId,role){
+  return 'target-export:'+itemId+':'+role;
+}
+
 function removeRenderedNodes(){
   canvas.querySelectorAll('.target-export-node').forEach(node=>{
     const id=node.dataset.filterId;
-    if(id) api.unregisterInput?.('target-export:'+id+':input');
+    if(id){
+      for(const spec of ROLES) api.unregisterInput?.(inputRegistryId(id,spec.role));
+    }
     node.remove();
   });
 }
@@ -341,17 +489,27 @@ function renderNodes(){
   }
 
   for(const item of activeExports()){
-    if(item.input?.id&&!sourceExists(item)) item.input=null;
+    normalizeItem(item);
+    for(const spec of ROLES){
+      const ref=inputRef(item,spec.role);
+      if(ref?.id&&!sourceExists(item,spec.role)) setInputRef(item,spec.role,null);
+    }
     const node=buildNode(item);
     canvas.appendChild(node);
-    const input=node.querySelector('.target-export-input');
-    api.registerInput?.('target-export:'+item.id+':input',input,{
-      radius:52,
-      ownerFilterId:item.id,
-      getCurrentSourceRef:()=>item.input?.id?{kind:'filter',id:String(item.input.id)}:null,
-      canAccept:source=>canAcceptSource(source),
-      onConnect:(source,meta)=>connectInput(item,source,meta)
-    });
+
+    for(const spec of ROLES){
+      const input=node.querySelector('.target-export-input[data-input-role="'+spec.role+'"]');
+      api.registerInput?.(inputRegistryId(item.id,spec.role),input,{
+        radius:48,
+        ownerFilterId:item.id,
+        getCurrentSourceRef:()=>{
+          const ref=inputRef(item,spec.role);
+          return ref?.id?{kind:'filter',id:String(ref.id)}:null;
+        },
+        canAccept:source=>canAcceptSource(source),
+        onConnect:(source,meta)=>connectInput(item,spec.role,source,meta)
+      });
+    }
   }
   requestAnimationFrame(renderConnections);
 }
@@ -362,8 +520,9 @@ function createAt(x,y){
   const item={
     id:makeId(),
     type:TYPE,
-    position:clampPosition({x:Number(x)-88,y:Number(y)-56}),
-    input:null
+    position:clampPosition({x:Number(x)-97,y:Number(y)-71}),
+    phaseInput:null,
+    magnitudeInput:null
   };
   ensureExports(activeCard).push(item);
   renderNodes();
@@ -385,7 +544,7 @@ function deleteExport(id){
   const index=items.findIndex(item=>String(item.id)===String(id));
   if(index<0) return false;
   items.splice(index,1);
-  api.unregisterInput?.('target-export:'+id+':input');
+  for(const spec of ROLES) api.unregisterInput?.(inputRegistryId(id,spec.role));
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterdeleted',{
     detail:{filterId:String(id),filterType:TYPE}
@@ -422,38 +581,48 @@ function canvasPointFor(element){
   };
 }
 
+function appendConnection(group,item,role){
+  const ref=inputRef(item,role);
+  if(!ref?.id) return;
+  const source=filterHandle(ref.id);
+  const target=canvas.querySelector(
+    '.target-export-node[data-filter-id="'+CSS.escape(String(item.id))+'"] .target-export-input[data-input-role="'+role+'"]'
+  );
+  if(!source||!target) return;
+
+  const start=canvasPointFor(source);
+  const end=canvasPointFor(target);
+  const d=api.routeWire?.(start,end,{sourceElement:source,targetElement:target})||'';
+  if(!d) return;
+
+  const wireId='target-export-input:'+item.id+':'+role;
+  const hit=document.createElementNS(SVG_NS,'path');
+  hit.setAttribute('class','pipeline-persistent-wire-hit');
+  hit.setAttribute('d',d);
+  hit.dataset.wireId=wireId;
+  hit.dataset.sourceKind='filter';
+  hit.dataset.sourceId=String(ref.id);
+  hit.dataset.targetId=String(item.id);
+  hit.dataset.inputRole=role;
+
+  const path=document.createElementNS(SVG_NS,'path');
+  path.setAttribute('class','pipeline-persistent-wire');
+  path.setAttribute('stroke',sourceColor(item,role));
+  path.setAttribute('d',d);
+
+  const flow=document.createElementNS(SVG_NS,'path');
+  flow.setAttribute('class','pipeline-wire-flow');
+  flow.setAttribute('d',d);
+  group.append(hit,path,flow);
+}
+
 function renderConnections(){
   const group=ensureWireGroup();
   group.replaceChildren();
   if(!activeCard) return;
-
   for(const item of activeExports()){
-    if(!item.input?.id) continue;
-    const source=filterHandle(item.input.id);
-    const target=canvas.querySelector('.target-export-node[data-filter-id="'+CSS.escape(String(item.id))+'"] .target-export-input');
-    if(!source||!target) continue;
-    const start=canvasPointFor(source);
-    const end=canvasPointFor(target);
-    const d=api.routeWire?.(start,end,{sourceElement:source,targetElement:target})||'';
-    if(!d) continue;
-
-    const hit=document.createElementNS(SVG_NS,'path');
-    hit.setAttribute('class','pipeline-persistent-wire-hit');
-    hit.setAttribute('d',d);
-    hit.dataset.wireId='target-export-input:'+item.id;
-    hit.dataset.sourceKind='filter';
-    hit.dataset.sourceId=String(item.input.id);
-    hit.dataset.targetId=String(item.id);
-
-    const path=document.createElementNS(SVG_NS,'path');
-    path.setAttribute('class','pipeline-persistent-wire');
-    path.setAttribute('stroke',sourceColor(item));
-    path.setAttribute('d',d);
-
-    const flow=document.createElementNS(SVG_NS,'path');
-    flow.setAttribute('class','pipeline-wire-flow');
-    flow.setAttribute('d',d);
-    group.append(hit,path,flow);
+    appendConnection(group,item,'phase');
+    appendConnection(group,item,'magnitude');
   }
 }
 
@@ -491,12 +660,19 @@ if(measurementList){
 
 document.addEventListener('raptor:pipelinedisconnectrequest',event=>{
   const wireId=String(event.detail?.wireId||'');
-  if(!wireId.startsWith('target-export-input:')) return;
-  const id=wireId.slice('target-export-input:'.length);
+  const prefix='target-export-input:';
+  if(!wireId.startsWith(prefix)) return;
+  const rest=wireId.slice(prefix.length);
+  const separator=rest.lastIndexOf(':');
+  if(separator<=0) return;
+  const id=rest.slice(0,separator);
+  const role=rest.slice(separator+1);
+  if(!roleSpec(role)) return;
   const item=exportById(id);
   if(!item) return;
-  if(event.detail?.sourceId&&String(event.detail.sourceId)!==String(item.input?.id||'')) return;
-  disconnectInput(item);
+  const ref=inputRef(item,role);
+  if(event.detail?.sourceId&&String(event.detail.sourceId)!==String(ref?.id||'')) return;
+  disconnectInput(item,role);
 });
 
 document.addEventListener('raptor:filterdeleted',event=>{
@@ -505,9 +681,12 @@ document.addEventListener('raptor:filterdeleted',event=>{
   if(!sourceId) return;
   let changed=false;
   for(const item of activeExports()){
-    if(String(item.input?.id||'')!==sourceId) continue;
-    item.input=null;
-    changed=true;
+    for(const spec of ROLES){
+      const ref=inputRef(item,spec.role);
+      if(String(ref?.id||'')!==sourceId) continue;
+      setInputRef(item,spec.role,null);
+      changed=true;
+    }
   }
   if(changed) renderNodes();
 });
@@ -541,16 +720,21 @@ window.RaptorTargetExport=Object.freeze({
   list:()=>activeExports().map(item=>({
     ...item,
     position:item.position?{...item.position}:null,
-    input:item.input?{...item.input}:null
+    phaseInput:item.phaseInput?{...item.phaseInput}:null,
+    magnitudeInput:item.magnitudeInput?{...item.magnitudeInput}:null
   })),
   delete:deleteExport,
-  disconnectInput(id){
+  disconnectInput(id,role){
     const item=exportById(id);
-    return item?disconnectInput(item):false;
+    return item?disconnectInput(item,role):false;
   },
   export(id){
     const item=exportById(id);
     return item?exportTxt(item):false;
+  },
+  getCombinedTarget(id){
+    const item=exportById(id);
+    return item?combinedTarget(item):{ready:false,reason:'Target Export node not found'};
   },
   refresh:renderNodes,
   refreshConnections:renderConnections
