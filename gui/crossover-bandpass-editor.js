@@ -1,59 +1,63 @@
 (()=>{
 'use strict';
 
-const PANEL_SELECTOR='.xo-filter-parameter-popover.is-bandpass';
-const ENHANCED_ATTR='data-bandpass-side-editor';
+const PANEL_SELECTOR='.xo-filter-parameter-popover';
+const BANDPASS_SELECTOR='.xo-filter-parameter-popover.is-bandpass';
+const ENHANCED_ATTR='data-crossover-parameter-window';
 
 function ensureStyle(){
-  if(document.getElementById('raptorBandpassSideEditorStyle')) return;
+  if(document.getElementById('raptorCrossoverParameterWindowStyle')) return;
   const style=document.createElement('style');
-  style.id='raptorBandpassSideEditorStyle';
+  style.id='raptorCrossoverParameterWindowStyle';
   style.textContent=`
-    ${PANEL_SELECTOR}{
-      width:min(520px,calc(100vw - 16px));
-      max-width:none
-    }
     ${PANEL_SELECTOR} .xo-filter-parameter-popover-head{
       cursor:grab;
       touch-action:none
     }
-    ${PANEL_SELECTOR}.is-bandpass-editor-dragging .xo-filter-parameter-popover-head{
+    ${PANEL_SELECTOR}.is-crossover-editor-dragging .xo-filter-parameter-popover-head{
       cursor:grabbing
     }
-    ${PANEL_SELECTOR} .xo-filter-parameter-popover-body.is-bandpass-side-layout{
+    ${PANEL_SELECTOR}.is-crossover-editor-dragging{
+      box-shadow:0 16px 38px rgba(18,26,34,.30)
+    }
+    ${BANDPASS_SELECTOR}{
+      width:min(520px,calc(100vw - 16px));
+      max-width:none
+    }
+    ${BANDPASS_SELECTOR} .xo-filter-parameter-popover-body.is-bandpass-side-layout{
       display:grid;
       grid-template-columns:minmax(0,1fr) minmax(0,1fr);
       gap:0;
       padding:11px 0
     }
-    ${PANEL_SELECTOR} .xo-bandpass-side{
+    ${BANDPASS_SELECTOR} .xo-bandpass-side{
       min-width:0;
       display:grid;
       align-content:start;
       gap:10px;
       padding:0 14px
     }
-    ${PANEL_SELECTOR} .xo-bandpass-side--highpass{
+    ${BANDPASS_SELECTOR} .xo-bandpass-side--highpass{
       border-left:1px solid #d4dbe0
     }
-    ${PANEL_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field{
+    ${BANDPASS_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field{
       min-width:0;
       grid-template-columns:92px minmax(0,1fr);
       gap:8px
     }
-    ${PANEL_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field>span{
+    ${BANDPASS_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field>span{
       white-space:nowrap
     }
     @media(max-width:560px){
-      ${PANEL_SELECTOR}{width:min(430px,calc(100vw - 12px))}
-      ${PANEL_SELECTOR} .xo-bandpass-side{padding:0 8px;gap:8px}
-      ${PANEL_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field{
+      ${BANDPASS_SELECTOR}{width:min(430px,calc(100vw - 12px))}
+      ${BANDPASS_SELECTOR} .xo-bandpass-side{padding:0 8px;gap:8px}
+      ${BANDPASS_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field{
         grid-template-columns:72px minmax(0,1fr);
         gap:5px;
         font-size:8px
       }
-      ${PANEL_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field select,
-      ${PANEL_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field input[type="number"]{
+      ${BANDPASS_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field select,
+      ${BANDPASS_SELECTOR} .xo-bandpass-side .xo-filter-parameter-field input[type="number"]{
         height:32px;
         padding:0 6px;
         font-size:9px
@@ -69,9 +73,11 @@ function fieldByName(body,name){
   )||null;
 }
 
-function renameField(field,label){
+function renameField(field,label,ariaLabel){
   const name=field?.querySelector(':scope > span');
   if(name) name.textContent=label;
+  const control=field?.querySelector('input,select');
+  if(control&&ariaLabel) control.setAttribute('aria-label',ariaLabel);
 }
 
 function clampPanelPosition(left,top,panel){
@@ -80,7 +86,7 @@ function clampPanelPosition(left,top,panel){
   const viewportTop=viewport?.offsetTop||0;
   const viewportWidth=viewport?.width||window.innerWidth;
   const viewportHeight=viewport?.height||window.innerHeight;
-  const width=panel.offsetWidth||520;
+  const width=panel.offsetWidth||(panel.classList.contains('is-bandpass')?520:252);
   const height=panel.offsetHeight||150;
   const margin=6;
   return {
@@ -90,21 +96,21 @@ function clampPanelPosition(left,top,panel){
 }
 
 function restoreUserPosition(panel){
-  if(panel.dataset.bandpassUserPositioned!=='1'||panel.classList.contains('is-bandpass-editor-dragging')) return;
-  const left=Number(panel.dataset.bandpassUserLeft);
-  const top=Number(panel.dataset.bandpassUserTop);
+  if(panel.dataset.crossoverUserPositioned!=='1'||panel.classList.contains('is-crossover-editor-dragging')) return;
+  const left=Number(panel.dataset.crossoverUserLeft);
+  const top=Number(panel.dataset.crossoverUserTop);
   if(!(Number.isFinite(left)&&Number.isFinite(top))) return;
   const pos=clampPanelPosition(left,top,panel);
   panel.style.left=pos.left+'px';
   panel.style.top=pos.top+'px';
-  panel.dataset.bandpassUserLeft=String(pos.left);
-  panel.dataset.bandpassUserTop=String(pos.top);
+  panel.dataset.crossoverUserLeft=String(pos.left);
+  panel.dataset.crossoverUserTop=String(pos.top);
 }
 
 function startDrag(event,panel){
   if(event.button!==undefined&&event.button!==0) return;
   if(event.target.closest('button,input,label,select,textarea,a')) return;
-  event.preventDefault();
+  if(event.cancelable) event.preventDefault();
   event.stopPropagation();
 
   const head=event.currentTarget;
@@ -112,7 +118,7 @@ function startDrag(event,panel){
   const rect=panel.getBoundingClientRect();
   const dx=event.clientX-rect.left;
   const dy=event.clientY-rect.top;
-  panel.classList.add('is-bandpass-editor-dragging');
+  panel.classList.add('is-crossover-editor-dragging');
   try{head.setPointerCapture(pointerId)}catch{}
 
   const move=moveEvent=>{
@@ -121,14 +127,14 @@ function startDrag(event,panel){
     const pos=clampPanelPosition(moveEvent.clientX-dx,moveEvent.clientY-dy,panel);
     panel.style.left=pos.left+'px';
     panel.style.top=pos.top+'px';
-    panel.dataset.bandpassUserLeft=String(pos.left);
-    panel.dataset.bandpassUserTop=String(pos.top);
-    panel.dataset.bandpassUserPositioned='1';
+    panel.dataset.crossoverUserLeft=String(pos.left);
+    panel.dataset.crossoverUserTop=String(pos.top);
+    panel.dataset.crossoverUserPositioned='1';
   };
 
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
-    panel.classList.remove('is-bandpass-editor-dragging');
+    panel.classList.remove('is-crossover-editor-dragging');
     window.removeEventListener('pointermove',move);
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
@@ -141,11 +147,8 @@ function startDrag(event,panel){
   window.addEventListener('pointercancel',end);
 }
 
-function enhancePanel(panel){
-  if(!(panel instanceof HTMLElement)||panel.hasAttribute(ENHANCED_ATTR)) return;
-  const body=panel.querySelector('.xo-filter-parameter-popover-body');
-  const head=panel.querySelector('.xo-filter-parameter-popover-head');
-  if(!body||!head) return;
+function applyBandpassSideLayout(panel,body){
+  if(!panel.classList.contains('is-bandpass')||body.classList.contains('is-bandpass-side-layout')) return;
 
   const highpassSlope=fieldByName(body,'Highpass Slope');
   const lowFrequency=fieldByName(body,'Low Frequency');
@@ -155,18 +158,28 @@ function enhancePanel(panel){
 
   const lowpassSide=document.createElement('div');
   lowpassSide.className='xo-bandpass-side xo-bandpass-side--lowpass';
+  lowpassSide.setAttribute('aria-label','Lowpass settings');
   const highpassSide=document.createElement('div');
   highpassSide.className='xo-bandpass-side xo-bandpass-side--highpass';
+  highpassSide.setAttribute('aria-label','Highpass settings');
 
   // UI order only: LP lives on the left and HP on the right.
   // DSP ownership remains unchanged: LP uses highFrequencyHz, HP uses lowFrequencyHz.
-  renameField(highFrequency,'Frequency');
-  renameField(lowFrequency,'Frequency');
+  renameField(highFrequency,'Frequency','Lowpass Frequency in Hz');
+  renameField(lowFrequency,'Frequency','Highpass Frequency in Hz');
   lowpassSide.append(lowpassSlope,highFrequency);
   highpassSide.append(highpassSlope,lowFrequency);
   body.replaceChildren(lowpassSide,highpassSide);
   body.classList.add('is-bandpass-side-layout');
+}
 
+function enhancePanel(panel){
+  if(!(panel instanceof HTMLElement)||panel.hasAttribute(ENHANCED_ATTR)) return;
+  const body=panel.querySelector('.xo-filter-parameter-popover-body');
+  const head=panel.querySelector('.xo-filter-parameter-popover-head');
+  if(!body||!head) return;
+
+  applyBandpassSideLayout(panel,body);
   head.addEventListener('pointerdown',event=>startDrag(event,panel));
   panel.setAttribute(ENHANCED_ATTR,'1');
 }
