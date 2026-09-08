@@ -69,10 +69,10 @@
                 <strong>Measurement</strong>
                 <span id="measurementLineLabel">RAPTOR Line</span>
               </div>
-              <span class="measurement-import">
-                <input class="measurement-file-input" id="measurementFileInput" type="file" multiple aria-label="Import measurement files" />
+              <label class="measurement-import" for="measurementFileInput">
+                <input class="measurement-file-input" id="measurementFileInput" type="file" multiple hidden aria-label="Import measurement files" />
                 <span class="measurement-import-label" aria-hidden="true">+ Import</span>
-              </span>
+              </label>
             </header>
 
             <div class="measurement-summary" id="measurementSummary"><strong>0</strong> measurements</div>
@@ -255,7 +255,7 @@
   <script src="./measurement-canonical-v1.js"></script>
   <script src="./pipeline-workspace-theme.js?v=zoom-theme-sync-20260830-1"></script>
   <script src="./pipeline.js?v=cycle-guard-20260901-1"></script>
-  <script src="./measurement-import.js?v=explicit-user-picker-v5-20260906-1"></script>
+  <script src="./measurement-import.js?v=native-label-v6-20260908-1"></script>
   <script src="./pipeline-interactions.js"></script>
   <script src="./pipeline-context.js?v=canvas-zoom-20260830-2"></script>
   <script src="./eq-geometry-rbj.js"></script>
