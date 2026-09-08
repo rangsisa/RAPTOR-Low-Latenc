@@ -1,6 +1,13 @@
 (()=>{
 'use strict';
 
+if(!document.querySelector('script[data-crossover-parameter-window-v2]')){
+  const helper=document.createElement('script');
+  helper.src='./crossover-parameter-window.js?v=bandpass-layout-draggable-20260908-1';
+  helper.dataset.crossoverParameterWindowV2='1';
+  document.head.appendChild(helper);
+}
+
 const scroller=document.querySelector('.pipeline-strip .pipeline-scroll');
 const row=document.getElementById('pipelineRow');
 if(!scroller||!row) return;
