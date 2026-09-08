@@ -16,10 +16,36 @@ const FILTER_COMMANDS=Object.freeze([
 let menu=null;
 let request=null;
 let targetExportLoader=null;
+let bandpassEditorLoader=null;
 
 function activeLine(){
   return window.RaptorPipeline?.getActiveLine?.()||null;
 }
+
+function ensureBandpassEditorModule(){
+  if(bandpassEditorLoader) return bandpassEditorLoader;
+  bandpassEditorLoader=new Promise((resolve,reject)=>{
+    const existing=document.querySelector('script[data-raptor-bandpass-side-editor]');
+    if(existing){
+      resolve(existing);
+      return;
+    }
+    const script=document.createElement('script');
+    script.src='./crossover-bandpass-editor.js?v=bandpass-side-layout-v1-20260908-1';
+    script.async=true;
+    script.dataset.raptorBandpassSideEditor='';
+    script.addEventListener('load',()=>resolve(script),{once:true});
+    script.addEventListener('error',()=>{
+      bandpassEditorLoader=null;
+      script.remove();
+      reject(new Error('Bandpass side editor module failed to load'));
+    },{once:true});
+    document.body.appendChild(script);
+  });
+  return bandpassEditorLoader;
+}
+
+ensureBandpassEditorModule().catch(error=>console.error('[RAPTOR Bandpass Editor]',error));
 
 function ensureTargetExportStyle(){
   if(document.querySelector('link[data-raptor-target-export-style]')) return;
