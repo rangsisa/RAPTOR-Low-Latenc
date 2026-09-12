@@ -1,22 +1,22 @@
-.measurement-node{max-width:min(540px,calc(100vw - 96px));max-height:none;overflow:visible;border-radius:8px;background:#fff;box-shadow:0 4px 14px rgba(24,32,42,.10)}
+.measurement-node{max-width:none;max-height:none;overflow:visible;border-radius:8px;background:#fff;box-shadow:0 4px 14px rgba(24,32,42,.10)}
 .measurement-node-head{cursor:grab;touch-action:none;user-select:none;border-radius:7px 7px 0 0}
 .measurement-node.is-dragging{z-index:12;box-shadow:0 8px 24px rgba(24,32,42,.16)}
 .measurement-node.is-dragging .measurement-node-head{cursor:grabbing}
 .measurement-import{cursor:pointer;touch-action:manipulation;user-select:none}
 .measurement-list{overflow:visible!important}
-.measurement-file{width:max-content;max-width:none;grid-template-columns:auto auto minmax(100px,max-content) auto;padding-right:8px}
-.measurement-file-info{max-width:420px}
-.measurement-file-name,.measurement-file-meta{max-width:420px}
+.measurement-file{box-sizing:border-box;width:100%;min-width:0;max-width:100%;grid-template-columns:13px minmax(0,1fr) 20px;padding-right:26px}
+.measurement-node.is-selecting .measurement-file{grid-template-columns:13px 13px minmax(0,1fr) 20px}
+.measurement-file-info{width:100%;min-width:0;max-width:none;align-items:flex-start;text-align:left;overflow:hidden}
+.measurement-file-name,.measurement-file-meta{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .measurement-node-foot{border-radius:0 0 7px 7px}
 .measurement-output{right:-22px}
 @media(max-width:700px){
-  .measurement-node{width:max-content;min-width:214px;max-width:calc(100vw - 72px)}
+  .measurement-node{width:min(248px,calc(100vw - 48px));min-width:0;max-width:none}
   .measurement-list{width:100%;max-width:100%;overflow:visible!important}
-  .measurement-file{box-sizing:border-box;width:100%;min-width:0;max-width:100%;grid-template-columns:auto auto minmax(0,1fr) auto;padding-right:8px}
-  .measurement-file-check{grid-column:1}
-  .measurement-color{grid-column:2}
-  .measurement-file-info{grid-column:3;min-width:0;width:100%;max-width:none;overflow:hidden}
-  .measurement-preview-button{grid-column:4}
+  .measurement-file{box-sizing:border-box;width:100%;min-width:0;max-width:100%;grid-template-columns:13px minmax(0,1fr) 20px;padding-right:26px}
+  .measurement-node.is-selecting .measurement-file{grid-template-columns:13px 13px minmax(0,1fr) 20px}
+  .measurement-file-check,.measurement-color,.measurement-file-info,.measurement-preview-button{grid-column:auto}
+  .measurement-file-info{min-width:0;width:100%;max-width:none;overflow:hidden}
   .measurement-file-name,.measurement-file-meta{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .measurement-output{right:-22px}
 }
