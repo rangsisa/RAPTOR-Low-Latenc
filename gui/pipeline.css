@@ -132,7 +132,7 @@
 .pipeline-wire-inspect-layer{position:absolute;inset:0;z-index:30;width:100%;height:100%;pointer-events:none;overflow:visible}
 .pipeline-wire-preview{fill:none;stroke-width:2;stroke-linecap:round;opacity:.94}
 .pipeline-wire-end{pointer-events:none;stroke:#fff;stroke-width:2;filter:drop-shadow(0 1px 1px rgba(24,32,42,.18))}
-.measurement-node{position:absolute;left:24px;top:50%;z-index:2;width:max-content;min-width:214px;max-width:min(460px,calc(100vw - 48px));max-height:calc(100% - 30px);display:grid;grid-template-rows:36px auto minmax(38px,1fr) 34px;border:1px solid #8f9ca7;border-radius:5px;background:#fff;box-shadow:0 2px 7px rgba(24,32,42,.07);overflow:hidden;transform:translateY(-50%)}
+.measurement-node{position:absolute;left:24px;top:50%;z-index:2;width:max-content;min-width:214px;max-width:min(320px,calc(100vw - 48px));max-height:calc(100% - 30px);display:grid;grid-template-rows:36px auto minmax(38px,1fr) 34px;border:1px solid #8f9ca7;border-radius:5px;background:#fff;box-shadow:0 2px 7px rgba(24,32,42,.07);overflow:hidden;transform:translateY(-50%)}
 .measurement-node.is-wiring{border-color:#6f7d88;box-shadow:0 0 0 2px rgba(232,111,23,.12),0 4px 12px rgba(24,32,42,.1);transition:border-color 90ms ease,box-shadow 90ms ease}
 .measurement-node.is-dragging{box-shadow:0 8px 22px rgba(24,32,42,.16);cursor:grabbing}
 .measurement-node[hidden]{display:none!important}
@@ -185,22 +185,23 @@
 .file-color-choice:hover{transform:scale(1.08)}
 .measurement-preview{position:fixed;z-index:150;box-sizing:border-box;width:min(1196px,calc(100vw - 28px));max-height:calc(100vh - 24px);border:1px solid #8f9ca7;border-radius:9px;background:#fff;box-shadow:0 18px 42px rgba(21,31,40,.24),0 0 0 1px rgba(24,32,42,.05);overflow:hidden}
 .measurement-preview[hidden]{display:none!important}
-.measurement-preview-head{height:38px;display:flex;align-items:center;gap:9px;padding:0 7px 0 12px;border-bottom:1px solid #bfc8cf;background:linear-gradient(#fff,#f5f7f8)}
+.measurement-preview-head{height:38px;display:flex;align-items:center;gap:9px;padding:0 7px 0 12px;border-bottom:1px solid #bfc8cf;background:linear-gradient(#fff,#f5f7f8);cursor:grab;user-select:none;touch-action:none}
+.measurement-preview.is-dragging .measurement-preview-head{cursor:grabbing}
 .measurement-preview-head strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2d3943;font-size:11.5px}
 .measurement-preview-file-dot{width:12px;height:12px;flex:0 0 12px;border-radius:50%;background:#8FA6B8;box-shadow:0 0 0 1px rgba(25,34,42,.24)}
 .measurement-preview-close{margin-left:auto;width:27px;height:27px;padding:0;border:0;border-radius:4px;background:transparent;color:#53616c;font-size:19px;line-height:1;cursor:pointer}
 .measurement-preview-close:hover{color:#26323d}
 .measurement-preview-graph{position:relative;height:min(300px,calc(100vh - 152px));background:#fff}
 .measurement-preview-graph canvas{display:block;width:100%;height:100%}
-.measurement-preview-meta{display:grid;grid-template-columns:1fr 1fr;margin:0;padding:9px 13px 10px;border-top:1px solid #d0d6dc;background:#fbfcfd;gap:7px 18px}
-.measurement-preview-meta div{min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:5px}
-.measurement-preview-meta .measurement-preview-wide{grid-column:1/-1}
+.measurement-preview-meta{display:grid;grid-template-columns:repeat(5,max-content);justify-content:center;margin:0;padding:9px 13px 10px;border-top:1px solid #d0d6dc;background:#fbfcfd;gap:7px 24px}
+.measurement-preview-meta div{min-width:0;display:flex;align-items:baseline;justify-content:flex-start;gap:5px}
+.measurement-preview-meta .measurement-preview-wide{grid-column:auto}
 .measurement-preview-meta dt,.measurement-preview-meta dd{margin:0;font-size:9px;white-space:nowrap}
 .measurement-preview-meta dt{color:#6a7781}.measurement-preview-meta dd{overflow:hidden;text-overflow:ellipsis;color:#34414c;font-weight:700;font-variant-numeric:tabular-nums}
 @media(max-width:700px){
   .measurement-preview{width:calc(100vw - 10px);max-height:calc(100vh - 10px)}
   .measurement-preview-graph{height:min(240px,calc(100vh - 142px))}
-  .measurement-preview-meta{padding:8px 10px 9px;gap:6px 12px}
+  .measurement-preview-meta{grid-template-columns:repeat(2,max-content);justify-content:start;padding:8px 10px 9px;gap:6px 16px}
   .measurement-preview-meta dt,.measurement-preview-meta dd{font-size:8px}
 }
 @media(max-height:720px){.pipeline-node-canvas{inset:58px 0 0}.pipeline-canvas-controls{top:68px}.measurement-node{max-height:calc(100% - 20px)}}

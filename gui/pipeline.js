@@ -22,6 +22,7 @@ const wireLayer=wirePath.closest('svg');
 const inputRegistry=new Map();
 const preview=document.getElementById('measurementPreview');
 const previewCanvas=document.getElementById('measurementPreviewCanvas');
+const previewHead=preview.querySelector('.measurement-preview-head');
 const previewTitle=document.getElementById('measurementPreviewTitle');
 const previewDot=document.getElementById('measurementPreviewDot');
 const previewClose=document.getElementById('measurementPreviewClose');
@@ -36,6 +37,7 @@ let selectedIds=new Set();
 let colorTarget=null;
 let previewEntry=null;
 let previewAnchor=null;
+let activePreviewDrag=null;
 let fileIdSequence=0;
 
 function createState(){
@@ -609,19 +611,39 @@ function drawPreview(entry){
   ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('180°',R+4*graphScale,T-2*graphScale);
   ctx.textBaseline='bottom';ctx.fillText('-180°',R+4*graphScale,B+1);
 
-  ctx.strokeStyle='#26323d';
-  ctx.lineWidth=1.25*graphScale;
-  ctx.lineJoin='round';
-  ctx.beginPath();
-  let magStarted=false;
+  const previewColor=entry.color||'#8FA6B8';
+  const magnitudePoints=[];
   for(const i of visibleIndices){
     const f=frequency[i],v=magnitude[i];
     if(!Number.isFinite(v)) continue;
-    const x=xOf(f),y=yMag(v);
-    magStarted?ctx.lineTo(x,y):ctx.moveTo(x,y);
-    magStarted=true;
+    magnitudePoints.push([xOf(f),yMag(v)]);
   }
-  if(magStarted) ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(L,T,R-L,B-T);
+  ctx.clip();
+
+  if(magnitudePoints.length){
+    const magnitudeFill=ctx.createLinearGradient(0,T,0,B);
+    magnitudeFill.addColorStop(0,hexTint(previewColor,.28));
+    magnitudeFill.addColorStop(.58,hexTint(previewColor,.13));
+    magnitudeFill.addColorStop(1,hexTint(previewColor,.035));
+    ctx.fillStyle=magnitudeFill;
+    ctx.beginPath();
+    ctx.moveTo(magnitudePoints[0][0],B);
+    for(const [x,y] of magnitudePoints) ctx.lineTo(x,y);
+    ctx.lineTo(magnitudePoints[magnitudePoints.length-1][0],B);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle='#26323d';
+    ctx.lineWidth=1.25*graphScale;
+    ctx.lineJoin='round';
+    ctx.beginPath();
+    magnitudePoints.forEach(([x,y],index)=>index?ctx.lineTo(x,y):ctx.moveTo(x,y));
+    ctx.stroke();
+  }
 
   if(phase){
     ctx.strokeStyle='#2f6f9f';
@@ -642,6 +664,53 @@ function drawPreview(entry){
     }
     if(started) ctx.stroke();
   }
+  ctx.restore();
+}
+
+function clampPreviewPosition(left,top){
+  const width=preview.offsetWidth||286;
+  const height=preview.offsetHeight||230;
+  const maxLeft=Math.max(6,window.innerWidth-width-6);
+  const maxTop=Math.max(6,window.innerHeight-height-6);
+  return {
+    left:Math.max(6,Math.min(maxLeft,left)),
+    top:Math.max(6,Math.min(maxTop,top))
+  };
+}
+
+function endPreviewDrag(event){
+  const drag=activePreviewDrag;
+  if(!drag||(event&&event.pointerId!==drag.pointerId)) return;
+  previewHead.removeEventListener('pointermove',drag.move);
+  previewHead.removeEventListener('pointerup',drag.end);
+  previewHead.removeEventListener('pointercancel',drag.end);
+  if(previewHead.hasPointerCapture?.(drag.pointerId)) previewHead.releasePointerCapture(drag.pointerId);
+  activePreviewDrag=null;
+  preview.classList.remove('is-dragging');
+}
+
+function startPreviewDrag(event){
+  if(preview.hidden||event.isPrimary===false||(event.button!==undefined&&event.button!==0)||event.target.closest('.measurement-preview-close')) return;
+  event.preventDefault();
+  endPreviewDrag();
+  const rect=preview.getBoundingClientRect();
+  const pointerId=event.pointerId;
+  const offsetX=event.clientX-rect.left;
+  const offsetY=event.clientY-rect.top;
+  const move=moveEvent=>{
+    if(moveEvent.pointerId!==pointerId) return;
+    moveEvent.preventDefault();
+    const position=clampPreviewPosition(moveEvent.clientX-offsetX,moveEvent.clientY-offsetY);
+    preview.style.left=`${position.left}px`;
+    preview.style.top=`${position.top}px`;
+  };
+  const end=endEvent=>endPreviewDrag(endEvent);
+  activePreviewDrag={pointerId,move,end};
+  preview.classList.add('is-dragging');
+  previewHead.setPointerCapture?.(pointerId);
+  previewHead.addEventListener('pointermove',move);
+  previewHead.addEventListener('pointerup',end);
+  previewHead.addEventListener('pointercancel',end);
 }
 
 function openPreview(anchor,entry){
@@ -672,15 +741,15 @@ function openPreview(anchor,entry){
   const height=preview.offsetHeight||230;
   let left=rect.right+10;
   if(left+width>window.innerWidth-6) left=rect.left-width-10;
-  left=Math.max(6,Math.min(window.innerWidth-width-6,left));
   let top=rect.top-height*.42;
-  top=Math.max(6,Math.min(window.innerHeight-height-6,top));
-  preview.style.left=`${left}px`;
-  preview.style.top=`${top}px`;
+  const position=clampPreviewPosition(left,top);
+  preview.style.left=`${position.left}px`;
+  preview.style.top=`${position.top}px`;
   requestAnimationFrame(()=>drawPreview(entry));
 }
 
 function closePreview(){
+  endPreviewDrag();
   if(previewAnchor){
     previewAnchor.classList.remove('is-preview-open');
     previewAnchor.setAttribute('aria-pressed','false');
@@ -863,6 +932,7 @@ colorMenu.querySelectorAll('.file-color-choice').forEach(button=>{
 });
 
 previewClose.addEventListener('click',closePreview);
+previewHead.addEventListener('pointerdown',startPreviewDrag);
 
 document.addEventListener('pointerdown',event=>{
   if(!colorMenu.hidden&&!colorMenu.contains(event.target)&&!event.target.closest('.measurement-color')) closeColorMenu();
