@@ -1,8 +1,8 @@
 /* Dynamic Lowpass / Highpass crossover nodes. */
 .xo-filter-node{
   --lineage-color:#8FA6B8;
-  --lineage-tint:rgba(143,166,184,.12);
-  --lineage-tint-soft:rgba(143,166,184,.055);
+  --lineage-tint:rgba(143,166,184,.24);
+  --lineage-tint-soft:rgba(143,166,184,.12);
   position:absolute;
   z-index:4;
   width:244px;

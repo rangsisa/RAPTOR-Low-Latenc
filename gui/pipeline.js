@@ -450,7 +450,7 @@ function renderFiles(){
     row.className='measurement-file'+(selectedIds.has(entry.id)?' is-selected':'')+(entry.status==='error'?' is-error':'');
     row.dataset.measurementId=entry.id;
     row.style.setProperty('--file-color',entry.color);
-    row.style.setProperty('--file-tint',hexTint(entry.color));
+    row.style.setProperty('--file-tint',hexTint(entry.color,.22));
 
     const checkbox=document.createElement('input');
     checkbox.className='measurement-file-check';
@@ -573,19 +573,20 @@ function drawPreview(entry){
   const span=Math.max(12,magMax-magMin);
   magMin=center-span*.58;
   magMax=center+span*.58;
-  const L=27,R=w-27,T=11,B=h-18;
+  const graphScale=Math.max(1,Math.min(1.55,Math.min(w/620,h/300)));
+  const L=28*graphScale,R=w-28*graphScale,T=12*graphScale,B=h-20*graphScale;
   const xOf=f=>L+(Math.log10(f)-log0)/(log1-log0)*(R-L);
   const yMag=v=>B-(v-magMin)/(magMax-magMin)*(B-T);
   const yPhase=v=>B-(Math.max(-180,Math.min(180,v))+180)/360*(B-T);
 
-  ctx.lineWidth=1;
+  ctx.lineWidth=Math.max(1,graphScale*.8);
   for(let i=0;i<=4;i++){
     const y=T+(B-T)*i/4;
     ctx.strokeStyle=i===2?'#b8c1c8':'#d9dfe4';
     ctx.beginPath();ctx.moveTo(L,y+.5);ctx.lineTo(R,y+.5);ctx.stroke();
   }
   const decades=[20,50,100,200,500,1000,2000,5000,10000,20000,50000];
-  ctx.font='7px Arial,sans-serif';
+  ctx.font=`${(7.5*graphScale).toFixed(1)}px Arial,sans-serif`;
   ctx.fillStyle='#687680';
   ctx.textAlign='center';
   ctx.textBaseline='top';
@@ -594,18 +595,18 @@ function drawPreview(entry){
     const x=xOf(f);
     ctx.strokeStyle='#d9dfe4';
     ctx.beginPath();ctx.moveTo(x+.5,T);ctx.lineTo(x+.5,B);ctx.stroke();
-    if([20,100,1000,10000,20000].includes(f)) ctx.fillText(f>=1000?`${f/1000}k`:`${f}`,x,B+4);
+    if([20,100,1000,10000,20000].includes(f)) ctx.fillText(f>=1000?`${f/1000}k`:`${f}`,x,B+4*graphScale);
   }
   ctx.strokeStyle='#9eabb4';
   ctx.strokeRect(L+.5,T+.5,R-L-1,B-T-1);
   ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#687680';
-  ctx.fillText(`${magMax.toFixed(1)}`,L-4,T-2);
-  ctx.textBaseline='bottom';ctx.fillText(`${magMin.toFixed(1)}`,L-4,B+1);
-  ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('180°',R+4,T-2);
-  ctx.textBaseline='bottom';ctx.fillText('-180°',R+4,B+1);
+  ctx.fillText(`${magMax.toFixed(1)}`,L-4*graphScale,T-2*graphScale);
+  ctx.textBaseline='bottom';ctx.fillText(`${magMin.toFixed(1)}`,L-4*graphScale,B+1);
+  ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('180°',R+4*graphScale,T-2*graphScale);
+  ctx.textBaseline='bottom';ctx.fillText('-180°',R+4*graphScale,B+1);
 
   ctx.strokeStyle='#26323d';
-  ctx.lineWidth=1.25;
+  ctx.lineWidth=1.25*graphScale;
   ctx.lineJoin='round';
   ctx.beginPath();
   let magStarted=false;
@@ -620,7 +621,7 @@ function drawPreview(entry){
 
   if(phase){
     ctx.strokeStyle='#2f6f9f';
-    ctx.lineWidth=1.15;
+    ctx.lineWidth=1.15*graphScale;
     let started=false,previous=null;
     ctx.beginPath();
     for(let i=0;i<points;i++){

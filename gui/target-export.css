@@ -47,7 +47,7 @@
   border:1px solid color-mix(in srgb,var(--source-color) 42%,#cfd7de);
   border-left:4px solid var(--source-color);
   border-radius:4px;
-  background:color-mix(in srgb,var(--source-color) 13%,#fff)
+  background:color-mix(in srgb,var(--source-color) 22%,#fff)
 }
 .target-export-source-row strong{
   font-size:8px;

@@ -563,8 +563,8 @@ function applyNodeLineage(node,filter){
   node.classList.toggle('is-bypassed',filter.bypass===true);
   node.classList.toggle('is-filtering',filter.bypass!==true);
   node.style.setProperty('--lineage-color',color);
-  node.style.setProperty('--lineage-tint',hexTint(color,.12));
-  node.style.setProperty('--lineage-tint-soft',hexTint(color,.055));
+  node.style.setProperty('--lineage-tint',hexTint(color,.24));
+  node.style.setProperty('--lineage-tint-soft',hexTint(color,.12));
 
   const inputName=node.querySelector('[data-filter-input-name]');
   if(inputName) inputName.textContent=entry?.name||'Not connected';

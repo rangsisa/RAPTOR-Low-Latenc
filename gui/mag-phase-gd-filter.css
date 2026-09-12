@@ -2,8 +2,8 @@
 
 .mpgd-filter-node{
   --lineage-color:#8FA6B8;
-  --lineage-tint:rgba(143,166,184,.12);
-  --lineage-tint-soft:rgba(143,166,184,.055);
+  --lineage-tint:rgba(143,166,184,.24);
+  --lineage-tint-soft:rgba(143,166,184,.12);
   position:absolute;
   z-index:4;
   width:226px;
@@ -1760,4 +1760,3 @@
     0 0 0 1.05px var(--band-color),
     0 1.4px 3.5px rgba(20,30,40,.24)!important
 }
-
