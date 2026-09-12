@@ -9,7 +9,8 @@ const DEFAULTS=Object.freeze({
   minPhaseTravelDeg:300,minMedianCoherence:.20,
   coherenceWeightFloor:.20,coherenceWeightScale:.80,
   madSigma:3.5,madFloorDeg:2,linearR2Min:.992,linearRmseMaxDeg:6,
-  boundaryEpsilonDeg:1e-7,frequencyEpsilonHz:1e-9,maxOverlaySegments:900
+  boundaryEpsilonDeg:1e-7,frequencyEpsilonHz:1e-9,maxOverlaySegments:900,
+  displayMinFrequencyHz:-Infinity,displayMaxFrequencyHz:Infinity,maxReversePhaseTravelDeg:30
 });
 const opts=o=>Object.freeze({...DEFAULTS,...(o||{})});
 const finite=v=>Number.isFinite(Number(v));
@@ -37,7 +38,7 @@ function prepareViews(views,options){
       const target=boundary+offset,den=ui-pu;
       let t=Math.abs(den)<=o.boundaryEpsilonDeg?0:(target-pu)/den;
       t=Math.max(0,Math.min(1,t));
-      boundaries.push({leftIndex:i-1,rightIndex:i,frequencyHz:pf+(fi-pf)*t,wrappedPhaseDeg:boundary,unwrappedPhaseDeg:target});
+      boundaries.push({leftIndex:i-1,rightIndex:i,frequencyHz:pf+(fi-pf)*t,wrappedPhaseDeg:boundary,unwrappedPhaseDeg:target,direction:Math.sign(den)});
     }
     offset=next;pf=fi;pp=pi;pu=ui;
   }
@@ -50,33 +51,39 @@ function localDirection(prep,index){
   for(let span=4;span<=32;span+=4){const a=Math.max(r.start,index-span),b=Math.min(r.end,index+span),d=prep.unwrapped[b]-prep.unwrapped[a];if(Math.abs(d)>1e-9)return Math.sign(d);}
   return 0;
 }
-function interpolateLevel(prep,run,target,direction){
-  const u=prep.unwrapped,f=prep.views.frequency_hz,p=prep.views.phase_deg,e=prep.options.boundaryEpsilonDeg;
-  for(let i=run.start;i<run.end;i++){
-    const a=u[i],b=u[i+1];
-    if(Math.abs(a-target)<=e)return{frequencyHz:Number(f[i]),wrappedPhaseDeg:Number(p[i]),unwrappedPhaseDeg:target,leftIndex:i,rightIndex:i,t:0};
-    const crosses=direction>0?(a<=target&&b>=target):(a>=target&&b<=target);
-    if(crosses){const t=Math.abs(b-a)<=e?0:(target-a)/(b-a);return{frequencyHz:Number(f[i])+(Number(f[i+1])-Number(f[i]))*t,wrappedPhaseDeg:wrap180(target),unwrappedPhaseDeg:target,leftIndex:i,rightIndex:i+1,t};}
-  }
-  if(Math.abs(u[run.end]-target)<=e)return{frequencyHz:Number(f[run.end]),wrappedPhaseDeg:Number(p[run.end]),unwrappedPhaseDeg:target,leftIndex:run.end,rightIndex:run.end,t:0};
-  return null;
+function visibleEndpoint(boundary,role,direction){
+  const wrapped=role==='start'?(direction>0?-180:180):(direction>0?180:-180);
+  return Object.freeze({...boundary,wrappedPhaseDeg:wrapped});
+}
+function turnMotion(prep,start,end,direction){
+  const u=prep.unwrapped;let previous=start.unwrappedPhaseDeg,forward=0,reverse=0;
+  function add(value){const d=direction*(value-previous);if(d>=0)forward+=d;else reverse-=d;previous=value;}
+  for(let i=start.rightIndex;i<=end.leftIndex;i++)if(Number.isFinite(u[i]))add(u[i]);
+  add(end.unwrappedPhaseDeg);
+  const totalAbsoluteDeg=forward+reverse;
+  return Object.freeze({forwardDeg:forward,reverseDeg:reverse,totalAbsoluteDeg,directionConsistency:totalAbsoluteDeg>0?forward/totalAbsoluteDeg:0});
 }
 function selectTurn(prep,index){
   const id=prep.runId[index];if(id<0)return{status:'UNREADABLE',reason:'INVALID_GAP'};
   const run=prep.runs[id],direction=localDirection(prep,index);if(!direction)return{status:'UNREADABLE',reason:'NO_PHASE_DIRECTION'};
-  const refF=Number(prep.views.frequency_hz[index]),bs=run.boundaries,e=prep.options.frequencyEpsilonHz;
-  let before=-1;for(let j=0;j<bs.length;j++){if(bs[j].frequencyHz<=refF+e)before=j;else break;}
-  if(before>=0&&Math.abs(bs[before].frequencyHz-refF)<=e&&before>0)return{run,direction,start:bs[before-1],end:bs[before],boundaryMode:'wrap'};
-  if(before>=0&&before+1<bs.length)return{run,direction,start:bs[before],end:bs[before+1],boundaryMode:'wrap'};
-  const u0=prep.unwrapped[run.start],ur=prep.unwrapped[index],progress=direction*(ur-u0);
-  let k=Math.floor((progress+prep.options.boundaryEpsilonDeg)/360);if(k<0)k=0;
-  for(const candidate of [k,k-1]){
-    if(candidate<0)continue;
-    const a=u0+direction*360*candidate,b=a+direction*360;
-    const start=interpolateLevel(prep,run,a,direction),end=interpolateLevel(prep,run,b,direction);
-    if(start&&end&&start.frequencyHz<=refF+e&&end.frequencyHz>=refF-e)return{run,direction,start,end,boundaryMode:'derived'};
+  const refF=Number(prep.views.frequency_hz[index]),o=prep.options,e=o.frequencyEpsilonHz;
+  if(refF<o.displayMinFrequencyHz-e||refF>o.displayMaxFrequencyHz+e)return{status:'UNREADABLE',reason:'REFERENCE_OUTSIDE_DISPLAY'};
+  // A readable turn is one complete visible branch between two same-direction
+  // wrap boundaries. Never complete a partial edge branch with hidden data.
+  const bs=run.boundaries.filter(b=>b.frequencyHz>=o.displayMinFrequencyHz-e&&b.frequencyHz<=o.displayMaxFrequencyHz+e);
+  let rejectedReason=null;
+  for(let j=0;j+1<bs.length;j++){
+    const a=bs[j],b=bs[j+1];
+    if(index<a.rightIndex||index>b.leftIndex)continue;
+    const travel=b.unwrappedPhaseDeg-a.unwrappedPhaseDeg;
+    if(a.direction!==direction||b.direction!==direction||Math.sign(travel)!==direction||Math.abs(Math.abs(travel)-360)>o.boundaryEpsilonDeg){
+      rejectedReason='TURN_DIRECTION_CHANGED';continue;
+    }
+    const start=visibleEndpoint(a,'start',direction),end=visibleEndpoint(b,'end',direction),motion=turnMotion(prep,start,end,direction);
+    if(motion.reverseDeg>o.maxReversePhaseTravelDeg){rejectedReason='NON_MONOTONIC_VISIBLE_TURN';continue;}
+    return{run,direction,start,end,motion,boundaryMode:'visible-wrap'};
   }
-  return{status:'UNREADABLE',reason:'INCOMPLETE_TURN'};
+  return{status:'UNREADABLE',reason:rejectedReason||'INCOMPLETE_VISIBLE_TURN'};
 }
 function weightedFit(xs,ys,ws,mask){
   let sw=0,sx=0,sy=0;for(let i=0;i<xs.length;i++){if(mask&&!mask[i])continue;const w=ws[i];sw+=w;sx+=w*xs[i];sy+=w*ys[i];}
@@ -123,7 +130,8 @@ function analyzePrepared(prep,index){
     status:linear?'LINEAR_DELAY':'AVERAGE_ONLY',reason:linear?'ROBUST_LINEAR_FIT':'NON_CONSTANT_DELAY_CURVATURE',
     delayInterpretation:primary<0?'NEGATIVE_DELAY / TIME_ADVANCE':'POSITIVE_DELAY',
     start:sel.start,reference:{index,frequencyHz:Number(prep.views.frequency_hz[index]),wrappedPhaseDeg:Number(prep.views.phase_deg[index]),unwrappedPhaseDeg:Number(prep.unwrapped[index])},end:sel.end,
-    deltaFrequencyHz:df,phaseTravelDeg:travel,rotations:Math.abs(travel)/360,equivalentDelayMs:avg,fittedDelayMs:fitted,
+    deltaFrequencyHz:df,phaseTravelDeg:travel,rotations:Math.abs(travel)/360,pathRotations:sel.motion.totalAbsoluteDeg/360,
+    reversePhaseTravelDeg:sel.motion.reverseDeg,directionConsistency:sel.motion.directionConsistency,equivalentDelayMs:avg,fittedDelayMs:fitted,
     slopeDegPerHz:fit.slopeDegPerHz,interceptDeg:fit.interceptDeg,r2:fit.r2,rmse:fit.rmse,coherenceMedian:cohMedian,
     pointsAvailable:pts.x.length,pointsUsed:fit.pointsUsed,pointsRejected:fit.pointsRejected,boundaryMode:sel.boundaryMode,sourceIndices:pts.ids
   });
@@ -143,13 +151,22 @@ function hitTest(prep,clientX,clientY,rect,xOf,yPhase,displayIndices,targetFrequ
   const gx=Math.max(0,Math.min(prep.options.graphWidth,(clientX-rect.left)/Math.max(1,rect.width)*prep.options.graphWidth));
   let lo=0,hi=ids.length-1;while(lo<hi){const m=(lo+hi)>>1;if(xOf(Number(prep.views.frequency_hz[ids[m]]))<gx)lo=m+1;else hi=m;}
   const from=Math.max(1,lo-5),to=Math.min(ids.length-1,lo+5);let best=null;
-  for(let j=from;j<=to;j++){const a=ids[j-1],b=ids[j];for(const s of pairSegments(prep,a,b,xOf,yPhase)){const x1=rect.left+s[0]/prep.options.graphWidth*rect.width,y1=rect.top+s[1]/prep.options.graphHeight*rect.height,x2=rect.left+s[2]/prep.options.graphWidth*rect.width,y2=rect.top+s[3]/prep.options.graphHeight*rect.height,d=distance(clientX,clientY,x1,y1,x2,y2);if(!best||d<best.distancePx)best={distancePx:d,a,b};}}
-  if(!best||best.distancePx>prep.options.hitRadiusPx)return null;return{index:binaryNearest(prep.views.frequency_hz,targetFrequencyHz,Math.min(best.a,best.b),Math.max(best.a,best.b)),distancePx:best.distancePx};
+  for(let j=from;j<=to;j++){
+    const a=ids[j-1],b=ids[j],segments=pairSegments(prep,a,b,xOf,yPhase);
+    for(let segmentIndex=0;segmentIndex<segments.length;segmentIndex++){
+      const s=segments[segmentIndex],x1=rect.left+s[0]/prep.options.graphWidth*rect.width,y1=rect.top+s[1]/prep.options.graphHeight*rect.height,x2=rect.left+s[2]/prep.options.graphWidth*rect.width,y2=rect.top+s[3]/prep.options.graphHeight*rect.height,d=distance(clientX,clientY,x1,y1,x2,y2);
+      if(!best||d<best.distancePx)best={distancePx:d,a,b,segmentIndex,segmentCount:segments.length};
+    }
+  }
+  if(!best||best.distancePx>prep.options.hitRadiusPx)return null;
+  const index=best.segmentCount===2?(best.segmentIndex===0?best.a:best.b):binaryNearest(prep.views.frequency_hz,targetFrequencyHz,Math.min(best.a,best.b),Math.max(best.a,best.b));
+  return{index,distancePx:best.distancePx};
 }
 function geometry(prep,result,xOf,yPhase){
   if(!result?.start||!result?.end||!result?.reference)return null;
   const pts=[{frequencyHz:result.start.frequencyHz,wrappedPhaseDeg:result.start.wrappedPhaseDeg}];
-  for(let i=0;i<prep.points;i++){const f=Number(prep.views.frequency_hz[i]);if(f>result.start.frequencyHz&&f<result.end.frequencyHz&&prep.runId[i]>=0)pts.push({frequencyHz:f,wrappedPhaseDeg:Number(prep.views.phase_deg[i])});}
+  const resultRunId=prep.runId[result.reference.index];
+  for(let i=0;i<prep.points;i++){const f=Number(prep.views.frequency_hz[i]);if(f>result.start.frequencyHz&&f<result.end.frequencyHz&&prep.runId[i]===resultRunId)pts.push({frequencyHz:f,wrappedPhaseDeg:Number(prep.views.phase_deg[i])});}
   pts.push({frequencyHz:result.end.frequencyHz,wrappedPhaseDeg:result.end.wrappedPhaseDeg});
   if(pts.length>prep.options.maxOverlaySegments+2){const keep=[pts[0]],stride=(pts.length-1)/prep.options.maxOverlaySegments;for(let n=1;n<prep.options.maxOverlaySegments;n++)keep.push(pts[Math.min(pts.length-2,Math.round(n*stride))]);keep.push(pts[pts.length-1]);pts.splice(0,pts.length,...keep);}
   const segments=[];for(let i=1;i<pts.length;i++)segments.push(...visibleSegments(pts[i-1].frequencyHz,pts[i-1].wrappedPhaseDeg,pts[i].frequencyHz,pts[i].wrappedPhaseDeg,xOf,yPhase));

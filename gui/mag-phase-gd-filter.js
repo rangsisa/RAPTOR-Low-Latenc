@@ -1691,7 +1691,7 @@ function ensurePhaseTurnInspector(win,filter,plot){
     frequencyAtRatio,
     xOf,
     yPhase,
-    options:{graphWidth:GRAPH_WIDTH,graphHeight:GRAPH_HEIGHT,hitRadiusPx:12},
+    options:{graphWidth:GRAPH_WIDTH,graphHeight:GRAPH_HEIGHT,hitRadiusPx:12,displayMinFrequencyHz:F0,displayMaxFrequencyHz:F1},
     shouldIgnoreEvent:event=>!!event.target?.closest?.('.mpgd-band-marker,.mpgd-phase-turn-panel'),
     onResult:result=>renderPhaseTurnInspector(win,result)
   });
