@@ -576,8 +576,8 @@
 }
 .mpgd-filter-svg--mag .uncertainty-needles{
   fill:none;
-  stroke:rgba(220,72,72,.13);
-  stroke-width:1.15;
+  stroke:rgba(210,48,48,.52);
+  stroke-width:1.7;
   stroke-linecap:butt;
   vector-effect:non-scaling-stroke
 }
@@ -920,6 +920,30 @@
   color:#9aa4ab;
   font-size:7.5px;
   text-align:center
+}
+.mpgd-band-rack-add{
+  width:100%;
+  min-height:30px;
+  margin:0 0 5px;
+  border:1px dashed #9ca9b3;
+  border-radius:5px;
+  background:#fff;
+  color:#34414c;
+  font-size:8.8px;
+  font-weight:800;
+  cursor:pointer;
+  touch-action:manipulation
+}
+.mpgd-band-rack-add:hover,
+.mpgd-band-rack-add:focus-visible{
+  border-color:var(--raptor-active-border);
+  background:var(--raptor-active-soft);
+  color:#9a4a10;
+  outline:none
+}
+.mpgd-band-rack-add:disabled{
+  opacity:.45;
+  cursor:default
 }
 .mpgd-band-rack-row{
   --band-color:#FF1744;

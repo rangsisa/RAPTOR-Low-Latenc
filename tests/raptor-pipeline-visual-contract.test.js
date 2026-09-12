@@ -14,10 +14,15 @@ const mpgdJs=read('gui/mag-phase-gd-filter.js');
 const targetCss=read('gui/target-export.css');
 
 assert.match(pipelineCss,/\.measurement-preview\{[^}]*width:min\(1196px,calc\(100vw - 28px\)\)/);
-assert.match(pipelineCss,/\.measurement-preview-graph\{[^}]*height:min\(560px,calc\(100vh - 152px\)\)/);
+assert.match(pipelineCss,/\.pipeline-strip \.pipeline-card\{[^}]*grid-template-columns:max-content 44px;/);
+assert.match(pipelineCss,/\.measurement-preview-graph\{[^}]*height:min\(300px,calc\(100vh - 152px\)\)/);
 assert.match(pipelineCss,/@media\(max-width:700px\)\{\s*\.measurement-preview\{[^}]*width:calc\(100vw - 10px\)/);
+assert.match(pipelineCss,/@media\(max-width:700px\)[\s\S]*?\.measurement-preview-graph\{height:min\(240px,calc\(100vh - 142px\)\)\}/);
 assert.match(pipelineJs,/hexTint\(entry\.color,\.22\)/);
 assert.match(pipelineJs,/const graphScale=Math\.max\(1,Math\.min\(1\.55,/);
+assert.match(pipelineJs,/const previewMinFrequencyHz=20;/);
+assert.match(pipelineJs,/const previewMaxFrequencyHz=20000;/);
+assert.doesNotMatch(pipelineJs,/20000,50000/);
 
 for(const source of [crossoverCss,mpgdCss]){
   assert.match(source,/--lineage-tint:rgba\(143,166,184,\.24\)/);

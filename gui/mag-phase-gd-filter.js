@@ -9,6 +9,7 @@ const measurementNode=document.getElementById('measurementNode');
 const measurementList=document.getElementById('measurementList');
 const rbj=window.RaptorEqGeometryRBJ||null;
 const responseHost=window.RaptorResponseHostV1||null;
+const bandLayout=window.RaptorMagPhaseGdBandLayout||null;
 if(!api||!workspaceView||!canvas||!wireSvg||!measurementNode||!measurementList) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
@@ -17,10 +18,10 @@ const F1=20000;
 const GRAPH_WIDTH=1000;
 const GRAPH_HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
-const UNCERTAINTY_NEEDLE_MAX_HEIGHT=GRAPH_HEIGHT*.30;
-const UNCERTAINTY_NEEDLE_MIN_SPACING=10;
+const UNCERTAINTY_NEEDLE_MAX_HEIGHT=GRAPH_HEIGHT*.46;
+const UNCERTAINTY_NEEDLE_MIN_SPACING=7;
 const UNCERTAINTY_MAG_RELIEF_DB=6;
-const UNCERTAINTY_CONFIDENCE_FLOOR=.25;
+const UNCERTAINTY_CONFIDENCE_FLOOR=.55;
 const PHASE_LIFT_GAIN_MIN_DEG=-180;
 const PHASE_LIFT_GAIN_MAX_DEG=180;
 const FREQ_TICKS=[
@@ -1503,34 +1504,62 @@ function ensureBandContext(){
     const filter=filterById(request.filterId);
     if(!filter||!sourceEntry(filter)) return;
 
-    const fs=Number(filter.sampleRateHz??sourceEntry(filter)?.sampleRate??sourceEntry(filter)?.canonical?.sample_rate_hz);
-    const maxFrequency=Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
-    const frequencyHz=Math.max(F0,Math.min(maxFrequency,request.frequencyHz));
-    const band={
-      id:'band-'+Date.now().toString(36)+'-'+(filter.bands.length+1),
-      type:'peaking',
-      frequencyHz,
-      gainDb:0,
-      q:1.41421356,
-      graphKind:request.graphKind==='phase'?'phase':'magnitude'
-    };
-    filter.bands.push(band);
-    invalidateResponseHost(filter,'band-add');
-
     const win=windows.get(filter.id);
-    if(win&&!win.hidden){
-      win._activeBandId=band.id;
-      renderWindow(filter,win);
-    }
-    renderNodes();
-    document.dispatchEvent(new CustomEvent('raptor:filteraddband',{
-      detail:{filterId:filter.id,bandId:band.id,frequencyHz}
-    }));
+    addBandAtFrequency(filter,win,request.graphKind,request.frequencyHz);
   });
   menu.appendChild(add);
   document.body.appendChild(menu);
   bandContextMenu=menu;
   return menu;
+}
+
+function maximumBandFrequency(filter){
+  const entry=sourceEntry(filter);
+  const fs=Number(filter.sampleRateHz??entry?.sampleRate??entry?.canonical?.sample_rate_hz);
+  return Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
+}
+
+function nextDefaultBandFrequency(filter,kind){
+  const graphKind=kind==='phase'?'phase':'magnitude';
+  const maximum=maximumBandFrequency(filter);
+  const existing=filter.bands
+    .filter(band=>(band.graphKind==='phase'?'phase':'magnitude')===graphKind)
+    .map(band=>band.frequencyHz);
+  if(bandLayout?.nextFrequency){
+    return bandLayout.nextFrequency(existing,{
+      minFrequencyHz:F0,
+      maxFrequencyHz:maximum,
+      preferredFrequencyHz:1000
+    });
+  }
+  return Math.max(F0,Math.min(maximum,1000));
+}
+
+function addBandAtFrequency(filter,win,kind,requestedFrequencyHz){
+  if(!filter||!sourceEntry(filter)) return null;
+  const graphKind=kind==='phase'?'phase':'magnitude';
+  const maximum=maximumBandFrequency(filter);
+  const frequencyHz=Math.max(F0,Math.min(maximum,Number(requestedFrequencyHz)));
+  if(!Number.isFinite(frequencyHz)) return null;
+  const band={
+    id:'band-'+Date.now().toString(36)+'-'+(filter.bands.length+1),
+    type:'peaking',
+    frequencyHz,
+    gainDb:0,
+    q:1.41421356,
+    graphKind
+  };
+  filter.bands.push(band);
+  invalidateResponseHost(filter,'band-add');
+  if(win&&!win.hidden){
+    win._activeBandId=band.id;
+    renderWindow(filter,win);
+  }
+  renderNodes();
+  document.dispatchEvent(new CustomEvent('raptor:filteraddband',{
+    detail:{filterId:filter.id,bandId:band.id,frequencyHz,graphKind}
+  }));
+  return band;
 }
 
 function openBandContext(event,filter,kind){
@@ -1698,19 +1727,23 @@ function ensurePhaseTurnInspector(win,filter,plot){
 }
 
 function restoreIdleGraphReadout(win,filter,kind){
-  const entry=sourceEntry(filter);
   const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
   const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
-
-  // Keep Measurement filenames visible at idle, but never expose internal
-  // filter labels / generated filter IDs in the graph readout. Filter-backed
-  // graphs show only live cursor values while the pointer is over the plot.
-  if(readout){
-    readout.textContent=entry?.sourceKind==='filter'
-      ?'—'
-      :(entry?.name||'No input');
-  }
+  if(readout) readout.textContent='—';
   if(pointer) pointer.textContent='—';
+}
+
+function setTraceReadout(win,kind,frequencyHz,phaseDeg,magnitudeDb){
+  const readout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
+  if(!readout) return;
+  const value=kind==='phase'?phaseDeg:magnitudeDb;
+  if(!(Number.isFinite(frequencyHz)&&Number.isFinite(value))){
+    readout.textContent='—';
+    return;
+  }
+  readout.textContent=kind==='phase'
+    ?formatFrequency(frequencyHz)+' · '+value.toFixed(1)+'°'
+    :formatFrequency(frequencyHz)+' · '+value.toFixed(2)+' dB';
 }
 
 function bindPlot(win,filter,plot){
@@ -1726,11 +1759,10 @@ function bindPlot(win,filter,plot){
     const phase=views.phase_deg[i];
     const mag=views.magnitude_db[i];
 
-    const lineReadout=win.querySelector('.mpgd-filter-readout[data-kind="'+kind+'"]');
-    if(lineReadout){
-      lineReadout.textContent=kind==='phase'
-        ?formatFrequency(f)+' · '+phase.toFixed(1)+'°'
-        :formatFrequency(f)+' · '+mag.toFixed(2)+' dB';
+    const ui=filter.ui||{};
+    const readoutKinds=ui.sync===false?[kind]:['phase','magnitude'];
+    for(const targetKind of readoutKinds){
+      setTraceReadout(win,targetKind,f,phase,mag);
     }
 
     const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top)/Math.max(1,rect.height)));
@@ -1743,7 +1775,6 @@ function bindPlot(win,filter,plot){
     }
 
     const x=xOf(f);
-    const ui=filter.ui||{};
     for(const targetKind of ['phase','magnitude']){
       const targetPlot=win.querySelector('.mpgd-filter-plot[data-kind="'+targetKind+'"]');
       const svg=targetPlot?.querySelector('svg');
@@ -1755,7 +1786,8 @@ function bindPlot(win,filter,plot){
   });
 
   plot.addEventListener('pointerleave',()=>{
-    restoreIdleGraphReadout(win,filter,kind);
+    const kinds=filter.ui?.sync===false?[kind]:['phase','magnitude'];
+    for(const targetKind of kinds) restoreIdleGraphReadout(win,filter,targetKind);
     win.querySelectorAll('.cursor,.cursor-point').forEach(node=>node.hidden=true);
   });
 
@@ -2018,7 +2050,7 @@ function buildBandRackSection(kind){
   const head=document.createElement('header');
   head.className='mpgd-band-rack-head';
   const title=document.createElement('strong');
-  title.textContent=kind==='phase'?'PHASE LIFT BANDS':'MAG BANDS';
+  title.textContent=kind==='phase'?'PHASE BANDS':'MAG BANDS';
   const count=document.createElement('span');
   count.dataset.rackCount=kind;
   count.textContent='0';
@@ -2032,7 +2064,7 @@ function buildBandRackSection(kind){
   return section;
 }
 
-function renderBandRack(filter,win){
+function renderBandRack(filter,win,hasSource){
   for(const kind of ['phase','magnitude']){
     const list=win.querySelector('[data-rack-list="'+kind+'"]');
     const count=win.querySelector('[data-rack-count="'+kind+'"]');
@@ -2044,6 +2076,19 @@ function renderBandRack(filter,win){
       .filter(item=>(item.band.graphKind==='phase'?'phase':'magnitude')===kind);
 
     if(count) count.textContent=String(entries.length);
+
+    const add=document.createElement('button');
+    add.className='mpgd-band-rack-add';
+    add.type='button';
+    add.textContent='Add Band';
+    add.disabled=!hasSource;
+    add.title=add.disabled
+      ?'Connect a Measurement input first'
+      :'Add a band at the next open frequency';
+    add.addEventListener('click',()=>{
+      addBandAtFrequency(filter,win,kind,nextDefaultBandFrequency(filter,kind));
+    });
+    list.appendChild(add);
 
     if(!entries.length){
       const empty=document.createElement('div');
@@ -2168,7 +2213,7 @@ function renderWindow(filter,win){
   win.classList.toggle('is-bypassed',filter.bypass===true);
 
   renderBandMarkers(filter,win,views);
-  renderBandRack(filter,win);
+  renderBandRack(filter,win,!!entry);
 
   if(win._activeBandId&&!filter.bands.some(b=>b.id===win._activeBandId)){
     win._activeBandId=null;

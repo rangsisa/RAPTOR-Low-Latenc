@@ -559,14 +559,18 @@ function drawPreview(entry){
     magnitude_db:magnitude,
     phase_deg:phase
   }=canonicalV1.views(entry.canonical);
-  const positive=[];
+  const previewMinFrequencyHz=20;
+  const previewMaxFrequencyHz=20000;
+  const visibleIndices=[];
   const mags=[];
   for(let i=0;i<points;i++){
-    if(Number.isFinite(frequency[i])&&frequency[i]>0) positive.push(frequency[i]);
+    const f=frequency[i];
+    if(!(Number.isFinite(f)&&f>=previewMinFrequencyHz&&f<=previewMaxFrequencyHz)) continue;
+    visibleIndices.push(i);
     if(Number.isFinite(magnitude[i])) mags.push(magnitude[i]);
   }
-  if(!positive.length||!mags.length) return;
-  const f0=Math.min(...positive),f1=Math.max(...positive);
+  if(!visibleIndices.length||!mags.length) return;
+  const f0=previewMinFrequencyHz,f1=previewMaxFrequencyHz;
   const log0=Math.log10(f0),log1=Math.log10(f1);
   let magMin=Math.min(...mags),magMax=Math.max(...mags);
   const center=(magMin+magMax)/2;
@@ -585,7 +589,7 @@ function drawPreview(entry){
     ctx.strokeStyle=i===2?'#b8c1c8':'#d9dfe4';
     ctx.beginPath();ctx.moveTo(L,y+.5);ctx.lineTo(R,y+.5);ctx.stroke();
   }
-  const decades=[20,50,100,200,500,1000,2000,5000,10000,20000,50000];
+  const decades=[20,50,100,200,500,1000,2000,5000,10000,20000];
   ctx.font=`${(7.5*graphScale).toFixed(1)}px Arial,sans-serif`;
   ctx.fillStyle='#687680';
   ctx.textAlign='center';
@@ -610,9 +614,9 @@ function drawPreview(entry){
   ctx.lineJoin='round';
   ctx.beginPath();
   let magStarted=false;
-  for(let i=0;i<points;i++){
+  for(const i of visibleIndices){
     const f=frequency[i],v=magnitude[i];
-    if(!(Number.isFinite(f)&&f>0&&Number.isFinite(v))) continue;
+    if(!Number.isFinite(v)) continue;
     const x=xOf(f),y=yMag(v);
     magStarted?ctx.lineTo(x,y):ctx.moveTo(x,y);
     magStarted=true;
@@ -624,9 +628,9 @@ function drawPreview(entry){
     ctx.lineWidth=1.15*graphScale;
     let started=false,previous=null;
     ctx.beginPath();
-    for(let i=0;i<points;i++){
+    for(const i of visibleIndices){
       const f=frequency[i],v=phase[i];
-      if(!(Number.isFinite(f)&&f>0&&Number.isFinite(v))) continue;
+      if(!Number.isFinite(v)) continue;
       const x=xOf(f),y=yPhase(v);
       if(!started||previous===null||Math.abs(v-previous)>300){
         if(started) ctx.stroke();
