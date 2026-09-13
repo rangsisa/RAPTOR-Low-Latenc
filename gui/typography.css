@@ -44,6 +44,13 @@ body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .workspace-shell .pipeline-context-action{font-size:10.5px}
 
 /* Measurement node and preview. */
+.workspace-shell .bank-file-title strong{font-size:12px}
+.workspace-shell .bank-file-title span{font-size:9px}
+.workspace-shell .bank-file-badge{font-size:8px}
+.workspace-shell .bank-file-name{font-size:10.5px;line-height:1.12}
+.workspace-shell .bank-file-meta{font-size:8.25px;line-height:1.15}
+.workspace-shell .bank-file-foot{font-size:8.5px}
+.workspace-shell .bank-file-foot strong{font-size:9.5px}
 .workspace-shell .measurement-node-title strong{font-size:12px}
 .workspace-shell .measurement-node-title span{font-size:9px}
 .workspace-shell .measurement-import{font-size:10px}

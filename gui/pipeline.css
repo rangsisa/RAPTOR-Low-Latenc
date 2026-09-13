@@ -139,6 +139,24 @@
 .pipeline-wire-inspect-layer{position:absolute;inset:0;z-index:30;width:100%;height:100%;pointer-events:none;overflow:visible}
 .pipeline-wire-preview{fill:none;stroke-width:2;stroke-linecap:round;opacity:.94}
 .pipeline-wire-end{pointer-events:none;stroke:#fff;stroke-width:2;filter:drop-shadow(0 1px 1px rgba(24,32,42,.18))}
+.bank-file-node{position:absolute;left:24px;top:8px;z-index:2;box-sizing:border-box;width:min(248px,calc(100vw - 48px));height:194px;min-width:0;display:grid;grid-template-rows:35px 126px 31px;border:1px solid #778590;border-radius:8px;background:#fff;box-shadow:0 4px 14px rgba(24,32,42,.10);overflow:visible}
+.bank-file-node[hidden]{display:none!important}
+.bank-file-node.is-wiring{border-color:#495761;box-shadow:0 0 0 2px rgba(255,45,149,.13),0 5px 16px rgba(24,32,42,.13)}
+.bank-file-head{min-width:0;display:flex;align-items:center;gap:7px;padding:0 7px;border-bottom:1px solid #b8c2ca;border-radius:7px 7px 0 0;background:linear-gradient(90deg,#f4f7f8 0%,#fff9e9 100%);user-select:none}
+.bank-file-title{min-width:0;display:flex;flex-direction:column;line-height:1.05}
+.bank-file-title strong{color:#202a33;font-size:11px}
+.bank-file-title span{margin-top:2px;color:#72808b;font-size:7.5px;white-space:nowrap}
+.bank-file-badge{margin-left:auto;padding:3px 6px;border:1px solid rgba(116,135,0,.42);border-radius:9px;background:#f1ffd7;color:#526700;font-size:7px;font-weight:850;letter-spacing:.07em}
+.bank-file-list{min-width:0;display:grid;grid-template-rows:repeat(3,42px);background:#fff}
+.bank-file-row{height:42px;min-height:42px;grid-template-columns:13px minmax(0,1fr) 20px;padding-right:26px;background:linear-gradient(90deg,var(--file-tint) 0%,var(--file-tint) 27%,#fff 88%)}
+.bank-file-row.is-wiring{background:linear-gradient(90deg,var(--file-tint) 0%,var(--file-tint) 35%,#fff8ef 94%)}
+.bank-file-swatch{width:13px;height:13px;border:1px solid rgba(25,34,42,.28);border-radius:50%;background:var(--file-color);box-shadow:inset 0 0 0 2px rgba(255,255,255,.62),0 0 5px var(--file-tint)}
+.bank-file-info{width:100%;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;line-height:1.05;overflow:hidden}
+.bank-file-name,.bank-file-meta{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-file-name{color:#26323d;font-size:9.5px;font-weight:800;letter-spacing:.02em}
+.bank-file-meta{width:100%;margin-top:3px;color:#697680;font-size:7.5px;font-variant-numeric:tabular-nums}
+.bank-file-foot{min-width:0;display:flex;align-items:center;gap:8px;padding:0 8px;border-top:1px solid #bfc8d0;border-radius:0 0 7px 7px;background:#f7f9fa;color:#74808a;font-size:7.5px}
+.bank-file-foot strong{margin-left:auto;color:#34414c;font-size:9px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .measurement-node{position:absolute;left:24px;top:50%;z-index:2;width:min(248px,calc(100vw - 48px));min-width:0;max-width:none;max-height:calc(100% - 30px);display:grid;grid-template-rows:36px auto minmax(38px,1fr) 34px;border:1px solid #8f9ca7;border-radius:5px;background:#fff;box-shadow:0 2px 7px rgba(24,32,42,.07);overflow:hidden;transform:translateY(-50%)}
 .measurement-node.is-wiring{border-color:#6f7d88;box-shadow:0 0 0 2px rgba(232,111,23,.12),0 4px 12px rgba(24,32,42,.1);transition:border-color 90ms ease,box-shadow 90ms ease}
 .measurement-node.is-dragging{box-shadow:0 8px 22px rgba(24,32,42,.16);cursor:grabbing}

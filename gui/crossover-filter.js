@@ -6,6 +6,7 @@ const workspaceView=window.RaptorPipelineWorkspaceView;
 const canvas=document.getElementById('pipelineNodeCanvas');
 const wireSvg=document.querySelector('.pipeline-wire-layer');
 const measurementNode=document.getElementById('measurementNode');
+const bankFileNode=document.getElementById('bankFileNode');
 const measurementList=document.getElementById('measurementList');
 const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
 const crossoverResponse=window.RaptorCrossoverResponse||null;
@@ -1024,10 +1025,9 @@ function ensureWireGroup(){
   return persistentWireGroup;
 }
 function measurementHandle(fileId){
-  const files=(activeCard?activeCard._raptorLineState?.nodes?.measurement?.files:[])||[];
-  const index=files.findIndex(file=>file.id===fileId);
-  if(index<0) return null;
-  return [...measurementList.querySelectorAll('.measurement-file')][index]?.querySelector('.measurement-output')||null;
+  const row=[...canvas.querySelectorAll('[data-measurement-id]')]
+    .find(candidate=>candidate.dataset.measurementId===String(fileId));
+  return row?.querySelector('.measurement-output')||null;
 }
 function filterHandle(filterId){
   const crossoverNode=[...canvas.querySelectorAll('.xo-filter-node')]
@@ -1211,6 +1211,11 @@ new MutationObserver(()=>{
 new MutationObserver(scheduleConnections)
   .observe(measurementNode,{attributes:true,attributeFilter:['style']});
 new ResizeObserver(scheduleConnections).observe(measurementNode);
+if(bankFileNode){
+  new MutationObserver(scheduleConnections)
+    .observe(bankFileNode,{attributes:true,attributeFilter:['style','hidden']});
+  new ResizeObserver(scheduleConnections).observe(bankFileNode);
+}
 canvas.addEventListener('scroll',scheduleConnections,{passive:true});
 document.addEventListener('raptor:pipelineobstacleschange',scheduleConnections);
 document.addEventListener('raptor:pipelinezoomchange',scheduleConnections);

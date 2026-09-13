@@ -8,6 +8,7 @@ const nodeCanvas=document.getElementById('pipelineNodeCanvas');
 const workspaceView=window.RaptorPipelineWorkspaceView;
 if(!workspaceView) throw new Error('pipeline-workspace-theme.js must load before pipeline.js');
 const emptyState=document.getElementById('pipelineNodeEmpty');
+const bankFileNode=document.getElementById('bankFileNode');
 const measurementNode=document.getElementById('measurementNode');
 const measurementHead=measurementNode.querySelector('.measurement-node-head');
 const activeLineLabel=document.getElementById('measurementLineLabel');
@@ -20,6 +21,7 @@ const colorMenu=document.getElementById('fileColorMenu');
 const wirePath=document.getElementById('pipelineWirePreview');
 const wireLayer=wirePath.closest('svg');
 const inputRegistry=new Map();
+const registeredMeasurementSources=new Map();
 const preview=document.getElementById('measurementPreview');
 const previewCanvas=document.getElementById('measurementPreviewCanvas');
 const previewHead=preview.querySelector('.measurement-preview-head');
@@ -91,6 +93,22 @@ function setLoadState(card,active){
   if(button) button.setAttribute('aria-pressed',String(active));
 }
 
+function bankFileStackHeight(){
+  if(!bankFileNode||bankFileNode.hidden) return 0;
+  return (bankFileNode.offsetHeight||190)+8;
+}
+
+function positionMeasurementStack(x,y){
+  const safeX=Math.max(8,Number(x)||8);
+  const safeY=Math.max(8+bankFileStackHeight(),Number(y)||8);
+  measurementNode.style.transform='none';
+  workspaceView.positionNode(measurementNode,safeX,safeY);
+  if(bankFileNode&&!bankFileNode.hidden){
+    workspaceView.positionNode(bankFileNode,safeX,safeY-bankFileStackHeight());
+  }
+  return {x:safeX,y:safeY};
+}
+
 function applyMeasurementPosition(){
   if(!activeCard||measurementNode.hidden) return;
   const measurement=ensureState(activeCard).nodes.measurement;
@@ -101,8 +119,7 @@ function applyMeasurementPosition(){
     x=measurement.position.x;
     y=measurement.position.y;
   }
-  measurementNode.style.transform='none';
-  workspaceView.positionNode(measurementNode,Math.max(8,x),Math.max(8,y));
+  positionMeasurementStack(x,y);
 }
 
 function load(card){
@@ -115,6 +132,7 @@ function load(card){
   closeColorMenu();
   closePreview();
   emptyState.hidden=true;
+  if(bankFileNode) bankFileNode.hidden=false;
   measurementNode.hidden=false;
   activeLineLabel.textContent=card.dataset.lineName||'RAPTOR Line';
   renderFiles();
@@ -127,6 +145,10 @@ function clearLoaded(){
   selectionMode=false;
   selectedIds.clear();
   measurementNode.hidden=true;
+  if(bankFileNode){
+    bankFileNode.hidden=true;
+    bankFileNode.classList.remove('is-wiring');
+  }
   measurementNode.classList.remove('is-wiring','is-dragging');
   emptyState.hidden=false;
   wirePath.removeAttribute('d');
@@ -285,7 +307,7 @@ function blankCanvasDrop(clientX,clientY){
   const target=document.elementFromPoint?.(clientX,clientY)||null;
   if(!target||!nodeCanvas.contains(target)) return false;
   return !target.closest?.(
-    '.measurement-node,[data-filter-id],'+
+    '[data-source-node],[data-filter-id],'+
     '.pipeline-persistent-wire-hit,.pipeline-context-menu'
   );
 }
@@ -826,6 +848,7 @@ function startWire(event,source,handle){
   const color=source.color||'#8FA6B8';
   const row=handle.closest('.measurement-file');
   const measurementSource=sourceKind==='measurement'&&!!row;
+  const sourceNode=handle.closest('[data-source-node]')||(measurementSource?measurementNode:null);
 
   event.preventDefault();
   closePreview();
@@ -838,7 +861,7 @@ function startWire(event,source,handle){
   const startY=handleRect.top+handleRect.height/2-canvasRect.top+nodeCanvas.scrollTop;
 
   wirePath.setAttribute('stroke',color);
-  if(measurementSource) measurementNode.classList.add('is-wiring');
+  sourceNode?.classList.add('is-wiring');
   row?.classList.add('is-wiring');
   handle.classList.add('is-wiring');
 
@@ -903,7 +926,7 @@ function startWire(event,source,handle){
 
     wirePath.removeAttribute('d');
     clearRegisteredInputHighlights();
-    if(measurementSource) measurementNode.classList.remove('is-wiring');
+    sourceNode?.classList.remove('is-wiring');
     row?.classList.remove('is-wiring');
     handle.classList.remove('is-wiring');
 
@@ -950,10 +973,8 @@ function startNodeDrag(event){
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
     const point=workspaceView.clientToLogical(moveEvent.clientX,moveEvent.clientY);
-    const x=Math.max(8,point.x-grab.x);
-    const y=Math.max(8,point.y-grab.y);
-    workspaceView.positionNode(measurementNode,x,y);
-    ensureState(activeCard).nodes.measurement.position={x,y};
+    const position=positionMeasurementStack(point.x-grab.x,point.y-grab.y);
+    ensureState(activeCard).nodes.measurement.position=position;
   };
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
@@ -1008,8 +1029,21 @@ document.addEventListener('raptor:pipelinezoomchange',()=>{
   if(activeCard) requestAnimationFrame(applyMeasurementPosition);
 });
 
+function registerMeasurementSource(entry){
+  const id=String(entry?.id||'');
+  if(!id||!entry?.canonical) return false;
+  canonicalV1.validate(entry.canonical);
+  registeredMeasurementSources.set(id,entry);
+  return true;
+}
+
+function unregisterMeasurementSource(fileId){
+  return registeredMeasurementSources.delete(String(fileId||''));
+}
+
 function getMeasurement(fileId){
-  return activeFiles().find(file=>file.id===fileId)||null;
+  const id=String(fileId||'');
+  return activeFiles().find(file=>String(file.id)===id)||registeredMeasurementSources.get(id)||null;
 }
 
 function getMeasurementCanonical(fileId){
@@ -1040,6 +1074,8 @@ window.RaptorPipeline={
   startCanonicalWire,
   routeWire,
   importMeasurementFiles:importFiles,
+  registerMeasurementSource,
+  unregisterMeasurementSource,
   getMeasurement,
   getMeasurementCanonical,
   getActiveLine,

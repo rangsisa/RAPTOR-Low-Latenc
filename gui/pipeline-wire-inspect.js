@@ -105,12 +105,10 @@ function markLineageNodes(hits,color){
         color
       );
     }else if(hit.dataset.sourceKind==='measurement'&&sourceId){
-      markNode(document.getElementById('measurementNode'),color);
-      markNode(
-        [...canvas.querySelectorAll('.measurement-file')]
-          .find(row=>row.dataset.measurementId===sourceId),
-        color
-      );
+      const row=[...canvas.querySelectorAll('[data-measurement-id]')]
+        .find(candidate=>candidate.dataset.measurementId===sourceId);
+      markNode(row?.closest('[data-source-node]')||document.getElementById('measurementNode'),color);
+      markNode(row,color);
     }
   }
 }
@@ -208,7 +206,7 @@ canvas.addEventListener('click',event=>{
     return;
   }
 
-  if(event.target.closest?.('.measurement-node,.xo-filter-node,.mpgd-filter-node,.pipeline-context-menu')) return;
+  if(event.target.closest?.('[data-source-node],.xo-filter-node,.mpgd-filter-node,.pipeline-context-menu')) return;
   if(lockedWireId){
     lockedWireId=null;
     hoveredWireId=null;
