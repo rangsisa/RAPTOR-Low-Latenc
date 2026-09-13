@@ -6,9 +6,9 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css?v=hamburger-inline-align-20260906-1" />
   <link rel="stylesheet" href="./workspace.css?v=welcome-canvas-no-art-20260913-1" />
-  <link rel="stylesheet" href="./pipeline.css?v=compact-left-file-list-20260912-5" />
+  <link rel="stylesheet" href="./pipeline.css?v=smart-filter-create-20260913-1" />
   <link rel="stylesheet" href="./pipeline-interactions.css?v=compact-measurement-rows-20260912-1" />
-  <link rel="stylesheet" href="./pipeline-context.css?v=wire-underlay-inspect-20260830-1" />
+  <link rel="stylesheet" href="./pipeline-context.css?v=smart-filter-create-20260913-1" />
   <link rel="stylesheet" href="./matching/matching.css" />
   <link rel="stylesheet" href="./editor-foundation.css" />
   <link rel="stylesheet" href="./mag-phase-gd-filter.css?v=synced-readout-band-rack-20260912-1" />
@@ -88,12 +88,15 @@
           </section>
         </div>
         <div class="pipeline-canvas-controls" role="group" aria-label="Pipeline workspace view controls">
-          <div class="pipeline-zoom-controls" role="group" aria-label="Pipeline zoom">
-            <button class="pipeline-zoom-button" id="pipelineZoomOut" type="button" aria-label="Zoom out">−</button>
-            <output class="pipeline-zoom-value" id="pipelineZoomValue" aria-live="polite">100%</output>
-            <button class="pipeline-zoom-button" id="pipelineZoomIn" type="button" aria-label="Zoom in">+</button>
+          <button class="pipeline-canvas-filter-button" id="pipelineCanvasFilterButton" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Add filter at the center of the visible canvas"><span aria-hidden="true">＋</span> Filter</button>
+          <div class="pipeline-canvas-view-controls">
+            <div class="pipeline-zoom-controls" role="group" aria-label="Pipeline zoom">
+              <button class="pipeline-zoom-button" id="pipelineZoomOut" type="button" aria-label="Zoom out">−</button>
+              <output class="pipeline-zoom-value" id="pipelineZoomValue" aria-live="polite">100%</output>
+              <button class="pipeline-zoom-button" id="pipelineZoomIn" type="button" aria-label="Zoom in">+</button>
+            </div>
+            <button class="pipeline-canvas-theme-toggle" id="pipelineCanvasThemeToggle" type="button" aria-pressed="false" aria-label="Switch Pipeline workspace to dark mode">☾ Dark</button>
           </div>
-          <button class="pipeline-canvas-theme-toggle" id="pipelineCanvasThemeToggle" type="button" aria-pressed="false" aria-label="Switch Pipeline workspace to dark mode">☾ Dark</button>
         </div>
       </section>
 
@@ -256,10 +259,10 @@
   <script src="./crossover-passband-metadata.js?v=crossover-history-20260913-1"></script>
   <script src="./crossover-response.js?v=compiled-lr-cache-20260913-1"></script>
   <script src="./pipeline-workspace-theme.js?v=zoom-theme-sync-20260830-1"></script>
-  <script src="./pipeline.js?v=preview-drag-color-fill-20260912-4"></script>
+  <script src="./pipeline.js?v=smart-filter-create-20260913-1"></script>
   <script src="./measurement-import.js?v=native-label-v6-20260908-1"></script>
   <script src="./pipeline-interactions.js"></script>
-  <script src="./pipeline-context.js?v=target-export-performance-20260913-1"></script>
+  <script src="./pipeline-context.js?v=smart-filter-create-20260913-1"></script>
   <script src="./eq-geometry-rbj.js"></script>
   <script src="./response-host-v1.js?v=split-phase-mag-output-20260831-1"></script>
   <script src="./raptor-phase-turn-inspector.js?v=visible-phase-turn-20260912-1"></script>

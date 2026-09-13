@@ -166,6 +166,12 @@ function registeredInputForFilter(filterId){
   return null;
 }
 
+function registeredInputsForFilter(filterId){
+  const id=String(filterId||'');
+  if(!id) return [];
+  return [...inputRegistry.values()].filter(input=>String(input.ownerFilterId||'')===id);
+}
+
 function currentSourceRefForFilter(filterId){
   const input=registeredInputForFilter(filterId);
   if(input&&typeof input.getCurrentSourceRef==='function'){
@@ -219,6 +225,36 @@ function eligibleRegisteredInputs(entry){
   return eligible;
 }
 
+function sourceConnectionMeta(source,input){
+  const canonical=source?.canonical||null;
+  const sourceKind=source?.kind==='filter'?'filter':'measurement';
+  return {
+    inputId:input?.id||null,
+    sourceKind,
+    sourceId:String(source?.filterId??source?.id??''),
+    filterId:source?.filterId||null,
+    outputKind:source?.outputKind||null,
+    pairId:source?.pairId||null,
+    hostId:source?.hostId||null,
+    color:source?.color||'#8FA6B8',
+    format:source?.format||canonical?.format||canonicalV1.FORMAT,
+    payload:source?.payload||null,
+    projection:source?.projection||null
+  };
+}
+
+function connectSourceToFilter(filterId,source){
+  if(!source) return false;
+  for(const input of registeredInputsForFilter(filterId)){
+    if(!input.element?.isConnected) continue;
+    if(wouldCreateFilterCycle(source,input.ownerFilterId)) continue;
+    if(typeof input.canAccept==='function'&&!input.canAccept(source)) continue;
+    if(typeof input.onConnect!=='function') continue;
+    if(input.onConnect(source,sourceConnectionMeta(source,input))!==false) return true;
+  }
+  return false;
+}
+
 function nearestRegisteredInput(clientX,clientY,entry){
   let best=null;
   for(const input of eligibleRegisteredInputs(entry)){
@@ -241,6 +277,17 @@ function registeredInputCanvasPoint(input){
     x:rect.left+rect.width/2-canvasRect.left+nodeCanvas.scrollLeft,
     y:rect.top+rect.height/2-canvasRect.top+nodeCanvas.scrollTop
   };
+}
+
+function blankCanvasDrop(clientX,clientY){
+  const rect=nodeCanvas.getBoundingClientRect();
+  if(clientX<rect.left||clientX>rect.right||clientY<rect.top||clientY>rect.bottom) return false;
+  const target=document.elementFromPoint?.(clientX,clientY)||null;
+  if(!target||!nodeCanvas.contains(target)) return false;
+  return !target.closest?.(
+    '.measurement-node,[data-filter-id],'+
+    '.pipeline-persistent-wire-hit,.pipeline-context-menu'
+  );
 }
 
 function routeWire(start,end){
@@ -850,6 +897,9 @@ function startWire(event,source,handle){
       });
     }
 
+    const openCreateMenu=!magnet&&endEvent.type==='pointerup'&&
+      blankCanvasDrop(endEvent.clientX,endEvent.clientY);
+
     wirePath.removeAttribute('d');
     clearRegisteredInputHighlights();
     if(measurementSource) measurementNode.classList.remove('is-wiring');
@@ -860,6 +910,16 @@ function startWire(event,source,handle){
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
     try{if(handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId)}catch{}
+
+    if(openCreateMenu){
+      document.dispatchEvent(new CustomEvent('raptor:pipelinewireblankdrop',{
+        detail:{
+          clientX:endEvent.clientX,
+          clientY:endEvent.clientY,
+          source:{...source,kind:sourceKind,color,format:format||canonicalV1.FORMAT}
+        }
+      }));
+    }
   };
 
   move(event);
@@ -982,6 +1042,7 @@ window.RaptorPipeline={
   getMeasurement,
   getMeasurementCanonical,
   getActiveLine,
-  wouldCreateFilterCycle
+  wouldCreateFilterCycle,
+  connectSourceToFilter
 };
 })();

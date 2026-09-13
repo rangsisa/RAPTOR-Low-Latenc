@@ -3,6 +3,7 @@
 
 const canvas=document.getElementById('pipelineNodeCanvas');
 const workspaceView=window.RaptorPipelineWorkspaceView;
+const filterButton=document.getElementById('pipelineCanvasFilterButton');
 if(!canvas||!workspaceView) return;
 
 const FILTER_COMMANDS=Object.freeze([
@@ -98,6 +99,7 @@ function closeMenu(){
   if(!menu) return;
   menu.hidden=true;
   menu.replaceChildren();
+  filterButton?.setAttribute('aria-expanded','false');
   request=null;
 }
 
@@ -105,28 +107,75 @@ function canvasPoint(event){
   return workspaceView.clientToLogical(event.clientX,event.clientY);
 }
 
-function positionMenu(target,event){
+function positionMenu(target,clientX,clientY){
   target.hidden=false;
   target.style.left='0px';
   target.style.top='0px';
   const rect=target.getBoundingClientRect();
   const gap=6;
-  target.style.left=Math.round(Math.max(gap,Math.min(window.innerWidth-rect.width-gap,event.clientX)))+'px';
-  target.style.top=Math.round(Math.max(gap,Math.min(window.innerHeight-rect.height-gap,event.clientY)))+'px';
+  target.style.left=Math.round(Math.max(gap,Math.min(window.innerWidth-rect.width-gap,clientX)))+'px';
+  target.style.top=Math.round(Math.max(gap,Math.min(window.innerHeight-rect.height-gap,clientY)))+'px';
 }
 
-function openCanvasMenu(event){
-  event.preventDefault();
-  event.stopPropagation();
+function commandAcceptsSource(command,source){
+  return !source||command.type!=='target-export'||source.kind==='filter';
+}
 
+function connectCreatedFilter(filterId,source){
+  if(!filterId||!source) return false;
+  return window.RaptorPipeline?.connectSourceToFilter?.(filterId,source)===true;
+}
+
+function createRequestedFilter(command,current){
+  const lineNow=activeLine();
+  if(!lineNow||String(lineNow.id||'')!==String(current.lineId||'')) return;
+
+  if(command.type==='target-export'){
+    ensureTargetExportModule()
+      .then(module=>{
+        const active=activeLine();
+        if(!active||String(active.id||'')!==String(current.lineId||'')) return;
+        const created=module.createAt?.(current.x,current.y)||null;
+        if(current.source&&created?.id) connectCreatedFilter(created.id,current.source);
+      })
+      .catch(error=>console.error('[RAPTOR Target Export]',error));
+    return;
+  }
+
+  let createdId=null;
+  const onCreated=event=>{
+    if(event.detail?.filterType!==command.type) return;
+    if(String(event.detail?.lineId||'')!==String(current.lineId||'')) return;
+    createdId=String(event.detail?.filterId||'')||null;
+  };
+  document.addEventListener('raptor:filtercreated',onCreated);
+  try{
+    document.dispatchEvent(new CustomEvent('raptor:pipelinefilterrequest',{
+      detail:{
+        lineId:current.lineId,
+        lineName:current.lineName,
+        filterType:command.type,
+        filterLabel:command.label,
+        x:current.x,
+        y:current.y
+      }
+    }));
+  }finally{
+    document.removeEventListener('raptor:filtercreated',onCreated);
+  }
+  if(current.source&&createdId) connectCreatedFilter(createdId,current.source);
+}
+
+function openFilterMenu({clientX,clientY,x,y,source=null,origin='canvas'}={}){
   const line=activeLine();
-  const point=canvasPoint(event);
   request=Object.freeze({
-    kind:'canvas',
+    kind:source?'wire-drop':'canvas',
+    origin,
     lineId:line?.id||null,
     lineName:line?.name||'',
-    x:point.x,
-    y:point.y
+    x:Number(x),
+    y:Number(y),
+    source
   });
 
   const target=ensureMenu();
@@ -138,39 +187,46 @@ function openCanvasMenu(event){
     button.type='button';
     button.setAttribute('role','menuitem');
     button.textContent=command.label;
-    button.disabled=!line;
-    button.title=line?'Create '+command.label+' node here':'Load a RAPTOR Line first';
+    const compatible=commandAcceptsSource(command,source);
+    button.disabled=!line||!compatible;
+    button.title=!line?'Load a RAPTOR Line first':
+      compatible?(source?'Create + connect '+command.label:'Create '+command.label+' node here'):
+        'Target Export accepts filter outputs only';
     button.addEventListener('click',()=>{
       const current=request;
       closeMenu();
-      if(!current||current.kind!=='canvas'||!activeLine()) return;
-
-      if(command.type==='target-export'){
-        ensureTargetExportModule()
-          .then(module=>{
-            const lineNow=activeLine();
-            if(!lineNow||String(lineNow.id||'')!==String(current.lineId||'')) return;
-            module.createAt?.(current.x,current.y);
-          })
-          .catch(error=>console.error('[RAPTOR Target Export]',error));
-        return;
-      }
-
-      document.dispatchEvent(new CustomEvent('raptor:pipelinefilterrequest',{
-        detail:{
-          lineId:current.lineId,
-          lineName:current.lineName,
-          filterType:command.type,
-          filterLabel:command.label,
-          x:current.x,
-          y:current.y
-        }
-      }));
+      if(!current||!activeLine()) return;
+      createRequestedFilter(command,current);
     });
     target.appendChild(button);
   }
 
-  positionMenu(target,event);
+  positionMenu(target,clientX,clientY);
+  filterButton?.setAttribute('aria-expanded',origin==='toolbar'?'true':'false');
+}
+
+function openCanvasMenu(event){
+  event.preventDefault();
+  event.stopPropagation();
+  const point=canvasPoint(event);
+  openFilterMenu({clientX:event.clientX,clientY:event.clientY,x:point.x,y:point.y});
+}
+
+function openToolbarMenu(event){
+  event.preventDefault();
+  event.stopPropagation();
+  const canvasRect=canvas.getBoundingClientRect();
+  const buttonRect=filterButton.getBoundingClientRect();
+  const clientX=canvasRect.left+canvasRect.width/2;
+  const clientY=canvasRect.top+canvasRect.height/2;
+  const point=workspaceView.clientToLogical(clientX,clientY);
+  openFilterMenu({
+    clientX:buttonRect.left,
+    clientY:buttonRect.bottom+5,
+    x:point.x,
+    y:point.y,
+    origin:'toolbar'
+  });
 }
 
 function openWireMenu(event,hit){
@@ -202,8 +258,24 @@ function openWireMenu(event,hit){
     document.dispatchEvent(new CustomEvent('raptor:pipelinedisconnectrequest',{detail:{...current}}));
   });
   target.appendChild(disconnect);
-  positionMenu(target,event);
+  positionMenu(target,event.clientX,event.clientY);
 }
+
+filterButton?.addEventListener('click',openToolbarMenu);
+
+document.addEventListener('raptor:pipelinewireblankdrop',event=>{
+  const detail=event.detail||{};
+  if(!detail.source) return;
+  const point=workspaceView.clientToLogical(detail.clientX,detail.clientY);
+  openFilterMenu({
+    clientX:detail.clientX,
+    clientY:detail.clientY,
+    x:point.x,
+    y:point.y,
+    source:detail.source,
+    origin:'wire-drop'
+  });
+});
 
 canvas.addEventListener('contextmenu',event=>{
   const hit=event.target.closest?.('.pipeline-persistent-wire-hit');
@@ -229,6 +301,7 @@ canvas.addEventListener('scroll',closeMenu,{passive:true});
 
 window.RaptorPipelineContext=Object.freeze({
   close:closeMenu,
+  openAt:openFilterMenu,
   getRequest:()=>request?{...request}:null
 });
 })();
