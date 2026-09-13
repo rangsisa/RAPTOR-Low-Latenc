@@ -64,7 +64,7 @@ function ensureTargetExportModule(){
   ensureTargetExportStyle();
   targetExportLoader=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='./target-export.js?v=metadata-only-refresh-20260913-1';
+    script.src='./target-export.js?v=wire-drop-input-anchor-20260913-1';
     script.async=true;
     script.dataset.raptorTargetExportModule='';
     script.addEventListener('load',()=>{
@@ -129,13 +129,14 @@ function connectCreatedFilter(filterId,source){
 function createRequestedFilter(command,current){
   const lineNow=activeLine();
   if(!lineNow||String(lineNow.id||'')!==String(current.lineId||'')) return;
+  const placement=current.source?'input':'center';
 
   if(command.type==='target-export'){
     ensureTargetExportModule()
       .then(module=>{
         const active=activeLine();
         if(!active||String(active.id||'')!==String(current.lineId||'')) return;
-        const created=module.createAt?.(current.x,current.y)||null;
+        const created=module.createAt?.(current.x,current.y,{placement})||null;
         if(current.source&&created?.id) connectCreatedFilter(created.id,current.source);
       })
       .catch(error=>console.error('[RAPTOR Target Export]',error));
@@ -157,7 +158,8 @@ function createRequestedFilter(command,current){
         filterType:command.type,
         filterLabel:command.label,
         x:current.x,
-        y:current.y
+        y:current.y,
+        placement
       }
     }));
   }finally{

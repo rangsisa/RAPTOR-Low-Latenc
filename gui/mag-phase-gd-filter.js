@@ -918,10 +918,13 @@ function renderNodes(){
   scheduleConnections();
 }
 
-function createFilterAt(x,y){
+function createFilterAt(x,y,{placement='center'}={}){
   if(!activeCard) return null;
   const filters=ensureFilters(activeCard);
-  const filter=defaultFilterState(clampNodePosition({x:x-111,y:y-64}));
+  const position=placement==='input'
+    ?{x,y:y-68}
+    :{x:x-111,y:y-64};
+  const filter=defaultFilterState(clampNodePosition(position));
   filters.push(filter);
   renderNodes();
 
@@ -2439,7 +2442,11 @@ function listFilters(){
 document.addEventListener('raptor:pipelinefilterrequest',event=>{
   if(event.detail?.filterType!==FILTER_TYPE) return;
   if(!activeCard) return;
-  createFilterAt(Number(event.detail.x)||360,Number(event.detail.y)||120);
+  createFilterAt(
+    Number(event.detail.x)||360,
+    Number(event.detail.y)||120,
+    {placement:event.detail?.placement}
+  );
 });
 
 document.addEventListener('raptor:pipelinedisconnectrequest',event=>{

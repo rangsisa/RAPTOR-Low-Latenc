@@ -921,9 +921,12 @@ function renderNodes(){
 
   scheduleConnections();
 }
-function createFilter(type,x,y){
+function createFilter(type,x,y,{placement='center'}={}){
   if(!activeCard||!TYPES.has(type)) return null;
-  const filter=defaultFilter(type,clampNodePosition({x:x-121,y:y-74}));
+  const position=placement==='input'
+    ?{x,y:y-76}
+    :{x:x-121,y:y-74};
+  const filter=defaultFilter(type,clampNodePosition(position));
   ensureFilters(activeCard).push(filter);
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filtercreated',{
@@ -1109,7 +1112,12 @@ window.visualViewport?.addEventListener('scroll',()=>requestAnimationFrame(repos
 document.addEventListener('raptor:pipelinefilterrequest',event=>{
   const type=event.detail?.filterType;
   if(!TYPES.has(type)||!activeCard) return;
-  createFilter(type,Number(event.detail.x)||390,Number(event.detail.y)||150);
+  createFilter(
+    type,
+    Number(event.detail.x)||390,
+    Number(event.detail.y)||150,
+    {placement:event.detail?.placement}
+  );
 });
 document.addEventListener('raptor:pipelinedisconnectrequest',event=>{
   const wireId=String(event.detail?.wireId||'');

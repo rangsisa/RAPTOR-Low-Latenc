@@ -531,13 +531,16 @@ function renderNodes(){
   scheduleConnections();
 }
 
-function createAt(x,y){
+function createAt(x,y,{placement='center'}={}){
   syncActiveCard();
   if(!activeCard) return null;
+  const position=placement==='input'
+    ?{x:Number(x),y:Number(y)-56}
+    :{x:Number(x)-97,y:Number(y)-71};
   const item={
     id:makeId(),
     type:TYPE,
-    position:clampPosition({x:Number(x)-97,y:Number(y)-71}),
+    position:clampPosition(position),
     phaseInput:null,
     magnitudeInput:null
   };
