@@ -4,6 +4,7 @@
 const filterApi=window.RaptorMagPhaseGdFilter;
 const canonicalApi=window.RaptorMeasurementCanonicalV1;
 const rbj=window.RaptorEqGeometryRBJ;
+const passbandMetadata=window.RaptorCrossoverPassbandMetadata||null;
 if(!filterApi||!canonicalApi||!rbj) return;
 
 const panels=new Map();
@@ -154,6 +155,43 @@ function clamp(value,min,max){
   const number=Number(value);
   if(!Number.isFinite(number)) return min;
   return Math.max(min,Math.min(max,number));
+}
+function inputFrequency(value){
+  const number=Number(value);
+  if(!Number.isFinite(number)) return '';
+  return String(Math.round(number*1000)/1000);
+}
+function automaticCrossoverRange(filterId){
+  if(!passbandMetadata) return null;
+  const filter=filterApi.get(filterId);
+  const canonical=filterApi.getOutput(filterId);
+  if(!filter||!canonical) return null;
+
+  const fs=Number(filter.sampleRateHz||canonical.sample_rate_hz);
+  const maximum=Number.isFinite(fs)&&fs>0?Math.min(20000,fs/2*.98):20000;
+  return passbandMetadata.effectiveRange(canonical,{minHz:20,maxHz:maximum});
+}
+function applyAutomaticCrossoverRange(filterId,panel,{force=false}={}){
+  if(!panel) return null;
+  const range=automaticCrossoverRange(filterId);
+  if(!range) return null;
+  if(!force&&panel.dataset.autoeqRangeMode==='manual') return range;
+
+  const from=panel.querySelector('[data-autoeq-fmin]');
+  const to=panel.querySelector('[data-autoeq-fmax]');
+  if(!from||!to) return range;
+  from.value=inputFrequency(range.fromHz);
+  to.value=inputFrequency(range.toHz);
+  panel.dataset.autoeqRangeMode='auto';
+  panel.dataset.autoeqRangeSignature=range.fromHz+'|'+range.toHz+'|'+range.filterCount;
+  previews.delete(String(filterId));
+  renderPreview(panel,null);
+  return range;
+}
+function crossoverRangeStatus(range){
+  if(!range||range.appliedCount<1) return 'Ready';
+  const label='XO range '+inputFrequency(range.fromHz)+'–'+inputFrequency(range.toHz)+' Hz';
+  return range.valid?label:label+' · no overlapping passband';
 }
 function isAutoBand(band){
   return String(band?.id||'').startsWith(AUTO_BAND_PREFIX);
@@ -565,6 +603,10 @@ function buildPanel(filterId,anchor){
   const addButton=panel.querySelector('[data-autoeq-add]');
   const clearButton=panel.querySelector('[data-autoeq-clear]');
 
+  panel.dataset.autoeqRangeMode='auto';
+  const initialRange=applyAutomaticCrossoverRange(filterId,panel,{force:true});
+  status.textContent=crossoverRangeStatus(initialRange);
+
   head.addEventListener('pointerdown',event=>startPanelDrag(event,panel));
   panel.addEventListener('pointerdown',()=>bringPanelFront(panel));
   panel.querySelector('.mpgd-autoeq-close').addEventListener('click',()=>{panel.hidden=true;});
@@ -578,6 +620,9 @@ function buildPanel(filterId,anchor){
   panel.querySelectorAll('input').forEach(input=>{
     if(input===auto) return;
     input.addEventListener('input',()=>{
+      if(input.matches('[data-autoeq-fmin],[data-autoeq-fmax]')){
+        panel.dataset.autoeqRangeMode='manual';
+      }
       previews.delete(String(filterId));
       renderPreview(panel,null);
       status.textContent='Settings changed · Preview again';
@@ -650,6 +695,12 @@ function openPanel(filterId,anchor){
   if(!id) return;
   let panel=panels.get(id);
   if(!panel||!panel.isConnected) panel=buildPanel(id,anchor);
+  else{
+    panel.dataset.autoeqRangeMode='auto';
+    const range=applyAutomaticCrossoverRange(id,panel,{force:true});
+    const status=panel.querySelector('[data-autoeq-status]');
+    if(status) status.textContent=crossoverRangeStatus(range);
+  }
   panel.hidden=false;
   renderPreview(panel,previews.get(id)||null);
   bringPanelFront(panel);
@@ -695,6 +746,22 @@ function scanWindows(){
 ensureStyle();
 scanWindows();
 new MutationObserver(()=>scanWindows()).observe(document.body,{childList:true,subtree:true});
+
+document.addEventListener('raptor:crossoveroutputchange',()=>{
+  for(const [filterId,panel] of panels){
+    if(!panel.isConnected) continue;
+    previews.delete(String(filterId));
+    renderPreview(panel,null);
+    if(panel.dataset.autoeqRangeMode==='manual'){
+      const status=panel.querySelector('[data-autoeq-status]');
+      if(status) status.textContent='Upstream XO changed · manual range preserved';
+      continue;
+    }
+    const range=applyAutomaticCrossoverRange(filterId,panel);
+    const status=panel.querySelector('[data-autoeq-status]');
+    if(status) status.textContent=crossoverRangeStatus(range);
+  }
+});
 
 window.addEventListener('resize',()=>{
   for(const panel of panels.values()){

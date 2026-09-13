@@ -15,7 +15,6 @@ const crossoverJs=read('gui/crossover-filter.js');
 const mpgdCss=read('gui/mag-phase-gd-filter.css');
 const mpgdJs=read('gui/mag-phase-gd-filter.js');
 const targetCss=read('gui/target-export.css');
-const welcomeImagePath=path.join(__dirname,'..','gui/assets/raptor-welcome-v1.png');
 
 assert.match(pipelineCss,/\.measurement-preview\{[^}]*width:min\(1196px,calc\(100vw - 28px\)\)/);
 assert.match(pipelineCss,/\.pipeline-strip \.pipeline-card\{[^}]*grid-template-columns:max-content 44px;/);
@@ -47,16 +46,14 @@ assert.match(pipelineJs,/function startPreviewDrag\(event\)/);
 assert.match(pipelineJs,/previewHead\.addEventListener\('pointerdown',startPreviewDrag\)/);
 assert.doesNotMatch(pipelineJs,/20000,50000/);
 assert.match(indexHtml,/pipeline\.css\?v=compact-left-file-list-20260912-5/);
-assert.match(indexHtml,/workspace\.css\?v=welcome-raptor-hero-20260912-2/);
+assert.match(indexHtml,/workspace\.css\?v=welcome-canvas-no-art-20260913-1/);
 assert.match(indexHtml,/pipeline-interactions\.css\?v=compact-measurement-rows-20260912-1/);
 assert.match(indexHtml,/pipeline\.js\?v=preview-drag-color-fill-20260912-4/);
-assert.match(indexHtml,/<img class="welcome-raptor" src="\.\/assets\/raptor-welcome-v1\.png" width="768" height="768" loading="lazy" decoding="async" alt="RAPTOR" \/>/);
+assert.match(indexHtml,/<section class="page-view" data-view="welcome" hidden><\/section>/);
+assert.doesNotMatch(indexHtml,/welcome-raptor|raptor-welcome-v1\.png/);
 assert.match(workspaceCss,/\.workspace-canvas\[data-page="welcome"\]\{background:radial-gradient\(ellipse at 14% 12%,rgba\(216,190,67,\.16\)/);
 assert.match(workspaceCss,/\.workspace-canvas\[data-page="welcome"\]::before\{opacity:\.82;[^}]*background-size:24px 24px,96px 96px,6px 6px,6px 6px/);
-assert.match(workspaceCss,/\.welcome-raptor\{[^}]*width:min\(68vmin,620px\);[^}]*object-fit:contain/);
-assert.ok(fs.existsSync(welcomeImagePath),'Welcome RAPTOR PNG must exist');
-assert.ok(fs.statSync(welcomeImagePath).size<250000,'Welcome RAPTOR PNG must stay lightweight');
-assert.strictEqual(fs.readFileSync(welcomeImagePath).subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+assert.doesNotMatch(workspaceCss,/\.welcome-raptor\{|\.welcome-hero\{/);
 
 for(const source of [crossoverCss,mpgdCss]){
   assert.match(source,/--lineage-tint:rgba\(143,166,184,\.24\)/);

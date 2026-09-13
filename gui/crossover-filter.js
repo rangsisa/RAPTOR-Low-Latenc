@@ -9,6 +9,7 @@ const measurementNode=document.getElementById('measurementNode');
 const measurementList=document.getElementById('measurementList');
 const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
 const crossoverResponse=window.RaptorCrossoverResponse||null;
+const passbandMetadata=window.RaptorCrossoverPassbandMetadata||null;
 if(!api||!workspaceView||!canvas||!wireSvg||!measurementNode||!measurementList||!canonicalApi||!crossoverResponse) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
@@ -609,6 +610,9 @@ function processedCanonical(filter){
   output.payload_sha256=null;
   output.measurement_id=filter.id;
   output.source_name=(source.source_name||sourceName(filter)||'Canonical V1')+' -> '+labelFor(filter.type);
+  if(passbandMetadata){
+    output[passbandMetadata.HISTORY_KEY]=passbandMetadata.append(source,filter,{model:MODEL});
+  }
   canonicalApi.validate(output);
   outputCache.set(filter.id,output);
   return output;
