@@ -88,6 +88,7 @@ body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .workspace-shell .mpgd-filter-window-title span{font-size:9px}
 .workspace-shell .mpgd-filter-window-bypass,
 .workspace-shell .mpgd-filter-check{font-size:10px}
+.workspace-shell .mpgd-graph-range-controls{font-size:9.5px}
 .workspace-shell .mpgd-filter-card-head strong{font-size:11px}
 .workspace-shell .mpgd-filter-readout,
 .workspace-shell .mpgd-filter-pointer-readout,
@@ -174,6 +175,7 @@ body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .workspace-shell .xo-filter-slope-summary{font-size:8.25px}
   .workspace-shell .mpgd-filter-window-bypass,
   .workspace-shell .mpgd-filter-check{font-size:9px}
+  .workspace-shell .mpgd-graph-range-controls{font-size:8.75px}
   .workspace-shell .mpgd-filter-card-head strong{font-size:10.5px}
   .workspace-shell .mpgd-filter-readout,
   .workspace-shell .mpgd-filter-pointer-readout,

@@ -39,8 +39,15 @@ assert.match(js,/gainDb:0,\s*q:1\.41421356,/);
 assert.match(js,/UNCERTAINTY_NEEDLE_MAX_HEIGHT=GRAPH_HEIGHT\*\.46/);
 assert.match(js,/UNCERTAINTY_NEEDLE_MIN_SPACING=7/);
 assert.match(js,/UNCERTAINTY_CONFIDENCE_FLOOR=\.55/);
+assert.match(js,/graphAmplitudeDb:graphRangeApi\.DEFAULTS\.amplitudeDb/);
+assert.match(js,/data-graph-amplitude/);
+assert.match(js,/data-graph-frequency-min/);
+assert.match(js,/data-graph-frequency-max/);
+assert.match(js,/rebuildPhaseTurnInspector\(win,filter\);/);
 assert.match(css,/\.mpgd-filter-svg--mag \.uncertainty-needles\{[\s\S]*?stroke:rgba\(210,48,48,\.52\);[\s\S]*?stroke-width:1\.7;/);
 assert.match(css,/\.mpgd-band-rack-add\{/);
+assert.match(css,/\.mpgd-graph-range-controls\{/);
 assert.match(html,/mag-phase-gd-band-layout\.js\?v=progressive-log-spread-20260912-1/);
+assert.match(html,/mag-phase-gd-graph-range\.js\?v=graph-range-controls-20260913-1/);
 
 console.log('RESULT RAPTOR Mag-Phase-GD UI contract PASS');

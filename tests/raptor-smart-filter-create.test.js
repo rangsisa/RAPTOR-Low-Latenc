@@ -36,7 +36,7 @@ assert.match(crossover,/placement==='input'\s*\?\{x,y:y-76\}/);
 assert.match(mpgd,/placement==='input'\s*\?\{x,y:y-68\}/);
 assert.match(targetExport,/placement==='input'\s*\?\{x:Number\(x\),y:Number\(y\)-56\}/);
 assert.match(html,/pipeline-context\.js\?v=wire-drop-input-anchor-20260913-1/);
-assert.match(html,/mag-phase-gd-filter\.js\?v=wire-drop-input-anchor-20260913-1/);
+assert.match(html,/mag-phase-gd-filter\.js\?v=graph-range-controls-20260913-1/);
 assert.match(html,/crossover-filter\.js\?v=wire-drop-input-anchor-20260913-1/);
 
 console.log('RAPTOR smart filter create contract PASS');

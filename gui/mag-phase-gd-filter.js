@@ -10,11 +10,10 @@ const measurementList=document.getElementById('measurementList');
 const rbj=window.RaptorEqGeometryRBJ||null;
 const responseHost=window.RaptorResponseHostV1||null;
 const bandLayout=window.RaptorMagPhaseGdBandLayout||null;
-if(!api||!workspaceView||!canvas||!wireSvg||!measurementNode||!measurementList) return;
+const graphRangeApi=window.RaptorMagPhaseGdGraphRange||null;
+if(!api||!workspaceView||!canvas||!wireSvg||!measurementNode||!measurementList||!graphRangeApi) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
-const F0=20;
-const F1=20000;
 const GRAPH_WIDTH=1000;
 const GRAPH_HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
@@ -24,12 +23,6 @@ const UNCERTAINTY_MAG_RELIEF_DB=6;
 const UNCERTAINTY_CONFIDENCE_FLOOR=.55;
 const PHASE_LIFT_GAIN_MIN_DEG=-180;
 const PHASE_LIFT_GAIN_MAX_DEG=180;
-const FREQ_TICKS=[
-  20,40,80,
-  100,200,300,400,500,600,700,800,900,
-  1000,2000,3000,4000,5000,6000,7000,8000,9000,
-  10000,15000
-];
 const FILTER_TYPE='mag-phase-gd';
 const BAND_COLORS=Object.freeze([
   '#FF1744',
@@ -54,6 +47,7 @@ let graphSequence=1;
 let hostSequence=1;
 const hostCache=new Map();
 const outputCache=new Map();
+const graphRangeCache=new WeakMap();
 
 function makeFilterId(){
   return 'mpgd-'+Date.now().toString(36)+'-'+(filterSequence++);
@@ -73,11 +67,26 @@ function defaultFilterState(position={x:360,y:120}){
     bypass:false,
     sampleRateHz:null,
     bands:[],
-    ui:{phase:true,magnitude:true,wrap:false,sync:true,bandPoints:true,magToPhase:false}
+    ui:{
+      phase:true,
+      magnitude:true,
+      wrap:false,
+      sync:true,
+      bandPoints:true,
+      magToPhase:false,
+      graphAmplitudeDb:graphRangeApi.DEFAULTS.amplitudeDb,
+      graphFrequencyMinHz:graphRangeApi.DEFAULTS.minFrequencyHz,
+      graphFrequencyMaxHz:graphRangeApi.DEFAULTS.maxFrequencyHz
+    }
   };
 }
 
 function cloneFilter(filter,rekey=false){
+  const graphRange=graphRangeApi.normalize({
+    amplitudeDb:filter.ui?.graphAmplitudeDb,
+    minFrequencyHz:filter.ui?.graphFrequencyMinHz,
+    maxFrequencyHz:filter.ui?.graphFrequencyMaxHz
+  });
   return {
     id:rekey?makeFilterId():String(filter.id||makeFilterId()),
     type:FILTER_TYPE,
@@ -109,7 +118,10 @@ function cloneFilter(filter,rekey=false){
       wrap:filter.ui?.wrap===true,
       sync:filter.ui?.sync!==false,
       bandPoints:filter.ui?.bandPoints!==false,
-      magToPhase:filter.ui?.magToPhase===true
+      magToPhase:filter.ui?.magToPhase===true,
+      graphAmplitudeDb:graphRange.amplitudeDb,
+      graphFrequencyMinHz:graphRange.minFrequencyHz,
+      graphFrequencyMaxHz:graphRange.maxFrequencyHz
     }
   };
 }
@@ -147,6 +159,14 @@ function normalizeFilterInPlace(filter){
   if(filter.ui.bandPoints===undefined) filter.ui.bandPoints=true;
   if(filter.ui.magToPhase===undefined) filter.ui.magToPhase=false;
   filter.ui.magToPhase=filter.ui.magToPhase===true;
+  const range=graphRangeApi.normalize({
+    amplitudeDb:filter.ui.graphAmplitudeDb,
+    minFrequencyHz:filter.ui.graphFrequencyMinHz,
+    maxFrequencyHz:filter.ui.graphFrequencyMaxHz
+  });
+  filter.ui.graphAmplitudeDb=range.amplitudeDb;
+  filter.ui.graphFrequencyMinHz=range.minFrequencyHz;
+  filter.ui.graphFrequencyMaxHz=range.maxFrequencyHz;
   return filter;
 }
 
@@ -941,25 +961,38 @@ function createFilterAt(x,y,{placement='center'}={}){
   return filter;
 }
 
-function log10(value){return Math.log(value)/Math.LN10;}
-function xOf(f){return (log10(f)-log10(F0))/(log10(F1)-log10(F0))*GRAPH_WIDTH;}
-function frequencyAtRatio(ratio){
-  return Math.exp(Math.log(F0)+Math.max(0,Math.min(1,ratio))*Math.log(F1/F0));
+function graphRangeForFilter(filter){
+  if(!filter||typeof filter!=='object') return graphRangeApi.normalize();
+  const amplitudeDb=filter.ui?.graphAmplitudeDb;
+  const minFrequencyHz=filter.ui?.graphFrequencyMinHz;
+  const maxFrequencyHz=filter.ui?.graphFrequencyMaxHz;
+  const cached=graphRangeCache.get(filter);
+  if(cached&&cached.amplitudeDb===amplitudeDb&&cached.minFrequencyHz===minFrequencyHz&&cached.maxFrequencyHz===maxFrequencyHz){
+    return cached.range;
+  }
+  const range=graphRangeApi.normalize({amplitudeDb,minFrequencyHz,maxFrequencyHz});
+  graphRangeCache.set(filter,{amplitudeDb,minFrequencyHz,maxFrequencyHz,range});
+  return range;
+}
+function xOf(f,filter){
+  return graphRangeApi.xOf(f,graphRangeForFilter(filter),GRAPH_WIDTH);
+}
+function frequencyAtRatio(ratio,filter){
+  return graphRangeApi.frequencyAtRatio(ratio,graphRangeForFilter(filter));
 }
 function yPhase(value){
   const v=Math.max(-180,Math.min(180,value));
   return GRAPH_HEIGHT-((v+180)/360)*GRAPH_HEIGHT;
 }
-function yMagnitude(value){
-  const v=Math.max(-40,Math.min(40,value));
-  return GRAPH_HEIGHT-((v+40)/80)*GRAPH_HEIGHT;
+function yMagnitude(value,filter){
+  return graphRangeApi.yMagnitude(value,graphRangeForFilter(filter),GRAPH_HEIGHT,true);
 }
 
 // Trace geometry must preserve the real magnitude even outside the visible
-// ±40 dB viewport. The parent plot clips it naturally at the graph boundary,
-// so a response below -40 dB dives out of view instead of riding the bottom edge.
-function yMagnitudeTrace(value){
-  return GRAPH_HEIGHT-((Number(value)+40)/80)*GRAPH_HEIGHT;
+// amplitude viewport. The parent plot clips it naturally at the graph boundary,
+// so an out-of-range response dives out of view instead of riding the edge.
+function yMagnitudeTrace(value,filter){
+  return graphRangeApi.yMagnitude(value,graphRangeForFilter(filter),GRAPH_HEIGHT,false);
 }
 function formatFrequency(value,withUnit=true){
   if(!Number.isFinite(value)||value<=0) return '—';
@@ -973,7 +1006,13 @@ function formatFrequency(value,withUnit=true){
   return withUnit?text+' Hz':text;
 }
 function formatGridFrequency(value){
-  return value>=1000?(value/1000)+'k':String(value);
+  if(value>=1000) return ((value/1000).toFixed(value<10000?1:0).replace(/\.0$/,''))+'k';
+  return Number(value.toFixed(value<10?1:0)).toString();
+}
+function formatGraphNumber(value){
+  const absolute=Math.abs(value);
+  const decimals=absolute>0&&absolute<10?1:0;
+  return Number(value.toFixed(decimals)).toString();
 }
 
 function baseViewsForFilter(filter,entry=null){
@@ -1111,11 +1150,12 @@ function displayViewsForFilter(filter,entry=null){
   }
 }
 
-function pointsInDisplayRange(frequency,phase=null,coherence=null){
+function pointsInDisplayRange(frequency,phase=null,coherence=null,filter=null){
+  const range=graphRangeForFilter(filter);
   const indices=[];
   for(let i=0;i<frequency.length;i++){
     const f=frequency[i];
-    if(Number.isFinite(f)&&f>=F0&&f<=F1) indices.push(i);
+    if(Number.isFinite(f)&&f>=range.minFrequencyHz&&f<=range.maxFrequencyHz) indices.push(i);
   }
   if(indices.length<=MAX_DISPLAY_POINTS) return indices;
 
@@ -1152,7 +1192,7 @@ function pointsInDisplayRange(frequency,phase=null,coherence=null){
   return [...selected].sort((a,b)=>a-b);
 }
 
-function phasePathFromViews(views,indices){
+function phasePathFromViews(views,indices,filter){
   const frequency=views.frequency_hz;
   const phase=views.phase_deg;
   let path='';
@@ -1161,7 +1201,7 @@ function phasePathFromViews(views,indices){
   for(const i of indices){
     const f1=frequency[i],p1=phase[i];
     if(!Number.isFinite(f1)||!Number.isFinite(p1)) continue;
-    const x1=xOf(f1),y1=yPhase(p1);
+    const x1=xOf(f1,filter),y1=yPhase(p1);
     if(previousIndex===null){
       path+='M'+x1.toFixed(2)+' '+y1.toFixed(2)+' ';
       previousIndex=i;
@@ -1169,7 +1209,7 @@ function phasePathFromViews(views,indices){
     }
 
     const f0=frequency[previousIndex],p0=phase[previousIndex];
-    const x0=xOf(f0);
+    const x0=xOf(f0,filter);
     const delta=p1-p0;
     if(Number.isFinite(f0)&&Number.isFinite(p0)&&Math.abs(delta)>180){
       let adjustedP1=p1,boundary=180,opposite=-180;
@@ -1190,31 +1230,31 @@ function phasePathFromViews(views,indices){
   return path.trim();
 }
 
-function magnitudePathFromViews(views,indices){
+function magnitudePathFromViews(views,indices,filter){
   const frequency=views.frequency_hz;
   const magnitude=views.magnitude_db;
   let path='';
   for(const i of indices){
     const f=frequency[i],value=magnitude[i];
     if(!Number.isFinite(f)||!Number.isFinite(value)) continue;
-    const x=xOf(f),y=yMagnitudeTrace(value);
+    const x=xOf(f,filter),y=yMagnitudeTrace(value,filter);
     path+=(path?'L':'M')+x.toFixed(2)+' '+y.toFixed(2)+' ';
   }
   return path.trim();
 }
 
-function magnitudeFillPath(linePath,views,indices){
+function magnitudeFillPath(linePath,views,indices,filter){
   if(!linePath||!indices.length) return '';
   const frequency=views.frequency_hz;
   const first=frequency[indices[0]];
   const last=frequency[indices[indices.length-1]];
   if(!(Number.isFinite(first)&&Number.isFinite(last))) return '';
   return linePath+
-    ' L'+xOf(last).toFixed(2)+' '+GRAPH_HEIGHT+
-    ' L'+xOf(first).toFixed(2)+' '+GRAPH_HEIGHT+' Z';
+    ' L'+xOf(last,filter).toFixed(2)+' '+GRAPH_HEIGHT+
+    ' L'+xOf(first,filter).toFixed(2)+' '+GRAPH_HEIGHT+' Z';
 }
 
-function wrapMarkerPath(views,indices){
+function wrapMarkerPath(views,indices,filter){
   const frequency=views.frequency_hz;
   const phase=views.phase_deg;
   let path='';
@@ -1230,7 +1270,7 @@ function wrapMarkerPath(views,indices){
     const den=adjustedP1-p0;
     let t=den===0?0:(boundary-p0)/den;
     t=Math.max(0,Math.min(1,t));
-    const x=xOf(f0)+(xOf(f1)-xOf(f0))*t;
+    const x=xOf(f0,filter)+(xOf(f1,filter)-xOf(f0,filter))*t;
     path+='M'+x.toFixed(2)+' 0 L'+x.toFixed(2)+' '+GRAPH_HEIGHT+' ';
   }
   return path.trim();
@@ -1243,7 +1283,7 @@ function uncertaintyMagnitudeRelief(magnitudeDb){
   return UNCERTAINTY_CONFIDENCE_FLOOR+(1-UNCERTAINTY_CONFIDENCE_FLOOR)*smooth;
 }
 
-function uncertaintyNeedlePath(views,indices){
+function uncertaintyNeedlePath(views,indices,filter){
   const frequency=views.frequency_hz;
   const coherence=views.coherence;
   const magnitude=views.magnitude_db;
@@ -1262,7 +1302,7 @@ function uncertaintyNeedlePath(views,indices){
     const relief=uncertaintyMagnitudeRelief(mag);
     const height=loss*relief*UNCERTAINTY_NEEDLE_MAX_HEIGHT;
     if(!(height>0)) continue;
-    const x=xOf(f);
+    const x=xOf(f,filter);
     const bucket=Math.floor(x/UNCERTAINTY_NEEDLE_MIN_SPACING);
     const current=buckets.get(bucket);
     if(!current||height>current.height) buckets.set(bucket,{x,height});
@@ -1289,12 +1329,12 @@ function nearestIndex(array,target){
   return Math.abs(array[lo]-target)<Math.abs(array[prev]-target)?lo:prev;
 }
 
-function buildAxisLabels(container){
+function buildAxisLabels(container,filter){
   container.replaceChildren();
-  for(const f of FREQ_TICKS){
+  for(const f of graphRangeApi.frequencyTicks(graphRangeForFilter(filter))){
     const span=document.createElement('span');
     span.textContent=formatGridFrequency(f);
-    const pct=xOf(f)/GRAPH_WIDTH*100;
+    const pct=xOf(f,filter)/GRAPH_WIDTH*100;
     span.style.left=pct+'%';
     if(pct<1.5) span.style.transform='translateX(2px)';
     else if(pct>98.5) span.style.transform='translateX(calc(-100% - 2px))';
@@ -1302,17 +1342,28 @@ function buildAxisLabels(container){
   }
 }
 
-function buildFrequencyGrid(grid){
-  grid.replaceChildren();
-  for(const f of FREQ_TICKS){
+function buildFrequencyGrid(grid,filter){
+  grid.querySelectorAll('.mpgd-filter-grid-line').forEach(line=>line.remove());
+  const fragment=document.createDocumentFragment();
+  for(const f of graphRangeApi.frequencyTicks(graphRangeForFilter(filter))){
     const line=document.createElement('span');
     line.className='mpgd-filter-grid-line';
-    line.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
-    grid.appendChild(line);
+    line.style.left=(xOf(f,filter)/GRAPH_WIDTH*100)+'%';
+    fragment.appendChild(line);
+  }
+  grid.prepend(fragment);
+}
+
+function buildMagnitudeAxisLabels(container,filter){
+  container.replaceChildren();
+  for(const value of graphRangeApi.magnitudeTicks(graphRangeForFilter(filter))){
+    const span=document.createElement('span');
+    span.textContent=formatGraphNumber(value);
+    container.appendChild(span);
   }
 }
 
-function buildGraph(kind){
+function buildGraph(kind,filter){
   const card=document.createElement('article');
   card.className='mpgd-filter-card';
 
@@ -1344,7 +1395,7 @@ function buildGraph(kind){
 
   const grid=document.createElement('div');
   grid.className='mpgd-filter-grid';
-  buildFrequencyGrid(grid);
+  buildFrequencyGrid(grid,filter);
 
   const zeroLine=document.createElement('span');
   zeroLine.className='mpgd-filter-zero-line';
@@ -1421,13 +1472,15 @@ function buildGraph(kind){
 
   const y=document.createElement('div');
   y.className='mpgd-filter-ylabels';
-  y.innerHTML=kind==='phase'
-    ?'<span>180°</span><span>90°</span><span>0°</span><span>-90°</span><span>-180°</span>'
-    :'<span>40</span><span>20</span><span>0</span><span>-20</span><span>-40</span>';
+  if(kind==='phase'){
+    y.innerHTML='<span>180°</span><span>90°</span><span>0°</span><span>-90°</span><span>-180°</span>';
+  }else{
+    buildMagnitudeAxisLabels(y,filter);
+  }
 
   const x=document.createElement('div');
   x.className='mpgd-filter-xlabels';
-  buildAxisLabels(x);
+  buildAxisLabels(x,filter);
 
   const bandMarkers=document.createElement('div');
   bandMarkers.className='mpgd-band-markers';
@@ -1541,12 +1594,14 @@ function ensureBandContext(){
 }
 
 function maximumBandFrequency(filter){
+  const range=graphRangeForFilter(filter);
   const entry=sourceEntry(filter,false);
   const fs=Number(filter.sampleRateHz??entry?.sampleRate??entry?.canonical?.sample_rate_hz);
-  return Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
+  return Number.isFinite(fs)&&fs>0?Math.min(range.maxFrequencyHz,fs/2*.98):range.maxFrequencyHz;
 }
 
 function nextDefaultBandFrequency(filter,kind){
+  const range=graphRangeForFilter(filter);
   const graphKind=kind==='phase'?'phase':'magnitude';
   const maximum=maximumBandFrequency(filter);
   const existing=filter.bands
@@ -1554,19 +1609,20 @@ function nextDefaultBandFrequency(filter,kind){
     .map(band=>band.frequencyHz);
   if(bandLayout?.nextFrequency){
     return bandLayout.nextFrequency(existing,{
-      minFrequencyHz:F0,
+      minFrequencyHz:range.minFrequencyHz,
       maxFrequencyHz:maximum,
       preferredFrequencyHz:1000
     });
   }
-  return Math.max(F0,Math.min(maximum,1000));
+  return Math.max(range.minFrequencyHz,Math.min(maximum,1000));
 }
 
 function addBandAtFrequency(filter,win,kind,requestedFrequencyHz){
   if(!filter||!sourceEntry(filter,false)) return null;
+  const range=graphRangeForFilter(filter);
   const graphKind=kind==='phase'?'phase':'magnitude';
   const maximum=maximumBandFrequency(filter);
-  const frequencyHz=Math.max(F0,Math.min(maximum,Number(requestedFrequencyHz)));
+  const frequencyHz=Math.max(range.minFrequencyHz,Math.min(maximum,Number(requestedFrequencyHz)));
   if(!Number.isFinite(frequencyHz)) return null;
   const band={
     id:'band-'+Date.now().toString(36)+'-'+(filter.bands.length+1),
@@ -1594,9 +1650,10 @@ function openBandContext(event,filter,kind){
   event.stopPropagation();
   const rect=event.currentTarget.getBoundingClientRect();
   const ratio=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));
-  const frequencyHz=frequencyAtRatio(ratio);
+  const frequencyHz=frequencyAtRatio(ratio,filter);
   const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top)/Math.max(1,rect.height)));
-  const pointerValue=kind==='phase'?180-yRatio*360:40-yRatio*80;
+  const amplitude=graphRangeForFilter(filter).amplitudeDb;
+  const pointerValue=kind==='phase'?180-yRatio*360:amplitude-yRatio*amplitude*2;
   bandContextRequest=Object.freeze({
     filterId:filter.id,
     filterType:FILTER_TYPE,
@@ -1735,23 +1792,40 @@ function renderPhaseTurnInspector(win,result){
 }
 function ensurePhaseTurnInspector(win,filter,plot){
   if(win._phaseTurnInspector||!window.RaptorPhaseTurnInspector) return;
+  const range=graphRangeForFilter(filter);
   const clearButton=plot.querySelector('[data-phase-turn-clear]');
-  clearButton?.addEventListener('click',event=>{
-    event.preventDefault();
-    event.stopPropagation();
-    win._phaseTurnInspector?.clear?.('clear-button');
-  });
+  if(clearButton&&!clearButton.dataset.phaseTurnBound){
+    clearButton.dataset.phaseTurnBound='true';
+    clearButton.addEventListener('click',event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      win._phaseTurnInspector?.clear?.('clear-button');
+    });
+  }
   win._phaseTurnInspector=window.RaptorPhaseTurnInspector.create({
     plot,
     getViews:()=>win._mpgdDisplayViews||displayViewsForFilter(filter),
-    getDisplayIndices:views=>pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence),
-    frequencyAtRatio,
-    xOf,
+    getDisplayIndices:views=>pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence,filter),
+    frequencyAtRatio:ratio=>frequencyAtRatio(ratio,filter),
+    xOf:frequency=>xOf(frequency,filter),
     yPhase,
-    options:{graphWidth:GRAPH_WIDTH,graphHeight:GRAPH_HEIGHT,hitRadiusPx:12,displayMinFrequencyHz:F0,displayMaxFrequencyHz:F1},
+    options:{
+      graphWidth:GRAPH_WIDTH,
+      graphHeight:GRAPH_HEIGHT,
+      hitRadiusPx:12,
+      displayMinFrequencyHz:range.minFrequencyHz,
+      displayMaxFrequencyHz:range.maxFrequencyHz
+    },
     shouldIgnoreEvent:event=>!!event.target?.closest?.('.mpgd-band-marker,.mpgd-phase-turn-panel'),
     onResult:result=>renderPhaseTurnInspector(win,result)
   });
+}
+
+function rebuildPhaseTurnInspector(win,filter){
+  win._phaseTurnInspector?.destroy?.();
+  win._phaseTurnInspector=null;
+  const plot=win.querySelector('.mpgd-filter-plot[data-kind="phase"]');
+  if(plot) ensurePhaseTurnInspector(win,filter,plot);
 }
 
 function restoreIdleGraphReadout(win,filter,kind){
@@ -1781,7 +1855,7 @@ function bindPlot(win,filter,plot){
     if(!views?.frequency_hz) return;
     const rect=plot.getBoundingClientRect();
     const ratio=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));
-    const target=frequencyAtRatio(ratio);
+    const target=frequencyAtRatio(ratio,filter);
     const i=nearestIndex(views.frequency_hz,target);
     const f=views.frequency_hz[i];
     const phase=views.phase_deg[i];
@@ -1794,7 +1868,8 @@ function bindPlot(win,filter,plot){
     }
 
     const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top)/Math.max(1,rect.height)));
-    const rawValue=kind==='phase'?180-yRatio*360:40-yRatio*80;
+    const amplitude=graphRangeForFilter(filter).amplitudeDb;
+    const rawValue=kind==='phase'?180-yRatio*360:amplitude-yRatio*amplitude*2;
     const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
     if(pointer){
       pointer.textContent=kind==='phase'
@@ -1802,13 +1877,13 @@ function bindPlot(win,filter,plot){
         :formatFrequency(target)+' · '+rawValue.toFixed(2)+' dB';
     }
 
-    const x=xOf(f);
+    const x=xOf(f,filter);
     for(const targetKind of ['phase','magnitude']){
       const targetPlot=win.querySelector('.mpgd-filter-plot[data-kind="'+targetKind+'"]');
       const svg=targetPlot?.querySelector('svg');
       if(!svg) continue;
       const cursor=ensureCursor(svg);
-      const y=targetKind==='phase'?yPhase(phase):yMagnitude(mag);
+      const y=targetKind==='phase'?yPhase(phase):yMagnitude(mag,filter);
       setCursor(cursor,x,y,ui.sync!==false||targetKind===kind);
     }
   });
@@ -1899,7 +1974,7 @@ function openBandEditor(win,filter,bandId){
       '<button type="button" data-band-close aria-label="Close">×</button>'+
     '</header>'+
     '<div class="mpgd-band-editor-fields">'+
-      '<label><span>Frequency</span><input type="number" step="1" min="20" max="20000" data-band-frequency><b>Hz</b></label>'+
+      '<label><span>Frequency</span><input type="number" step="1" data-band-frequency><b>Hz</b></label>'+
       (band.graphKind==='phase'
         ?'<label><span>G</span><input type="number" step="1" min="-180" max="180" data-band-gain><b>deg</b></label>'
         :'<label><span>Gain</span><input type="number" step="0.1" min="-24" max="24" data-band-gain><b>dB</b></label>')+
@@ -1911,15 +1986,17 @@ function openBandEditor(win,filter,bandId){
   const fInput=panel.querySelector('[data-band-frequency]');
   const gInput=panel.querySelector('[data-band-gain]');
   const qInput=panel.querySelector('[data-band-q]');
+  const editorRange=graphRangeForFilter(filter);
+  fInput.min=String(editorRange.minFrequencyHz);
+  fInput.max=String(maximumBandFrequency(filter));
   fInput.value=String(Math.round(band.frequencyHz*100)/100);
   gInput.value=String(Math.round(band.gainDb*100)/100);
   qInput.value=String(Math.round(band.q*10000)/10000);
 
   const apply=()=>{
-    const entry=sourceEntry(filter,false);
-    const fs=Number(filter.sampleRateHz??entry?.sampleRate);
-    const maxF=Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
-    const frequencyHz=Math.max(F0,Math.min(maxF,Number(fInput.value)));
+    const range=graphRangeForFilter(filter);
+    const maxF=maximumBandFrequency(filter);
+    const frequencyHz=Math.max(range.minFrequencyHz,Math.min(maxF,Number(fInput.value)));
     const gain=clampBandGain(band,Number(gInput.value));
     const q=Math.max(.05,Math.min(50,Number(qInput.value)));
     if(!(Number.isFinite(frequencyHz)&&Number.isFinite(gain)&&Number.isFinite(q))) return;
@@ -1984,6 +2061,9 @@ function beginBandGainDrag(event,filter,win,band){
   const startGain=Number(band.gainDb)||0;
   const pointerId=event.pointerId;
   const marker=event.currentTarget;
+  const plot=marker.closest('.mpgd-filter-plot');
+  const plotHeight=Math.max(1,plot?.getBoundingClientRect?.().height||GRAPH_HEIGHT);
+  const range=graphRangeForFilter(filter);
   marker.classList.add('is-gain-dragging');
 
   const move=moveEvent=>{
@@ -1991,10 +2071,10 @@ function beginBandGainDrag(event,filter,win,band){
     if(moveEvent.cancelable) moveEvent.preventDefault();
 
     // Vertical movement controls G only. Frequency is intentionally locked.
-    // Phase uses the graph's degree-per-pixel scale so the marker follows the
-    // pointer naturally; Magnitude keeps its established dB sensitivity.
+    // Both graph kinds use their visible units-per-pixel scale so the marker
+    // follows the pointer after a graph range change.
     const deltaY=moveEvent.clientY-startY;
-    const sensitivity=band.graphKind==='phase'?(360/GRAPH_HEIGHT):.12;
+    const sensitivity=band.graphKind==='phase'?(360/plotHeight):(range.amplitudeDb*2/plotHeight);
     band.gainDb=clampBandGain(band,startGain-deltaY*sensitivity);
     invalidateResponseHost(filter,'band-gain');
     renderWindow(filter,win);
@@ -2033,6 +2113,7 @@ function renderBandMarkers(filter,win,views){
     layer.replaceChildren();
   }
   if(filter.ui?.bandPoints===false||!views?.frequency_hz||!filter.bands.length) return;
+  const range=graphRangeForFilter(filter);
 
   filter.bands.forEach((band,index)=>{
     const kind=band.graphKind==='phase'?'phase':'magnitude';
@@ -2042,7 +2123,7 @@ function renderBandMarkers(filter,win,views){
     const i=nearestIndex(views.frequency_hz,band.frequencyHz);
     const f=views.frequency_hz[i];
     const value=kind==='phase'?views.phase_deg[i]:views.magnitude_db[i];
-    if(!(Number.isFinite(f)&&Number.isFinite(value))) return;
+    if(!(Number.isFinite(f)&&Number.isFinite(value))||f<range.minFrequencyHz||f>range.maxFrequencyHz) return;
 
     const marker=document.createElement('button');
     marker.type='button';
@@ -2050,8 +2131,8 @@ function renderBandMarkers(filter,win,views){
     marker.dataset.bandId=band.id;
     marker.title='Band '+(index+1)+' · '+formatFrequency(band.frequencyHz)+' · Drag ↑↓ '+(kind==='phase'?'G°':'Gain')+' · Wheel Q · Double-click Edit';
     marker.setAttribute('aria-label','Edit Band '+(index+1));
-    marker.style.left=(xOf(f)/GRAPH_WIDTH*100)+'%';
-    marker.style.top=((kind==='phase'?yPhase(value):yMagnitude(value))/GRAPH_HEIGHT*100)+'%';
+    marker.style.left=(xOf(f,filter)/GRAPH_WIDTH*100)+'%';
+    marker.style.top=((kind==='phase'?yPhase(value):yMagnitude(value,filter))/GRAPH_HEIGHT*100)+'%';
     marker.style.setProperty('--band-color',BAND_COLORS[index%BAND_COLORS.length]);
     marker.dataset.bandNumber=String(index+1);
     marker.textContent='';
@@ -2188,6 +2269,75 @@ function applyMagnitudeLineageFill(win,filter){
   });
 }
 
+function syncGraphRangeControls(win,filter){
+  const range=graphRangeForFilter(filter);
+  const amplitude=win.querySelector('[data-graph-amplitude]');
+  const minimum=win.querySelector('[data-graph-frequency-min]');
+  const maximum=win.querySelector('[data-graph-frequency-max]');
+  if(amplitude) amplitude.value=formatGraphNumber(range.amplitudeDb);
+  if(minimum) minimum.value=formatGraphNumber(range.minFrequencyHz);
+  if(maximum) maximum.value=formatGraphNumber(range.maxFrequencyHz);
+}
+
+function refreshGraphScales(win,filter){
+  for(const plot of win.querySelectorAll('.mpgd-filter-plot')){
+    buildFrequencyGrid(plot.querySelector('.mpgd-filter-grid'),filter);
+    buildAxisLabels(plot.querySelector('.mpgd-filter-xlabels'),filter);
+    if(plot.dataset.kind==='magnitude'){
+      buildMagnitudeAxisLabels(plot.querySelector('.mpgd-filter-ylabels'),filter);
+    }
+  }
+}
+
+function commitGraphRangeControls(win,filter){
+  const range=graphRangeApi.normalize({
+    amplitudeDb:win.querySelector('[data-graph-amplitude]')?.value,
+    minFrequencyHz:win.querySelector('[data-graph-frequency-min]')?.value,
+    maxFrequencyHz:win.querySelector('[data-graph-frequency-max]')?.value
+  });
+  filter.ui.graphAmplitudeDb=range.amplitudeDb;
+  filter.ui.graphFrequencyMinHz=range.minFrequencyHz;
+  filter.ui.graphFrequencyMaxHz=range.maxFrequencyHz;
+  syncGraphRangeControls(win,filter);
+  refreshGraphScales(win,filter);
+  rebuildPhaseTurnInspector(win,filter);
+  if(win._bandEditor){
+    const frequencyInput=win._bandEditor.querySelector('[data-band-frequency]');
+    if(frequencyInput){
+      frequencyInput.min=String(range.minFrequencyHz);
+      frequencyInput.max=String(maximumBandFrequency(filter));
+    }
+  }
+  renderWindow(filter,win);
+  document.dispatchEvent(new CustomEvent('raptor:mpgdgraphrangechange',{
+    detail:{filterId:filter.id,...range}
+  }));
+}
+
+function buildGraphRangeControls(win,filter){
+  const group=document.createElement('div');
+  group.className='mpgd-graph-range-controls';
+  group.setAttribute('aria-label','Graph display range');
+  group.innerHTML=
+    '<label class="mpgd-graph-range-field mpgd-graph-range-field--amplitude">'+
+      '<span>Amplitude</span><b>±</b><input type="number" inputmode="decimal" min="1" max="240" step="1" data-graph-amplitude aria-label="Graph amplitude range"><em>dB</em>'+
+    '</label>'+
+    '<label class="mpgd-graph-range-field mpgd-graph-range-field--frequency">'+
+      '<span>Frequency</span><input type="number" inputmode="decimal" min="1" max="200000" step="1" data-graph-frequency-min aria-label="Graph minimum frequency"><em>to</em><input type="number" inputmode="decimal" min="1" max="200000" step="1" data-graph-frequency-max aria-label="Graph maximum frequency"><em>Hz</em>'+
+    '</label>';
+  syncGraphRangeControls(group,filter);
+  for(const input of group.querySelectorAll('input')){
+    input.addEventListener('change',()=>commitGraphRangeControls(win,filter));
+    input.addEventListener('keydown',event=>{
+      if(event.key==='Enter'){
+        event.preventDefault();
+        input.blur();
+      }
+    });
+  }
+  return group;
+}
+
 function renderWindow(filter,win){
   const entry=sourceEntry(filter);
   const views=displayViewsForFilter(filter,entry);
@@ -2210,13 +2360,13 @@ function renderWindow(filter,win){
     win.querySelectorAll('.mpgd-filter-readout').forEach(el=>el.textContent='No input');
     win.querySelectorAll('.mpgd-filter-pointer-readout').forEach(el=>el.textContent='—');
   }else{
-    const indices=pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence);
-    const magPath=magnitudePathFromViews(views,indices);
-    phaseTrace?.setAttribute('d',phasePathFromViews(views,indices));
-    phaseMarkers?.setAttribute('d',filter.ui.wrap?wrapMarkerPath(views,indices):'');
+    const indices=pointsInDisplayRange(views.frequency_hz,views.phase_deg,views.coherence,filter);
+    const magPath=magnitudePathFromViews(views,indices,filter);
+    phaseTrace?.setAttribute('d',phasePathFromViews(views,indices,filter));
+    phaseMarkers?.setAttribute('d',filter.ui.wrap?wrapMarkerPath(views,indices,filter):'');
     magTrace?.setAttribute('d',magPath);
-    magFill?.setAttribute('d',magnitudeFillPath(magPath,views,indices));
-    uncertainty?.setAttribute('d',uncertaintyNeedlePath(views,indices));
+    magFill?.setAttribute('d',magnitudeFillPath(magPath,views,indices,filter));
+    uncertainty?.setAttribute('d',uncertaintyNeedlePath(views,indices,filter));
 
     restoreIdleGraphReadout(win,filter,'phase');
     restoreIdleGraphReadout(win,filter,'magnitude');
@@ -2312,6 +2462,7 @@ function buildFilterWindow(filter){
     item.append(input,text);
     toolbar.appendChild(item);
   }
+  toolbar.appendChild(buildGraphRangeControls(win,filter));
   const windowBypass=document.createElement('label');
   windowBypass.className='mpgd-filter-window-bypass mpgd-filter-toolbar-bypass';
   const windowBypassInput=document.createElement('input');
@@ -2337,9 +2488,9 @@ function buildFilterWindow(filter){
 
   const graphs=document.createElement('section');
   graphs.className='mpgd-filter-graphs';
-  const phase=buildGraph('phase');
+  const phase=buildGraph('phase',filter);
   phase.dataset.filterCard='phase';
-  const mag=buildGraph('magnitude');
+  const mag=buildGraph('magnitude',filter);
   mag.dataset.filterCard='magnitude';
   graphs.append(phase,mag);
 

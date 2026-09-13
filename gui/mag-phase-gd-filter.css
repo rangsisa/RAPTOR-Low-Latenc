@@ -1759,6 +1759,74 @@
   }
 }
 
+/* Editable display scale. These values change graph geometry only; they do
+   not alter the measurement, filter response, or Auto EQ solve limits. */
+.mpgd-filter-toolbar{
+  overflow-x:auto;
+  overflow-y:hidden;
+  flex-wrap:nowrap;
+  scrollbar-width:thin;
+  overscroll-behavior-x:contain
+}
+.mpgd-filter-check{flex:0 0 auto}
+.mpgd-graph-range-controls{
+  margin-left:auto;
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  color:#53616c;
+  font-size:9px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums
+}
+.mpgd-graph-range-field{
+  box-sizing:border-box;
+  height:27px;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:0 5px;
+  border:1px solid #c4ccd2;
+  border-radius:4px;
+  background:#f8fafb;
+  white-space:nowrap
+}
+.mpgd-graph-range-field span{color:#3f4c56}
+.mpgd-graph-range-field b,
+.mpgd-graph-range-field em{
+  color:#74818b;
+  font-style:normal;
+  font-weight:700
+}
+.mpgd-graph-range-field input{
+  box-sizing:border-box;
+  width:48px;
+  height:20px;
+  padding:1px 4px;
+  border:1px solid #aeb9c1;
+  border-radius:3px;
+  outline:0;
+  background:#fff;
+  color:#26343e;
+  font:inherit;
+  text-align:right;
+  touch-action:manipulation
+}
+.mpgd-graph-range-field--frequency input{width:62px}
+.mpgd-graph-range-field input:focus{
+  border-color:var(--raptor-active-border);
+  box-shadow:0 0 0 2px var(--raptor-active-soft)
+}
+.mpgd-filter-toolbar .mpgd-filter-toolbar-bypass{margin-left:0}
+
+@media(max-width:700px){
+  .mpgd-graph-range-controls{font-size:8.5px}
+  .mpgd-graph-range-field{height:25px;padding:0 4px;gap:3px}
+  .mpgd-graph-range-field input{width:43px;height:19px}
+  .mpgd-graph-range-field--frequency input{width:56px}
+}
+
 /* 2026-09-03 Band Point calm interaction final authority.
    The 30px interaction hit target remains invisible in every state.
    Only the reduced 70% visible circle is allowed to render. */
