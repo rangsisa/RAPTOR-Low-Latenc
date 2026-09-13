@@ -49,9 +49,11 @@ const windows=new Map();
 let bandContextMenu=null;
 let bandContextRequest=null;
 let persistentWireGroup=null;
+let connectionsFrame=0;
 let graphSequence=1;
 let hostSequence=1;
 const hostCache=new Map();
+const outputCache=new Map();
 
 function makeFilterId(){
   return 'mpgd-'+Date.now().toString(36)+'-'+(filterSequence++);
@@ -213,13 +215,25 @@ function sourceRef(filter){
   };
 }
 
-function sourceEntry(filter){
+function sourceEntry(filter,includeCanonical=true){
   const ref=sourceRef(filter);
   if(!ref) return null;
 
   if(ref.kind==='measurement'){
     const entry=api.getMeasurement?.(ref.id)||null;
-    return entry?{...entry,sourceKind:'measurement',lineageActive:true}:null;
+    if(!entry) return null;
+    if(includeCanonical) return {...entry,sourceKind:'measurement',lineageActive:true};
+    return {
+      id:entry.id||ref.id,
+      name:entry.name||ref.id,
+      color:entry.color||'#8FA6B8',
+      lineageActive:true,
+      sampleRate:entry.sampleRate??entry.canonical?.sample_rate_hz??null,
+      canonical:null,
+      format:entry.canonical?.format||'raptor.measurement.canonical.v1',
+      sourceKind:'measurement',
+      hasData:!!entry.canonical
+    };
   }
 
   const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
@@ -227,10 +241,7 @@ function sourceEntry(filter){
   const crossoverUpstream=crossover?.get?.(ref.id)||null;
 
   if(crossoverUpstream){
-    let canonical=crossover?.getOutput?.(ref.id)||null;
-    if(canonical){
-      try{canonicalApi?.validate(canonical);}catch{canonical=null;}
-    }
+    const canonical=includeCanonical?(crossover?.getOutput?.(ref.id)||null):null;
 
     const lineage=crossover?.getLineage?.(ref.id)||{
       active:!!canonical,
@@ -248,17 +259,14 @@ function sourceEntry(filter){
       format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
       sourceKind:'filter',
       filterType:crossoverUpstream.type||null,
-      hasData:!!canonical
+      hasData:includeCanonical?!!canonical:lineage.active===true
     };
   }
 
   const magUpstream=filterById(ref.id);
   if(!magUpstream) return null;
 
-  let canonical=canonicalOutputForFilter(magUpstream);
-  if(canonical){
-    try{canonicalApi?.validate(canonical);}catch{canonical=null;}
-  }
+  const canonical=includeCanonical?canonicalOutputForFilter(magUpstream):null;
   const lineage=magLineageInfo(magUpstream);
 
   return {
@@ -271,12 +279,12 @@ function sourceEntry(filter){
     format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
     sourceKind:'filter',
     filterType:FILTER_TYPE,
-    hasData:!!canonical
+    hasData:includeCanonical?!!canonical:lineage.active===true
   };
 }
 
 function sourceColor(filter){
-  return sourceEntry(filter)?.color||'#8FA6B8';
+  return sourceEntry(filter,false)?.color||'#8FA6B8';
 }
 
 function lineageMeasurementName(filter){
@@ -329,6 +337,7 @@ function invalidateResponseHost(filter,reason='processing-change'){
   const affectedFilterIds=downstreamMagOutputIds(filter.id);
   for(const filterId of affectedFilterIds){
     hostCache.delete(filterId);
+    outputCache.delete(filterId);
     clearPhaseTurnInspector(filterId,reason);
   }
 
@@ -345,14 +354,16 @@ function invalidateResponseHost(filter,reason='processing-change'){
 
 function responseHostForFilter(filter){
   if(!filter||!responseHost) return null;
-  const entry=sourceEntry(filter);
-  if(!entry) return null;
-  const views=displayViewsForFilter(filter);
-  if(!views?.frequency_hz) return null;
-
-  const signature=hostSignature(filter,entry);
+  const descriptor=sourceEntry(filter,false);
+  if(!descriptor) return null;
+  const signature=hostSignature(filter,descriptor);
   const cached=hostCache.get(filter.id);
   if(cached?.signature===signature) return cached.host;
+
+  const entry=sourceEntry(filter);
+  if(!entry) return null;
+  const views=displayViewsForFilter(filter,entry);
+  if(!views?.frequency_hz) return null;
 
   const line=api.getActiveLine?.()||null;
   const host=responseHost.create({
@@ -415,13 +426,15 @@ function outputProjection(filter,kind){
 
 function canonicalOutputForFilter(filter){
   if(!filter) return null;
+  const cached=outputCache.get(filter.id);
+  if(cached) return cached;
+
   const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
   const entry=sourceEntry(filter);
   const source=entry?.canonical||null;
   if(!canonicalApi||!source) return null;
 
-  try{canonicalApi.validate(source);}catch{return null;}
-  const processed=displayViewsForFilter(filter);
+  const processed=displayViewsForFilter(filter,entry);
   if(!processed?.magnitude_db||!processed?.phase_deg) return null;
 
   const output=canonicalApi.clone(source);
@@ -437,6 +450,7 @@ function canonicalOutputForFilter(filter){
   output.measurement_id=filter.id;
   output.source_name=(source.source_name||entry.name||'Canonical V1')+' -> '+filter.label;
   canonicalApi.validate(output);
+  outputCache.set(filter.id,output);
   return output;
 }
 
@@ -528,7 +542,7 @@ function renderConnections(){
   if(!activeCard) return;
 
   for(const filter of activeFilters()){
-    const entry=sourceEntry(filter);
+    const entry=sourceEntry(filter,false);
     const ref=sourceRef(filter);
     const source=sourceHandle(filter);
     const target=canvas.querySelector('.mpgd-filter-node[data-filter-id="'+filter.id+'"] .mpgd-filter-input');
@@ -557,8 +571,16 @@ function renderConnections(){
   }
 }
 
+function scheduleConnections(){
+  if(connectionsFrame) return;
+  connectionsFrame=requestAnimationFrame(()=>{
+    connectionsFrame=0;
+    renderConnections();
+  });
+}
+
 function applyNodeLineage(node,filter){
-  const entry=sourceEntry(filter);
+  const entry=sourceEntry(filter,false);
   const color=entry?.color||'#8FA6B8';
   node.classList.toggle('has-lineage',entry?.lineageActive===true);
   node.classList.toggle('is-bypassed',filter.bypass===true);
@@ -651,6 +673,7 @@ function deleteFilter(filterId){
   }
   windows.delete(filterId);
   hostCache.delete(filterId);
+  outputCache.clear();
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterdeleted',{
     detail:{filterId,filterType:FILTER_TYPE}
@@ -875,7 +898,7 @@ function renderNodes(){
   }
 
   activeFilters().forEach((filter,index)=>{
-    if(filter.input?.id&&!sourceEntry(filter)){
+    if(filter.input?.id&&!sourceEntry(filter,false)){
       filter.input=null;
       filter.sampleRateHz=null;
       invalidateResponseHost(filter,'input-missing');
@@ -892,7 +915,7 @@ function renderNodes(){
     });
   });
 
-  requestAnimationFrame(renderConnections);
+  scheduleConnections();
 }
 
 function createFilterAt(x,y){
@@ -950,9 +973,9 @@ function formatGridFrequency(value){
   return value>=1000?(value/1000)+'k':String(value);
 }
 
-function baseViewsForFilter(filter){
-  const entry=sourceEntry(filter);
-  const canonical=entry?.canonical||null;
+function baseViewsForFilter(filter,entry=null){
+  const resolvedEntry=entry||sourceEntry(filter);
+  const canonical=resolvedEntry?.canonical||null;
   const canonicalApi=window.RaptorMeasurementCanonicalV1;
   if(!canonical||!canonicalApi) return null;
   try{
@@ -992,12 +1015,13 @@ function phaseLiftDeltaDeg(frequencyHz,band){
   );
 }
 
-function displayViewsForFilter(filter){
-  const base=baseViewsForFilter(filter);
+function displayViewsForFilter(filter,entry=null){
+  const resolvedEntry=entry||sourceEntry(filter);
+  const base=baseViewsForFilter(filter,resolvedEntry);
   if(!base) return null;
   if(filter.bypass||!filter.bands.length) return base;
 
-  const fs=Number(filter.sampleRateHz??sourceEntry(filter)?.sampleRate??sourceEntry(filter)?.canonical?.sample_rate_hz);
+  const fs=Number(filter.sampleRateHz??resolvedEntry?.sampleRate??resolvedEntry?.canonical?.sample_rate_hz);
   if(!rbj||!Number.isFinite(fs)||fs<=0) return base;
 
   const frequency=base.frequency_hz;
@@ -1502,7 +1526,7 @@ function ensureBandContext(){
     closeBandContext();
     if(!request) return;
     const filter=filterById(request.filterId);
-    if(!filter||!sourceEntry(filter)) return;
+    if(!filter||!sourceEntry(filter,false)) return;
 
     const win=windows.get(filter.id);
     addBandAtFrequency(filter,win,request.graphKind,request.frequencyHz);
@@ -1514,7 +1538,7 @@ function ensureBandContext(){
 }
 
 function maximumBandFrequency(filter){
-  const entry=sourceEntry(filter);
+  const entry=sourceEntry(filter,false);
   const fs=Number(filter.sampleRateHz??entry?.sampleRate??entry?.canonical?.sample_rate_hz);
   return Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
 }
@@ -1536,7 +1560,7 @@ function nextDefaultBandFrequency(filter,kind){
 }
 
 function addBandAtFrequency(filter,win,kind,requestedFrequencyHz){
-  if(!filter||!sourceEntry(filter)) return null;
+  if(!filter||!sourceEntry(filter,false)) return null;
   const graphKind=kind==='phase'?'phase':'magnitude';
   const maximum=maximumBandFrequency(filter);
   const frequencyHz=Math.max(F0,Math.min(maximum,Number(requestedFrequencyHz)));
@@ -1582,8 +1606,9 @@ function openBandContext(event,filter,kind){
   menu.style.zIndex=String(Math.max(2600,windowZ+120));
   const add=menu.querySelector('button');
   if(add){
-    add.disabled=!sourceEntry(filter);
-    add.title=sourceEntry(filter)?'Add a new editable EQ band here':'Connect a Measurement input first';
+    const hasSource=!!sourceEntry(filter,false);
+    add.disabled=!hasSource;
+    add.title=hasSource?'Add a new editable EQ band here':'Connect a Measurement input first';
   }
   menu.hidden=false;
   menu.style.left='0px';
@@ -1888,7 +1913,8 @@ function openBandEditor(win,filter,bandId){
   qInput.value=String(Math.round(band.q*10000)/10000);
 
   const apply=()=>{
-    const fs=Number(filter.sampleRateHz??sourceEntry(filter)?.sampleRate??sourceEntry(filter)?.canonical?.sample_rate_hz);
+    const entry=sourceEntry(filter,false);
+    const fs=Number(filter.sampleRateHz??entry?.sampleRate);
     const maxF=Number.isFinite(fs)&&fs>0?Math.min(F1,fs/2*.98):F1;
     const frequencyHz=Math.max(F0,Math.min(maxF,Number(fInput.value)));
     const gain=clampBandGain(band,Number(gInput.value));
@@ -2161,7 +2187,7 @@ function applyMagnitudeLineageFill(win,filter){
 
 function renderWindow(filter,win){
   const entry=sourceEntry(filter);
-  const views=displayViewsForFilter(filter);
+  const views=displayViewsForFilter(filter,entry);
   win._mpgdDisplayViews=views;
 
   const phaseTrace=win.querySelector('.mpgd-filter-svg--phase .trace');
@@ -2497,6 +2523,8 @@ if(baseLoad){
   api.load=card=>{
     closeAllWindows();
     baseLoad(card);
+    hostCache.clear();
+    outputCache.clear();
     activeCard=card;
     ensureFilters(card);
     renderNodes();
@@ -2509,6 +2537,8 @@ if(baseDelete){
     if(card===activeCard){
       closeAllWindows();
       activeCard=null;
+      hostCache.clear();
+      outputCache.clear();
       removeRenderedNodes();
       ensurePersistentWireGroup().replaceChildren();
     }
@@ -2518,8 +2548,10 @@ if(baseDelete){
 
 new MutationObserver(()=>{
   if(!activeCard) return;
+  hostCache.clear();
+  outputCache.clear();
   for(const filter of activeFilters()){
-    if(filter.input?.id&&!sourceEntry(filter)){
+    if(filter.input?.id&&!sourceEntry(filter,false)){
       filter.input=null;
       filter.sampleRateHz=null;
       invalidateResponseHost(filter,'input-missing');
@@ -2531,7 +2563,7 @@ new MutationObserver(()=>{
     const win=windows.get(filter.id);
     if(win?.isConnected&&!win.hidden) applyMagnitudeLineageFill(win,filter);
   }
-  requestAnimationFrame(renderConnections);
+  scheduleConnections();
 }).observe(measurementList,{childList:true,subtree:false});
 
 function refreshCrossoverLineages(){
@@ -2542,7 +2574,7 @@ function refreshCrossoverLineages(){
     if(filter.input?.kind!=='filter') continue;
     affected=true;
 
-    const entry=sourceEntry(filter);
+    const entry=sourceEntry(filter,false);
     filter.sampleRateHz=Number(entry?.sampleRate??entry?.canonical?.sample_rate_hz)||null;
     invalidateResponseHost(filter,'crossover-lineage-change');
 
@@ -2552,7 +2584,7 @@ function refreshCrossoverLineages(){
 
   if(affected){
     renderNodes();
-    requestAnimationFrame(renderConnections);
+    scheduleConnections();
   }
 }
 
@@ -2569,7 +2601,7 @@ function refreshFilterSources(event){
     if(filter.input?.kind!=='filter'||!propagatedIds.has(String(filter.input.id))) continue;
     affected=true;
 
-    const entry=sourceEntry(filter);
+    const entry=sourceEntry(filter,false);
     if(!entry){
       filter.input=null;
       filter.sampleRateHz=null;
@@ -2585,7 +2617,7 @@ function refreshFilterSources(event){
 
   if(affected){
     renderNodes();
-    requestAnimationFrame(renderConnections);
+    scheduleConnections();
   }
 }
 
@@ -2614,7 +2646,7 @@ function refreshMagOutputSources(event){
     const ref=sourceRef(filter);
     if(ref?.kind!=='filter') continue;
 
-    const entry=sourceEntry(filter);
+    const entry=sourceEntry(filter,false);
     filter.sampleRateHz=Number(entry?.sampleRate??entry?.canonical?.sample_rate_hz)||null;
 
     const node=canvas.querySelector('.mpgd-filter-node[data-filter-id="'+filter.id+'"]');
@@ -2625,22 +2657,22 @@ function refreshMagOutputSources(event){
     affected=true;
   }
 
-  if(affected) requestAnimationFrame(renderConnections);
+  if(affected) scheduleConnections();
 }
 
 document.addEventListener('raptor:filteroutputchange',refreshMagOutputSources);
 document.addEventListener('raptor:crossoverlineagechange',refreshCrossoverLineages);
 
-new MutationObserver(()=>requestAnimationFrame(renderConnections))
+new MutationObserver(scheduleConnections)
   .observe(canvas,{attributes:true,subtree:true,attributeFilter:['style']});
 
-new MutationObserver(()=>requestAnimationFrame(renderConnections))
+new MutationObserver(scheduleConnections)
   .observe(measurementNode,{attributes:true,attributeFilter:['style']});
 
-new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode);
-canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
-document.addEventListener('raptor:pipelineobstacleschange',()=>requestAnimationFrame(renderConnections));
-document.addEventListener('raptor:pipelinezoomchange',()=>requestAnimationFrame(renderConnections));
+new ResizeObserver(scheduleConnections).observe(measurementNode);
+canvas.addEventListener('scroll',scheduleConnections,{passive:true});
+document.addEventListener('raptor:pipelineobstacleschange',scheduleConnections);
+document.addEventListener('raptor:pipelinezoomchange',scheduleConnections);
 
 window.RaptorMagPhaseGdFilter=Object.freeze({
   type:FILTER_TYPE,
@@ -2676,7 +2708,11 @@ window.RaptorMagPhaseGdFilter=Object.freeze({
     const filter=filterById(filterId);
     return Object.freeze(filter?magLineageInfo(filter):{active:false,color:'#8FA6B8',measurementId:null});
   },
-  refresh:renderNodes,
+  refresh(){
+    hostCache.clear();
+    outputCache.clear();
+    renderNodes();
+  },
   refreshConnections:renderConnections
 });
 })();

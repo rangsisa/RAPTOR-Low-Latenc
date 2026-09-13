@@ -8,20 +8,22 @@ const wireSvg=document.querySelector('.pipeline-wire-layer');
 const measurementNode=document.getElementById('measurementNode');
 const measurementList=document.getElementById('measurementList');
 const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
-if(!api||!workspaceView||!canvas||!wireSvg||!measurementNode||!measurementList||!canonicalApi) return;
+const crossoverResponse=window.RaptorCrossoverResponse||null;
+if(!api||!workspaceView||!canvas||!wireSvg||!measurementNode||!measurementList||!canonicalApi||!crossoverResponse) return;
 
 const SVG_NS='http://www.w3.org/2000/svg';
 const TYPES=new Set(['lowpass','highpass','bandpass']);
-const LR_TYPES=new Set(['lowpass','highpass']);
 const SLOPES=Object.freeze([12,24,48,96,192]);
 const MODEL='LINKWITZ_RILEY_BILINEAR_V1';
 
 let activeCard=null;
 let sequence=1;
 let persistentWireGroup=null;
+let connectionsFrame=0;
 let parameterPopover=null;
 let parameterPopoverFilterId=null;
 let parameterPopoverAnchor=null;
+const outputCache=new Map();
 
 function formatCompactFrequency(value){
   const f=Number(value);
@@ -63,6 +65,7 @@ function filterChangeDetail(filter){
 }
 
 function publishFilterChange(filter,reason){
+  invalidateOutputCache(filter.id);
   document.dispatchEvent(new CustomEvent('raptor:crossoverfilterchange',{
     detail:filterChangeDetail(filter)
   }));
@@ -459,8 +462,14 @@ function downstreamOutputIds(filterId){
   return [...affected];
 }
 
-function notifyOutputChange(filterId,filterType,reason){
+function invalidateOutputCache(filterId){
   const affectedFilterIds=downstreamOutputIds(filterId);
+  for(const affectedId of affectedFilterIds) outputCache.delete(affectedId);
+  return affectedFilterIds;
+}
+
+function notifyOutputChange(filterId,filterType,reason){
+  const affectedFilterIds=invalidateOutputCache(filterId);
   document.dispatchEvent(new CustomEvent('raptor:crossoveroutputchange',{
     detail:{
       filterId:String(filterId||''),
@@ -505,8 +514,8 @@ function sampleRateFor(filter){
     if(upstream){
       value=Number(upstream.sampleRateHz??value);
     }else{
-      const canonical=window.RaptorMagPhaseGdFilter?.getOutput?.(ref.id)||null;
-      value=Number(canonical?.sample_rate_hz??value);
+      const mag=window.RaptorMagPhaseGdFilter?.get?.(ref.id)||null;
+      value=Number(mag?.sampleRateHz??value);
     }
   }
   return Number.isFinite(value)&&value>0?value:null;
@@ -557,64 +566,21 @@ function canConnectInput(filter,source){
     return false;
   }
 }
-function principalRad(value){return Math.atan2(Math.sin(value),Math.cos(value));}
-
-function linkwitzRileyDelta(type,frequencyHz,cutoffHz,slopeDbOct,sampleRateHz){
-  if(!LR_TYPES.has(type)) throw new RangeError('Unsupported Linkwitz-Riley edge type');
-  if(!SLOPES.includes(slopeDbOct)) throw new RangeError('Unsupported crossover slope');
-  if(!(frequencyHz>0&&cutoffHz>0&&sampleRateHz>0&&cutoffHz<sampleRateHz/2)) throw new RangeError('Invalid crossover geometry');
-
-  const f=Math.min(frequencyHz,sampleRateHz/2*(1-1e-12));
-  const butterworthOrder=slopeDbOct/12;
-  const warped=2*sampleRateHz*Math.tan(Math.PI*f/sampleRateHz);
-  const omegaC=2*sampleRateHz*Math.tan(Math.PI*cutoffHz/sampleRateHz);
-
-  let logMagnitude=0;
-  let phase=0;
-
-  for(let k=0;k<butterworthOrder;k++){
-    const theta=Math.PI*(2*k+butterworthOrder+1)/(2*butterworthOrder);
-    const poleRe=omegaC*Math.cos(theta);
-    const poleIm=omegaC*Math.sin(theta);
-
-    const denRe=-poleRe;
-    const denIm=warped-poleIm;
-    let numRe,numIm;
-
-    if(type==='lowpass'){
-      numRe=-poleRe;
-      numIm=-poleIm;
-    }else{
-      numRe=0;
-      numIm=warped;
-    }
-
-    const numMagnitude=Math.hypot(numRe,numIm);
-    const denMagnitude=Math.hypot(denRe,denIm);
-    if(!(numMagnitude>0&&denMagnitude>0)){
-      return {magnitudeDb:-Infinity,phaseRad:0};
-    }
-
-    logMagnitude+=Math.log(numMagnitude)-Math.log(denMagnitude);
-    phase+=Math.atan2(numIm,numRe)-Math.atan2(denIm,denRe);
-  }
-
-  // Linkwitz-Riley = two identical Butterworth sections in cascade.
-  return {
-    magnitudeDb:(40/Math.LN10)*logMagnitude,
-    phaseRad:principalRad(2*phase)
-  };
-}
-
 function processedCanonical(filter){
   if(!filter) return null;
+  const cached=outputCache.get(filter.id);
+  if(cached) return cached;
+
   const source=sourceCanonical(filter);
   if(!source) return null;
 
   // LP/HP is intentionally a file/response processor only:
   // Canonical V1 in -> Canonical V1 out. No graph/editor state is involved.
   const output=canonicalApi.clone(source);
-  if(filter.bypass) return output;
+  if(filter.bypass){
+    outputCache.set(filter.id,output);
+    return output;
+  }
 
   const fsValue=Number(source.sample_rate_hz??sampleRateFor(filter));
   const fs=Number.isFinite(fsValue)&&fsValue>0?fsValue:null;
@@ -631,23 +597,11 @@ function processedCanonical(filter){
   const frequency=views.frequency_hz;
   const magnitude=views.magnitude_db;
   const phase=views.phase_deg;
-
-  for(let i=0;i<output.points;i++){
-    const f=Number(frequency[i]);
-    const sourceMagnitude=Number(magnitude[i]);
-    const sourcePhase=Number(phase[i]);
-    if(!(Number.isFinite(f)&&f>0&&Number.isFinite(sourceMagnitude)&&Number.isFinite(sourcePhase))) return null;
-
-    if(filter.type==='bandpass'){
-      const highpass=linkwitzRileyDelta('highpass',f,filter.lowFrequencyHz,filter.highpassSlopeDbOct,fs);
-      const lowpass=linkwitzRileyDelta('lowpass',f,filter.highFrequencyHz,filter.lowpassSlopeDbOct,fs);
-      magnitude[i]=sourceMagnitude+highpass.magnitudeDb+lowpass.magnitudeDb;
-      phase[i]=principalRad(sourcePhase*Math.PI/180+highpass.phaseRad+lowpass.phaseRad)*180/Math.PI;
-    }else{
-      const delta=linkwitzRileyDelta(filter.type,f,filter.frequencyHz,filter.slopeDbOct,fs);
-      magnitude[i]=sourceMagnitude+delta.magnitudeDb;
-      phase[i]=principalRad(sourcePhase*Math.PI/180+delta.phaseRad)*180/Math.PI;
-    }
+  try{
+    const compiled=crossoverResponse.compileFilter(filter,fs);
+    crossoverResponse.applyToViews(compiled,frequency,magnitude,phase);
+  }catch{
+    return null;
   }
 
   // The payload changed, so a source payload hash must never be carried forward.
@@ -656,6 +610,7 @@ function processedCanonical(filter){
   output.measurement_id=filter.id;
   output.source_name=(source.source_name||sourceName(filter)||'Canonical V1')+' -> '+labelFor(filter.type);
   canonicalApi.validate(output);
+  outputCache.set(filter.id,output);
   return output;
 }
 
@@ -894,6 +849,7 @@ function buildNode(filter,index){
   bypass.addEventListener('change',event=>{
     event.stopPropagation();
     filter.bypass=bypass.checked;
+    invalidateOutputCache(filter.id);
     applyLineage(node,filter);
     document.dispatchEvent(new CustomEvent('raptor:filterbypasschange',{
       detail:{filterId:filter.id,filterType:filter.type,bypass:filter.bypass}
@@ -959,7 +915,7 @@ function renderNodes(){
     });
   });
 
-  requestAnimationFrame(renderConnections);
+  scheduleConnections();
 }
 function createFilter(type,x,y){
   if(!activeCard||!TYPES.has(type)) return null;
@@ -984,6 +940,7 @@ function deleteFilter(filterId){
   if(index<0) return false;
   const filter=filters[index];
   filters.splice(index,1);
+  outputCache.clear();
   api.unregisterInput?.('xo:'+filterId+':input');
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterdeleted',{
@@ -1016,6 +973,7 @@ function connectInput(filter,source,meta={}){
   filter.input={kind,id:sourceId};
   const sourceRate=Number(source.sampleRate??canonical?.sample_rate_hz);
   filter.sampleRateHz=Number.isFinite(sourceRate)&&sourceRate>0?sourceRate:null;
+  invalidateOutputCache(filter.id);
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
     detail:{
@@ -1036,6 +994,7 @@ function disconnectInput(filter){
   const sourceId=filter.input.id;
   filter.input=null;
   filter.sampleRateHz=null;
+  invalidateOutputCache(filter.id);
   renderNodes();
   document.dispatchEvent(new CustomEvent('raptor:filterinputchange',{
     detail:{filterId:filter.id,filterType:filter.type,sourceId,connected:false}
@@ -1122,6 +1081,14 @@ function renderConnections(){
   }
 }
 
+function scheduleConnections(){
+  if(connectionsFrame) return;
+  connectionsFrame=requestAnimationFrame(()=>{
+    connectionsFrame=0;
+    renderConnections();
+  });
+}
+
 document.addEventListener('pointerdown',event=>{
   if(!parameterPopover?.isConnected) return;
   if(parameterPopover.contains(event.target)) return;
@@ -1196,6 +1163,7 @@ const baseLoad=api.load?.bind(api);
 if(baseLoad){
   api.load=card=>{
     baseLoad(card);
+    outputCache.clear();
     activeCard=card;
     ensureFilters(card);
     renderNodes();
@@ -1206,6 +1174,7 @@ if(baseDelete){
   api.onDelete=card=>{
     if(card===activeCard){
       activeCard=null;
+      outputCache.clear();
       removeRenderedNodes();
       ensureWireGroup().replaceChildren();
     }
@@ -1215,6 +1184,7 @@ if(baseDelete){
 
 new MutationObserver(()=>{
   if(!activeCard) return;
+  outputCache.clear();
   for(const filter of activeFilters()){
     if(filter.input?.id&&!sourceExists(filter)){
       filter.input=null;
@@ -1223,15 +1193,15 @@ new MutationObserver(()=>{
     const node=canvas.querySelector('.xo-filter-node[data-filter-id="'+filter.id+'"]');
     if(node) applyLineage(node,filter);
   }
-  requestAnimationFrame(renderConnections);
+  scheduleConnections();
 }).observe(measurementList,{childList:true,subtree:false});
 
-new MutationObserver(()=>requestAnimationFrame(renderConnections))
+new MutationObserver(scheduleConnections)
   .observe(measurementNode,{attributes:true,attributeFilter:['style']});
-new ResizeObserver(()=>requestAnimationFrame(renderConnections)).observe(measurementNode);
-canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
-document.addEventListener('raptor:pipelineobstacleschange',()=>requestAnimationFrame(renderConnections));
-document.addEventListener('raptor:pipelinezoomchange',()=>requestAnimationFrame(renderConnections));
+new ResizeObserver(scheduleConnections).observe(measurementNode);
+canvas.addEventListener('scroll',scheduleConnections,{passive:true});
+document.addEventListener('raptor:pipelineobstacleschange',scheduleConnections);
+document.addEventListener('raptor:pipelinezoomchange',scheduleConnections);
 
 document.addEventListener('raptor:filteroutputchange',event=>{
   if(event.detail?.filterType!=='mag-phase-gd'||!activeCard) return;
@@ -1286,6 +1256,7 @@ window.RaptorCrossoverFilter=Object.freeze({
     const filter=filterById(filterId);
     if(!filter) return false;
     filter.bypass=!!bypass;
+    invalidateOutputCache(filter.id);
     renderNodes();
     document.dispatchEvent(new CustomEvent('raptor:filterbypasschange',{
       detail:{filterId:filter.id,filterType:filter.type,bypass:filter.bypass}
@@ -1294,7 +1265,10 @@ window.RaptorCrossoverFilter=Object.freeze({
     return true;
   },
   delete:deleteFilter,
-  refresh:renderNodes,
+  refresh(){
+    outputCache.clear();
+    renderNodes();
+  },
   refreshConnections:renderConnections
 });
 })();

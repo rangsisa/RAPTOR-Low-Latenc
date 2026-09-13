@@ -20,6 +20,7 @@ const ROLES=Object.freeze([
 let activeCard=null;
 let sequence=1;
 let wireGroup=null;
+let connectionsFrame=0;
 
 function makeId(){
   return 'target-export-'+Date.now().toString(36)+'-'+(sequence++).toString(36);
@@ -82,7 +83,7 @@ function setInputRef(item,role,value){
   return true;
 }
 
-function filterSource(id){
+function filterSource(id,includeCanonical=false){
   const sourceId=String(id||'');
   if(!sourceId) return null;
 
@@ -92,7 +93,7 @@ function filterSource(id){
     return {
       kind:'crossover',
       filter:xoFilter,
-      canonical:xo.getOutput?.(sourceId)||null,
+      canonical:includeCanonical?(xo.getOutput?.(sourceId)||null):null,
       lineage:xo.getLineage?.(sourceId)||null
     };
   }
@@ -103,7 +104,7 @@ function filterSource(id){
     return {
       kind:'mag-phase-gd',
       filter:mpgdFilter,
-      canonical:mpgd.getOutput?.(sourceId)||null,
+      canonical:includeCanonical?(mpgd.getOutput?.(sourceId)||null):null,
       lineage:mpgd.getLineage?.(sourceId)||null
     };
   }
@@ -111,36 +112,37 @@ function filterSource(id){
   return null;
 }
 
-function sourceForRole(item,role){
+function sourceForRole(item,role,includeCanonical=false){
   const ref=inputRef(item,role);
-  return ref?.id?filterSource(ref.id):null;
+  return ref?.id?filterSource(ref.id,includeCanonical):null;
 }
 
 function sourceExists(item,role){
   return !!sourceForRole(item,role);
 }
 
-function sourceCanonical(item,role){
-  const canonical=sourceForRole(item,role)?.canonical||null;
+function sourceCanonical(item,role,source=undefined){
+  const resolved=source===undefined?sourceForRole(item,role,true):source;
+  const canonical=resolved?.canonical||null;
   if(!canonical) return null;
   try{canonicalApi.validate(canonical)}catch{return null;}
   return canonical;
 }
 
-function sourceColor(item,role){
+function sourceColor(item,role,source=null){
   const ref=inputRef(item,role);
-  const source=sourceForRole(item,role);
-  return source?.lineage?.color||ref?.color||BASE_COLOR;
+  const resolved=source||sourceForRole(item,role);
+  return resolved?.lineage?.color||ref?.color||BASE_COLOR;
 }
 
-function sourceFileName(item,role){
+function sourceFileName(item,role,source=null){
   const ref=inputRef(item,role);
   if(!ref?.id) return 'Not connected';
-  const source=sourceForRole(item,role);
-  const measurementId=source?.lineage?.measurementId||null;
+  const resolved=source||sourceForRole(item,role);
+  const measurementId=resolved?.lineage?.measurementId||null;
   const measurement=measurementId?api.getMeasurement?.(measurementId):null;
   if(measurement?.name) return measurement.name;
-  return source?.filter?.label||source?.filter?.type||'Filter connected';
+  return resolved?.filter?.label||resolved?.filter?.type||'Filter connected';
 }
 
 function canAcceptSource(source){
@@ -184,8 +186,12 @@ function compatibleFrequency(a,b){
 }
 
 function combinedTarget(item){
-  const phaseCanonical=sourceCanonical(item,'phase');
-  const magnitudeCanonical=sourceCanonical(item,'magnitude');
+  // Canonical arrays are materialized only for an explicit export/readback.
+  // Routine node and wire refreshes use metadata and never run filter DSP.
+  const phaseSource=sourceForRole(item,'phase',true);
+  const magnitudeSource=sourceForRole(item,'magnitude',true);
+  const phaseCanonical=sourceCanonical(item,'phase',phaseSource);
+  const magnitudeCanonical=sourceCanonical(item,'magnitude',magnitudeSource);
   if(!phaseCanonical||!magnitudeCanonical){
     return {ready:false,reason:'Connect valid Phase and Magnitude filter inputs first'};
   }
@@ -225,10 +231,14 @@ function combinedTarget(item){
 
 function applyLineage(node,item){
   normalizeItem(item);
-  const phaseConnected=sourceExists(item,'phase');
-  const magnitudeConnected=sourceExists(item,'magnitude');
-  const phaseColor=sourceColor(item,'phase');
-  const magnitudeColor=sourceColor(item,'magnitude');
+  const sources={
+    phase:sourceForRole(item,'phase'),
+    magnitude:sourceForRole(item,'magnitude')
+  };
+  const phaseConnected=!!sources.phase;
+  const magnitudeConnected=!!sources.magnitude;
+  const phaseColor=sourceColor(item,'phase',sources.phase);
+  const magnitudeColor=sourceColor(item,'magnitude',sources.magnitude);
   const anyConnected=phaseConnected||magnitudeConnected;
   const split=phaseConnected&&magnitudeConnected&&phaseColor!==magnitudeColor;
   const lineageColor=phaseConnected?phaseColor:(magnitudeConnected?magnitudeColor:BASE_COLOR);
@@ -239,9 +249,10 @@ function applyLineage(node,item){
   node.style.setProperty('--lineage-tint',hexTint(lineageColor,.10));
 
   for(const spec of ROLES){
-    const color=sourceColor(item,spec.role);
-    const connected=sourceExists(item,spec.role);
-    const fileName=sourceFileName(item,spec.role);
+    const source=sources[spec.role];
+    const color=sourceColor(item,spec.role,source);
+    const connected=!!source;
+    const fileName=sourceFileName(item,spec.role,source);
     const file=node.querySelector('[data-target-export-file="'+spec.role+'"]');
     if(file){
       file.textContent=fileName;
@@ -260,9 +271,12 @@ function applyLineage(node,item){
 
   const button=node.querySelector('.target-export-button');
   if(button){
-    const combined=combinedTarget(item);
-    button.disabled=!combined.ready;
-    button.title=combined.ready?'Download combined Phase + Magnitude target as TXT':combined.reason;
+    const ready=phaseConnected&&magnitudeConnected&&
+      sources.phase?.lineage?.active===true&&sources.magnitude?.lineage?.active===true;
+    button.disabled=!ready;
+    button.title=ready
+      ?'Download combined Phase + Magnitude target as TXT'
+      :'Connect valid Phase and Magnitude filter inputs first';
   }
 }
 
@@ -323,7 +337,10 @@ function exportFileStem(item){
 
 function exportTxt(item){
   const combined=combinedTarget(item);
-  if(!combined.ready) return false;
+  if(!combined.ready){
+    window.alert?.(combined.reason);
+    return false;
+  }
   const lines=[];
 
   if(Number.isFinite(combined.sampleRate)&&combined.sampleRate>0){
@@ -371,7 +388,7 @@ function startNodeDrag(event,node,item){
     const point=workspaceView.clientToLogical(moveEvent.clientX,moveEvent.clientY);
     item.position=clampPosition({x:point.x-grab.x,y:point.y-grab.y},node);
     workspaceView.positionNode(node,item.position.x,item.position.y);
-    requestAnimationFrame(renderConnections);
+    scheduleConnections();
   };
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
@@ -511,7 +528,7 @@ function renderNodes(){
       });
     }
   }
-  requestAnimationFrame(renderConnections);
+  scheduleConnections();
 }
 
 function createAt(x,y){
@@ -626,6 +643,14 @@ function renderConnections(){
   }
 }
 
+function scheduleConnections(){
+  if(connectionsFrame) return;
+  connectionsFrame=requestAnimationFrame(()=>{
+    connectionsFrame=0;
+    renderConnections();
+  });
+}
+
 function syncActiveCard(){
   const next=loadedCard();
   if(next===activeCard) return;
@@ -641,7 +666,7 @@ new MutationObserver(()=>syncActiveCard()).observe(pipelineRow,{
   attributeFilter:['class']
 });
 
-new MutationObserver(()=>requestAnimationFrame(renderConnections)).observe(canvas,{
+new MutationObserver(scheduleConnections).observe(canvas,{
   attributes:true,
   subtree:true,
   attributeFilter:['style']
@@ -654,7 +679,7 @@ if(measurementList){
       const node=canvas.querySelector('.target-export-node[data-filter-id="'+CSS.escape(String(item.id))+'"]');
       if(node) applyLineage(node,item);
     }
-    requestAnimationFrame(renderConnections);
+    scheduleConnections();
   }).observe(measurementList,{childList:true,subtree:false});
 }
 
@@ -704,13 +729,13 @@ for(const eventName of [
       const node=canvas.querySelector('.target-export-node[data-filter-id="'+CSS.escape(String(item.id))+'"]');
       if(node) applyLineage(node,item);
     }
-    requestAnimationFrame(renderConnections);
+    scheduleConnections();
   });
 }
 
-canvas.addEventListener('scroll',()=>requestAnimationFrame(renderConnections),{passive:true});
-document.addEventListener('raptor:pipelineobstacleschange',()=>requestAnimationFrame(renderConnections));
-document.addEventListener('raptor:pipelinezoomchange',()=>requestAnimationFrame(renderConnections));
+canvas.addEventListener('scroll',scheduleConnections,{passive:true});
+document.addEventListener('raptor:pipelineobstacleschange',scheduleConnections);
+document.addEventListener('raptor:pipelinezoomchange',scheduleConnections);
 
 syncActiveCard();
 

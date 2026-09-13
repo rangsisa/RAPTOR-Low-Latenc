@@ -63,7 +63,7 @@ function ensureTargetExportModule(){
   ensureTargetExportStyle();
   targetExportLoader=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='./target-export.js?v=target-export-dual-input-v4-20260907-1';
+    script.src='./target-export.js?v=metadata-only-refresh-20260913-1';
     script.async=true;
     script.dataset.raptorTargetExportModule='';
     script.addEventListener('load',()=>{
