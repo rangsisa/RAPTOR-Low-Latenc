@@ -1387,7 +1387,17 @@ function buildGraph(kind,filter){
   unit.className='mpgd-filter-unit';
   unit.textContent=kind==='phase'?'deg':'dB';
 
-  head.append(title,readout,pointer,unit);
+  head.appendChild(title);
+  if(kind==='phase'){
+    const autoPhase=document.createElement('button');
+    autoPhase.type='button';
+    autoPhase.className='mpgd-auto-phase-open';
+    autoPhase.textContent='Auto Phase';
+    autoPhase.setAttribute('aria-label','Auto Phase');
+    autoPhase.title='Auto Phase · coming soon';
+    head.appendChild(autoPhase);
+  }
+  head.append(readout,pointer,unit);
 
   const plot=document.createElement('div');
   plot.className='mpgd-filter-plot';

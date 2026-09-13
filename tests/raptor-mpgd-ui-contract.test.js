@@ -44,6 +44,8 @@ assert.match(js,/data-graph-amplitude/);
 assert.match(js,/data-graph-frequency-min/);
 assert.match(js,/data-graph-frequency-max/);
 assert.match(js,/rebuildPhaseTurnInspector\(win,filter\);/);
+assert.match(js,/autoPhase\.textContent='Auto Phase';/);
+assert.match(css,/\.mpgd-auto-phase-open\{/);
 assert.match(css,/\.mpgd-filter-svg--mag \.uncertainty-needles\{[\s\S]*?stroke:rgba\(210,48,48,\.52\);[\s\S]*?stroke-width:1\.7;/);
 assert.match(css,/\.mpgd-band-rack-add\{/);
 assert.match(css,/\.mpgd-graph-range-controls\{/);

@@ -169,7 +169,7 @@ function automaticCrossoverRange(filterId){
 
   const fs=Number(filter.sampleRateHz||canonical.sample_rate_hz);
   const maximum=Number.isFinite(fs)&&fs>0?Math.min(20000,fs/2*.98):20000;
-  return passbandMetadata.effectiveRange(canonical,{minHz:20,maxHz:maximum});
+  return passbandMetadata.effectiveRange(canonical,{minHz:10,maxHz:maximum});
 }
 function applyAutomaticCrossoverRange(filterId,panel,{force=false}={}){
   if(!panel) return null;
@@ -190,7 +190,7 @@ function applyAutomaticCrossoverRange(filterId,panel,{force=false}={}){
 }
 function crossoverRangeStatus(range){
   if(!range||range.appliedCount<1) return 'Ready';
-  const label='XO range '+inputFrequency(range.fromHz)+'–'+inputFrequency(range.toHz)+' Hz';
+  const label='XO safe range '+inputFrequency(range.fromHz)+'–'+inputFrequency(range.toHz)+' Hz';
   return range.valid?label:label+' · no overlapping passband';
 }
 function isAutoBand(band){
@@ -340,8 +340,8 @@ function prepareProblem(filterId,options){
   if(!(Number.isFinite(fs)&&fs>0)) throw new Error('Sample Rate is required for AutoEQ.');
 
   const nyquistLimit=Math.min(20000,fs/2*.98);
-  const fMin=clamp(options.fMin,20,nyquistLimit);
-  const fMax=clamp(options.fMax,20,nyquistLimit);
+  const fMin=clamp(options.fMin,10,nyquistLimit);
+  const fMax=clamp(options.fMax,10,nyquistLimit);
   if(!(fMax>fMin)) throw new Error('Frequency To must be higher than From.');
 
   const targetDb=clamp(options.targetDb,-40,40);
@@ -559,8 +559,8 @@ function buildPanel(filterId,anchor){
     '</header>'+
     '<div class="mpgd-autoeq-body">'+
       '<div class="mpgd-autoeq-grid">'+
-        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>From</span><span class="mpgd-autoeq-number"><input type="number" min="20" max="20000" step="1" value="20" data-autoeq-fmin><b>Hz</b></span></label>'+
-        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>To</span><span class="mpgd-autoeq-number"><input type="number" min="20" max="20000" step="1" value="20000" data-autoeq-fmax><b>Hz</b></span></label>'+
+        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>From</span><span class="mpgd-autoeq-number"><input type="number" min="10" max="20000" step="1" value="10" data-autoeq-fmin><b>Hz</b></span></label>'+
+        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>To</span><span class="mpgd-autoeq-number"><input type="number" min="10" max="20000" step="1" value="20000" data-autoeq-fmax><b>Hz</b></span></label>'+
       '</div>'+
       '<label class="mpgd-autoeq-field"><span>Target Level</span><span class="mpgd-autoeq-number"><input type="number" min="-40" max="40" step="0.1" value="0" data-autoeq-target><b>dB</b></span></label>'+
       '<div class="mpgd-autoeq-grid">'+

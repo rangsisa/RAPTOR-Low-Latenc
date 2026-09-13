@@ -36,15 +36,38 @@ assert.strictEqual(fullHistory[2].lowpass_cutoff_hz,1600);
 assert.strictEqual(fullHistory[2].lowpass_slope_db_oct,192);
 
 const range=metadata.effectiveRange(output,{minHz:20,maxHz:20000});
+const hp24Guard=metadata.transitionGuardRatio(24);
+const hp48Guard=metadata.transitionGuardRatio(48);
+const lp96Guard=metadata.transitionGuardRatio(96);
+const lp192Guard=metadata.transitionGuardRatio(192);
+assert.strictEqual(metadata.DEFAULT_PASSBAND_SETTLE_DB,.5);
+assert.ok(hp24Guard>hp48Guard&&hp48Guard>lp96Guard&&lp96Guard>lp192Guard&&lp192Guard>1);
+assert.ok(Math.abs(range.fromHz-Math.max(80*hp24Guard,100*hp48Guard))<1e-9);
+assert.ok(Math.abs(range.toHz-Math.min(1800/lp96Guard,1600/lp192Guard))<1e-9);
 assert.deepStrictEqual(
-  {fromHz:range.fromHz,toHz:range.toHz,valid:range.valid,filterCount:range.filterCount},
-  {fromHz:100,toHz:1600,valid:true,filterCount:3}
+  {
+    rawFromHz:range.rawFromHz,
+    rawToHz:range.rawToHz,
+    valid:range.valid,
+    filterCount:range.filterCount,
+    insetAppliedCount:range.insetAppliedCount
+  },
+  {rawFromHz:100,rawToHz:1600,valid:true,filterCount:3,insetAppliedCount:4}
 );
+assert.ok(range.fromHz>range.rawFromHz);
+assert.ok(range.toHz<range.rawToHz);
 
 const untouched=metadata.effectiveRange(source,{minHz:20,maxHz:20000});
 assert.deepStrictEqual(
   {fromHz:untouched.fromHz,toHz:untouched.toHz,appliedCount:untouched.appliedCount},
   {fromHz:20,toHz:20000,appliedCount:0}
+);
+assert.deepStrictEqual(
+  metadata.effectiveRange(source),
+  {
+    fromHz:10,toHz:20000,rawFromHz:10,rawToHz:20000,valid:true,
+    appliedCount:0,insetAppliedCount:0,settleDb:.5,filterCount:0,history:[]
+  }
 );
 
 const impossible={
@@ -59,9 +82,10 @@ const crossoverJs=read('gui/crossover-filter.js');
 const autoEqJs=read('gui/mag-phase-gd-autoeq.js');
 const html=read('gui/index.html');
 assert.match(crossoverJs,/output\[passbandMetadata\.HISTORY_KEY\]=passbandMetadata\.append\(source,filter,\{model:MODEL\}\)/);
-assert.match(autoEqJs,/passbandMetadata\.effectiveRange\(canonical,\{minHz:20,maxHz:maximum\}\)/);
+assert.match(autoEqJs,/passbandMetadata\.effectiveRange\(canonical,\{minHz:10,maxHz:maximum\}\)/);
+assert.match(autoEqJs,/value="10" data-autoeq-fmin/);
 assert.match(autoEqJs,/from\.value=inputFrequency\(range\.fromHz\)/);
 assert.match(autoEqJs,/to\.value=inputFrequency\(range\.toHz\)/);
-assert.match(html,/crossover-passband-metadata\.js\?v=crossover-history-20260913-1/);
+assert.match(html,/crossover-passband-metadata\.js\?v=xo-safe-range-20260913-1/);
 
 console.log('RAPTOR crossover passband metadata contract PASS');

@@ -1820,11 +1820,31 @@
 }
 .mpgd-filter-toolbar .mpgd-filter-toolbar-bypass{margin-left:0}
 
+.mpgd-auto-phase-open{
+  flex:0 0 auto;
+  height:22px;
+  padding:0 7px;
+  border:1px solid #d6a474;
+  border-radius:4px;
+  background:#fff8f0;
+  color:#a94a0b;
+  font-size:9px;
+  font-weight:850;
+  cursor:pointer
+}
+.mpgd-auto-phase-open:hover,
+.mpgd-auto-phase-open:focus-visible{
+  border-color:var(--raptor-active-border);
+  background:var(--raptor-active-soft);
+  outline:0
+}
+
 @media(max-width:700px){
   .mpgd-graph-range-controls{font-size:8.5px}
   .mpgd-graph-range-field{height:25px;padding:0 4px;gap:3px}
   .mpgd-graph-range-field input{width:43px;height:19px}
   .mpgd-graph-range-field--frequency input{width:56px}
+  .mpgd-auto-phase-open{height:21px;padding:0 6px;font-size:8.5px}
 }
 
 /* 2026-09-03 Band Point calm interaction final authority.
