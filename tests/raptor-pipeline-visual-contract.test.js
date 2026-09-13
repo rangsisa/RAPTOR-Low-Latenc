@@ -15,6 +15,7 @@ const crossoverJs=read('gui/crossover-filter.js');
 const mpgdCss=read('gui/mag-phase-gd-filter.css');
 const mpgdJs=read('gui/mag-phase-gd-filter.js');
 const targetCss=read('gui/target-export.css');
+const typographyCss=read('gui/typography.css');
 
 assert.match(pipelineCss,/\.measurement-preview\{[^}]*width:min\(1196px,calc\(100vw - 28px\)\)/);
 assert.match(pipelineCss,/\.pipeline-strip \.pipeline-card\{[^}]*grid-template-columns:max-content 44px;/);
@@ -48,7 +49,8 @@ assert.doesNotMatch(pipelineJs,/20000,50000/);
 assert.match(indexHtml,/pipeline\.css\?v=smart-filter-create-20260913-1/);
 assert.match(indexHtml,/workspace\.css\?v=welcome-canvas-no-art-20260913-1/);
 assert.match(indexHtml,/pipeline-interactions\.css\?v=compact-measurement-rows-20260912-1/);
-assert.match(indexHtml,/pipeline\.js\?v=smart-filter-create-20260913-1/);
+assert.match(indexHtml,/pipeline\.js\?v=readable-preview-type-20260913-1/);
+assert.match(indexHtml,/typography\.css\?v=readable-ui-20260913-1/);
 assert.match(indexHtml,/<section class="page-view" data-view="welcome" hidden><\/section>/);
 assert.doesNotMatch(indexHtml,/welcome-raptor|raptor-welcome-v1\.png/);
 assert.match(workspaceCss,/\.workspace-canvas\[data-page="welcome"\]\{background:radial-gradient\(ellipse at 14% 12%,rgba\(216,190,67,\.16\)/);
@@ -64,5 +66,10 @@ for(const source of [crossoverJs,mpgdJs]){
   assert.match(source,/hexTint\(color,\.12\)/);
 }
 assert.match(targetCss,/var\(--source-color\) 22%,#fff/);
+assert.match(typographyCss,/--raptor-font-ui:system-ui,[^;]*"Noto Sans Thai",[^;]*"Leelawadee UI",Thonburi,Tahoma/);
+assert.match(typographyCss,/\.workspace-shell \.measurement-file-name\{font-size:10\.5px/);
+assert.match(typographyCss,/\.workspace-shell \.mpgd-phase-turn-panel\{font-size:9px/);
+assert.match(pipelineJs,/getComputedStyle\(preview\)\.fontFamily/);
+assert.doesNotMatch(typographyCss,/@import|@font-face|fonts\.googleapis/);
 
 console.log('RESULT RAPTOR pipeline visual contract PASS');

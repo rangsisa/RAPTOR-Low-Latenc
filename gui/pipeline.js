@@ -639,7 +639,8 @@ function drawPreview(entry){
     ctx.beginPath();ctx.moveTo(L,y+.5);ctx.lineTo(R,y+.5);ctx.stroke();
   }
   const decades=[20,50,100,200,500,1000,2000,5000,10000,20000];
-  ctx.font=`${(7.5*graphScale).toFixed(1)}px Arial,sans-serif`;
+  const graphFontFamily=getComputedStyle(preview).fontFamily||'system-ui,sans-serif';
+  ctx.font=`${(8.5*graphScale).toFixed(1)}px ${graphFontFamily}`;
   ctx.fillStyle='#687680';
   ctx.textAlign='center';
   ctx.textBaseline='top';

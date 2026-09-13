@@ -1,0 +1,190 @@
+/* RAPTOR readable typography.
+   Local system fonts keep first paint fast while covering Thai and Latin well. */
+:root{
+  --raptor-font-ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai","Leelawadee UI",Thonburi,Tahoma,Arial,sans-serif;
+  --raptor-font-data:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace
+}
+
+html,
+body,
+.workspace-shell,
+.matching-page{
+  font-family:var(--raptor-font-ui);
+  font-synthesis:none;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale
+}
+body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.workspace-shell button,
+.workspace-shell input,
+.workspace-shell select,
+.workspace-shell textarea,
+.workspace-shell output,
+.workspace-shell kbd{font-family:inherit}
+
+/* Workspace navigation and Pipeline strip. */
+.workspace-shell .workspace-menu-item{font-size:12px}
+.workspace-shell .pipeline-toolbar-title{font-size:12px}
+.workspace-shell .pipeline-add{font-size:11.5px}
+.workspace-shell .pipeline-card-name{font-size:12px}
+.workspace-shell .pipeline-card-action{font-size:11px}
+.workspace-shell .pipeline-modal-head strong{font-size:13px}
+.workspace-shell .pipeline-name-label{font-size:11px}
+.workspace-shell .pipeline-name-input{font-size:13px}
+.workspace-shell .pipeline-modal-action,
+.workspace-shell .pipeline-delete,
+.workspace-shell .pipeline-done{font-size:11.5px}
+
+/* Canvas controls and menus. */
+.workspace-shell .pipeline-canvas-filter-button,
+.workspace-shell .pipeline-canvas-theme-toggle{font-size:10.5px}
+.workspace-shell .pipeline-zoom-value{font-size:10px}
+.workspace-shell .pipeline-node-empty{font-size:12px}
+.workspace-shell .pipeline-context-action{font-size:10.5px}
+
+/* Measurement node and preview. */
+.workspace-shell .measurement-node-title strong{font-size:12px}
+.workspace-shell .measurement-node-title span{font-size:9px}
+.workspace-shell .measurement-import{font-size:10px}
+.workspace-shell .measurement-summary{font-size:9.5px}
+.workspace-shell .measurement-empty{font-size:10px}
+.workspace-shell .measurement-file-name{font-size:10.5px;line-height:1.12}
+.workspace-shell .measurement-file-meta{font-size:8.5px;line-height:1.15}
+.workspace-shell .measurement-select,
+.workspace-shell .measurement-delete{font-size:9.5px}
+.workspace-shell .measurement-count{font-size:8.5px}
+.workspace-shell .measurement-preview-head strong{font-size:12px}
+.workspace-shell .measurement-preview-meta dt,
+.workspace-shell .measurement-preview-meta dd{font-size:9.5px}
+
+/* Lowpass / Highpass / Bandpass nodes and parameter windows. */
+.workspace-shell .xo-filter-node-title strong{font-size:12px}
+.workspace-shell .xo-filter-input-copy span,
+.workspace-shell .xo-filter-output-copy span{font-size:8px}
+.workspace-shell .xo-filter-input-copy strong{font-size:9.25px;line-height:1.12}
+.workspace-shell .xo-filter-slope-summary{font-size:8.5px}
+.workspace-shell .xo-filter-parameter-popover-head strong{font-size:12px}
+.workspace-shell .xo-filter-parameter-field{font-size:10px}
+.workspace-shell .xo-filter-parameter-field select,
+.workspace-shell .xo-filter-parameter-field input[type="number"]{font-size:11px}
+.workspace-shell .xo-filter-bypass,
+.workspace-shell .xo-filter-delete{font-size:9px}
+.workspace-shell .xo-filter-model{font-size:8px}
+
+/* Mag-Phase-GD node. */
+.workspace-shell .mpgd-filter-node-title strong{font-size:11.5px}
+.workspace-shell .mpgd-filter-input-copy span,
+.workspace-shell .mpgd-filter-output-copy span{font-size:7.8px}
+.workspace-shell .mpgd-filter-input-copy strong{font-size:9.25px;line-height:1.12}
+.workspace-shell .mpgd-filter-output-copy strong{font-size:9.5px}
+.workspace-shell .mpgd-filter-bypass,
+.workspace-shell .mpgd-filter-delete--footer{font-size:9px}
+.workspace-shell .mpgd-filter-state,
+.workspace-shell .mpgd-filter-band-count{font-size:8px}
+
+/* Mag-Phase-GD workspace, graphs and band tools. */
+.workspace-shell .mpgd-filter-window-title strong{font-size:12px}
+.workspace-shell .mpgd-filter-window-title span{font-size:9px}
+.workspace-shell .mpgd-filter-window-bypass,
+.workspace-shell .mpgd-filter-check{font-size:10px}
+.workspace-shell .mpgd-filter-card-head strong{font-size:11px}
+.workspace-shell .mpgd-filter-readout,
+.workspace-shell .mpgd-filter-pointer-readout,
+.workspace-shell .mpgd-filter-value-pill{font-size:10.5px}
+.workspace-shell .mpgd-filter-unit{font-size:9px}
+.workspace-shell .mpgd-filter-ylabels,
+.workspace-shell .mpgd-filter-xlabels span{font-size:9.5px}
+.workspace-shell .mpgd-band-rack-head strong{font-size:10px}
+.workspace-shell .mpgd-band-rack-head span{font-size:8.5px}
+.workspace-shell .mpgd-band-rack-empty{font-size:9px}
+.workspace-shell .mpgd-band-rack-add{font-size:10px}
+.workspace-shell .mpgd-band-rack-info strong{font-size:10.5px!important}
+.workspace-shell .mpgd-band-rack-info span{font-size:9px!important}
+.workspace-shell .mpgd-band-rack-edit,
+.workspace-shell .mpgd-band-rack-delete{width:38px;font-size:8.75px!important}
+.workspace-shell .mpgd-band-editor-head strong{font-size:11px}
+.workspace-shell .mpgd-band-editor-head [data-band-id]{font-size:8.5px}
+.workspace-shell .mpgd-band-editor-fields label{font-size:9.5px}
+.workspace-shell .mpgd-band-editor-fields input,
+.workspace-shell .mpgd-band-editor-fields select{font-size:10.5px}
+.workspace-shell .mpgd-band-editor-fields b{font-size:8.75px}
+.workspace-shell .mpgd-band-delete{font-size:9.5px}
+.workspace-shell .mpgd-band-marker::after{font-size:6px!important}
+
+/* Phase Turn Inspector must remain readable over a dense graph. */
+.workspace-shell .mpgd-phase-turn-panel{font-size:9px;line-height:1.35}
+.workspace-shell .mpgd-phase-turn-panel header strong{font-size:9.5px}
+.workspace-shell .mpgd-phase-turn-panel header button{font-size:8.5px}
+.workspace-shell .mpgd-phase-turn-points b{font-size:8.25px}
+
+/* AutoEQ is injected dynamically; the workspace prefix keeps this readable
+   even though its component stylesheet is appended later. */
+.workspace-shell .mpgd-autoeq-open{font-size:8.75px}
+.workspace-shell .mpgd-autoeq-head strong{font-size:11.5px}
+.workspace-shell .mpgd-autoeq-field>span,
+.workspace-shell .mpgd-autoeq-count-main span{font-size:9.5px}
+.workspace-shell .mpgd-autoeq-number input,
+.workspace-shell .mpgd-autoeq-count-main input[type="number"]{font-size:10.5px}
+.workspace-shell .mpgd-autoeq-number b{font-size:8.5px}
+.workspace-shell .mpgd-autoeq-auto,
+.workspace-shell .mpgd-autoeq-null{font-size:9px}
+.workspace-shell .mpgd-autoeq-button{font-size:9.5px}
+.workspace-shell .mpgd-autoeq-status{font-size:8.75px}
+.workspace-shell .mpgd-autoeq-preview-head strong{font-size:9.5px}
+.workspace-shell .mpgd-autoeq-preview-head span{font-size:8.5px}
+.workspace-shell .mpgd-autoeq-preview-empty{font-size:9px}
+.workspace-shell .mpgd-autoeq-preview-row b,
+.workspace-shell .mpgd-autoeq-preview-row span{font-size:8.75px}
+.workspace-shell .mpgd-autoeq-metric b{font-size:8.5px}
+.workspace-shell .mpgd-autoeq-metric span{font-size:9.5px}
+
+/* Target Export. */
+.workspace-shell .target-export-title strong{font-size:12px}
+.workspace-shell .target-export-title span{font-size:9px}
+.workspace-shell .target-export-source-row strong{font-size:9.25px}
+.workspace-shell .target-export-source-row span{font-size:8.5px}
+.workspace-shell .target-export-button,
+.workspace-shell .target-export-delete{font-size:9.25px}
+
+/* Shared editor foundation kept on the same scale for future reactivation. */
+.workspace-shell .matching-tt,
+.workspace-shell .matching-title,
+.workspace-shell .matching-tools-head strong{font-size:11px}
+.workspace-shell .matching-toolbar-sub,
+.workspace-shell .matching-check,
+.workspace-shell .matching-readout,
+.workspace-shell .matching-pointer-readout{font-size:10px}
+.workspace-shell .matching-btn{font-size:9.5px}
+.workspace-shell .matching-unit,
+.workspace-shell .matching-tools-head span,
+.workspace-shell .matching-tools-empty span{font-size:9px}
+.workspace-shell .editor-foundation-y,
+.workspace-shell .editor-foundation-x,
+.workspace-shell .editor-foundation-status{font-size:9.5px}
+.workspace-shell .editor-dock-btn{font-size:10.5px}
+.workspace-shell .editor-graph-context-meta{font-size:9.5px}
+.workspace-shell .editor-graph-context-action{font-size:10.5px}
+
+/* Mobile stays compact, but never returns to the previous micro type. */
+@media(max-width:700px){
+  .workspace-shell .pipeline-context-action{font-size:11px}
+  .workspace-shell .measurement-preview-meta dt,
+  .workspace-shell .measurement-preview-meta dd{font-size:9px}
+  .workspace-shell .xo-filter-slope-summary{font-size:8.25px}
+  .workspace-shell .mpgd-filter-window-bypass,
+  .workspace-shell .mpgd-filter-check{font-size:9px}
+  .workspace-shell .mpgd-filter-card-head strong{font-size:10.5px}
+  .workspace-shell .mpgd-filter-readout,
+  .workspace-shell .mpgd-filter-pointer-readout,
+  .workspace-shell .mpgd-filter-value-pill{font-size:9.75px}
+  .workspace-shell .mpgd-filter-ylabels,
+  .workspace-shell .mpgd-filter-xlabels span{font-size:9px}
+  .workspace-shell .mpgd-band-rack-info strong{font-size:9.75px!important}
+  .workspace-shell .mpgd-band-rack-info span{font-size:8.25px!important}
+  .workspace-shell .mpgd-band-rack-edit,
+  .workspace-shell .mpgd-band-rack-delete{width:36px;font-size:8.25px!important}
+  .workspace-shell .mpgd-band-marker::after{font-size:6.3px!important}
+  .workspace-shell .mpgd-phase-turn-panel{font-size:8.75px}
+  .workspace-shell .mpgd-autoeq-open{font-size:8.5px}
+}
