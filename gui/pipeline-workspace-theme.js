@@ -4,6 +4,7 @@
 const THEME_STORAGE_KEY='raptor.pipeline.canvas.theme.v1';
 const ZOOM_STORAGE_KEY='raptor.pipeline.canvas.zoom.v1';
 const ZOOM_LEVELS=Object.freeze([.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5]);
+const NODE_TOP_BOUNDARY=8;
 
 const canvas=document.getElementById('pipelineNodeCanvas');
 const controls=document.querySelector('.pipeline-canvas-controls');
@@ -56,7 +57,7 @@ function updateZoomControls(){
 function positionNode(node,x,y){
   if(!node) return;
   const logicalX=Number.isFinite(Number(x))?Number(x):0;
-  const logicalY=Number.isFinite(Number(y))?Number(y):0;
+  const logicalY=Math.max(NODE_TOP_BOUNDARY,Number.isFinite(Number(y))?Number(y):NODE_TOP_BOUNDARY);
   node.dataset.pipelineLogicalX=String(logicalX);
   node.dataset.pipelineLogicalY=String(logicalY);
   node.style.left=(logicalX*zoom)+'px';

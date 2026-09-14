@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>RAPTOR FIR</title>
-  <link rel="stylesheet" href="./theme.css?v=hamburger-inline-align-20260906-1" />
+  <link rel="stylesheet" href="./theme.css?v=compact-top-boundary-20260914-1" />
   <link rel="stylesheet" href="./workspace.css?v=welcome-canvas-no-art-20260913-1" />
-  <link rel="stylesheet" href="./pipeline.css?v=empty-exit-canvas-divider-20260914-1" />
+  <link rel="stylesheet" href="./pipeline.css?v=compact-top-boundary-20260914-1" />
   <link rel="stylesheet" href="./pipeline-interactions.css?v=compact-measurement-rows-20260912-1" />
   <link rel="stylesheet" href="./pipeline-context.css?v=bank-file-source-20260913-1" />
   <link rel="stylesheet" href="./matching/matching.css" />
@@ -17,7 +17,7 @@
     /* 2026-09-05: retire the top Workspace bar and move primary navigation
        into a compact hamburger control beside the Pipeline toolbar. */
     .workspace-shell{grid-template-rows:minmax(0,1fr)!important}
-    .workspace-menu{position:absolute;top:10px;left:16px;z-index:9;width:40px;height:40px}
+    .workspace-menu{position:absolute;top:4px;left:16px;z-index:9;width:40px;height:40px}
     .workspace-menu>summary{width:40px;height:40px;display:grid;place-items:center;list-style:none;border:1px solid #aeb9c4;border-radius:6px;background:#fff;box-shadow:0 2px 7px rgba(28,38,48,.09);cursor:pointer}
     .workspace-menu>summary::-webkit-details-marker{display:none}
     .workspace-menu>summary::marker{content:""}
@@ -59,8 +59,6 @@
             <div class="pipeline-row" id="pipelineRow" aria-live="polite"></div>
           </div>
         </div>
-
-        <hr class="pipeline-canvas-divider" aria-hidden="true" />
 
         <div class="pipeline-node-canvas" id="pipelineNodeCanvas" aria-label="RAPTOR Line node workspace">
           <div class="pipeline-node-empty" id="pipelineNodeEmpty">Load a RAPTOR Line to open its preset nodes.</div>
@@ -273,7 +271,7 @@
   <script src="./bank-file-source.js?v=independent-bank-reverse-wire-20260914-1"></script>
   <script src="./crossover-passband-metadata.js?v=xo-safe-range-20260913-1"></script>
   <script src="./crossover-response.js?v=compiled-lr-cache-20260913-1"></script>
-  <script src="./pipeline-workspace-theme.js?v=zoom-theme-sync-20260830-1"></script>
+  <script src="./pipeline-workspace-theme.js?v=compact-top-boundary-20260914-1"></script>
   <script src="./pipeline.js?v=empty-exit-canvas-divider-20260914-1"></script>
   <script src="./bank-file.js?v=independent-bank-reverse-wire-20260914-1"></script>
   <script src="./measurement-import.js?v=native-label-v6-20260908-1"></script>

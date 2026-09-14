@@ -38,7 +38,7 @@ button.is-active,
   left:66px!important;
 }
 
-/* 2026-09-06 visual alignment: match hamburger top edge to the Pipeline strip. */
+/* Keep the hamburger aligned to the compact Pipeline strip. */
 .workspace-menu{
-  top:10px!important;
+  top:4px!important;
 }
