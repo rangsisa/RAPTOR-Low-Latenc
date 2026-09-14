@@ -4,7 +4,8 @@
 const THEME_STORAGE_KEY='raptor.pipeline.canvas.theme.v1';
 const ZOOM_STORAGE_KEY='raptor.pipeline.canvas.zoom.v1';
 const ZOOM_LEVELS=Object.freeze([.5,.6,.7,.8,.9,1,1.1,1.2,1.3,1.4,1.5]);
-const NODE_TOP_BOUNDARY=8;
+const NODE_TOP_GAP_PX=8;
+const NODE_TOP_FALLBACK_PX=46;
 
 const canvas=document.getElementById('pipelineNodeCanvas');
 const controls=document.querySelector('.pipeline-canvas-controls');
@@ -54,14 +55,27 @@ function updateZoomControls(){
   zoomIn.title='Zoom in · '+text;
 }
 
+function nodeTopBoundary(){
+  const canvasRect=canvas.getBoundingClientRect();
+  const controlsRect=controls.getBoundingClientRect();
+  const controlsClearance=controlsRect.height>0
+    ?controlsRect.bottom-canvasRect.top+NODE_TOP_GAP_PX
+    :NODE_TOP_FALLBACK_PX;
+  const viewportClearance=Math.max(NODE_TOP_FALLBACK_PX,controlsClearance);
+  return Math.ceil((canvas.scrollTop+viewportClearance)/zoom);
+}
+
 function positionNode(node,x,y){
   if(!node) return;
   const logicalX=Number.isFinite(Number(x))?Number(x):0;
-  const logicalY=Math.max(NODE_TOP_BOUNDARY,Number.isFinite(Number(y))?Number(y):NODE_TOP_BOUNDARY);
+  const requestedLogicalY=Number.isFinite(Number(y))?Number(y):nodeTopBoundary();
+  const visualLogicalY=Math.max(nodeTopBoundary(),requestedLogicalY);
   node.dataset.pipelineLogicalX=String(logicalX);
-  node.dataset.pipelineLogicalY=String(logicalY);
+  // Preserve the requested logical coordinate so repeated zoom changes do not
+  // progressively push a node down. The visual top still respects controls.
+  node.dataset.pipelineLogicalY=String(requestedLogicalY);
   node.style.left=(logicalX*zoom)+'px';
-  node.style.top=(logicalY*zoom)+'px';
+  node.style.top=(visualLogicalY*zoom)+'px';
   node.style.transformOrigin='0 0';
   node.style.setProperty('scale',String(zoom));
 }
@@ -132,6 +146,7 @@ window.RaptorPipelineWorkspaceView=Object.freeze({
   minZoom:ZOOM_LEVELS[0],
   maxZoom:ZOOM_LEVELS[ZOOM_LEVELS.length-1],
   getZoom:()=>zoom,
+  nodeTopBoundary,
   positionNode,
   refreshPositionedNodes,
   clientToLogical,
