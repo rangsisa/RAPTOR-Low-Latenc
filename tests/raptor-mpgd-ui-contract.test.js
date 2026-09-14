@@ -8,6 +8,7 @@ const layout=require('../gui/mag-phase-gd-band-layout.js');
 const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
 const js=read('gui/mag-phase-gd-filter.js');
 const css=read('gui/mag-phase-gd-filter.css');
+const autoEqJs=read('gui/mag-phase-gd-autoeq.js');
 const html=read('gui/index.html');
 
 const close=(actual,expected,tolerance=1e-9)=>{
@@ -46,6 +47,8 @@ assert.match(js,/data-graph-frequency-max/);
 assert.match(js,/rebuildPhaseTurnInspector\(win,filter\);/);
 assert.match(js,/autoPhase\.textContent='Auto Phase';/);
 assert.match(css,/\.mpgd-auto-phase-open\{/);
+assert.match(css,/\.mpgd-auto-phase-open\{[\s\S]*?width:76px;[\s\S]*?height:22px/);
+assert.match(autoEqJs,/\.mpgd-autoeq-open\{[\s\S]*?width:76px;height:22px/);
 assert.match(css,/\.mpgd-filter-svg--mag \.uncertainty-needles\{[\s\S]*?stroke:rgba\(210,48,48,\.52\);[\s\S]*?stroke-width:1\.7;/);
 assert.match(css,/\.mpgd-band-rack-add\{/);
 assert.match(css,/\.mpgd-graph-range-controls\{/);

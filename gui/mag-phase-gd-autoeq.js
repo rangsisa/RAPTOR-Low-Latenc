@@ -27,8 +27,9 @@ function ensureStyle(){
   style.id='mpgdAutoEqStyle';
   style.textContent=`
     .mpgd-autoeq-open{
-      height:18px;padding:0 7px;border:1px solid #c58a5d;border-radius:4px;
-      background:#fff7f0;color:#a94a0b;font-size:7px;font-weight:850;line-height:1;
+      box-sizing:border-box;width:76px;height:22px;flex:0 0 76px;padding:0 7px;border:1px solid #c58a5d;border-radius:4px;
+      display:inline-flex;align-items:center;justify-content:center;
+      background:#fff7f0;color:#a94a0b;font-size:9.5px;font-weight:850;line-height:1;
       cursor:pointer;touch-action:manipulation;user-select:none
     }
     .mpgd-autoeq-open:hover,.mpgd-autoeq-open:focus-visible{
@@ -143,7 +144,7 @@ function ensureStyle(){
     @media(max-width:700px){
       .mpgd-autoeq-window{width:min(324px,calc(100vw - 10px))}
       .mpgd-autoeq-grid{grid-template-columns:1fr}
-      .mpgd-autoeq-open{padding:0 6px;font-size:6.8px}
+      .mpgd-autoeq-open{width:72px;height:21px;flex-basis:72px;padding:0 6px;font-size:8.75px}
       .mpgd-autoeq-actions{grid-template-columns:auto auto auto}
       .mpgd-autoeq-status{grid-column:1/-1}
     }

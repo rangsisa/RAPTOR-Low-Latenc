@@ -134,7 +134,7 @@
   transition:transform 90ms ease,box-shadow 90ms ease,background 90ms ease
 }
 .target-export-input.is-connected::after{background:var(--port-color,#8FA6B8)}
-.target-export-input.is-wire-available::after,.target-export-input:hover::after{
+.target-export-input.is-wire-available::after,.target-export-input.is-wiring::after,.target-export-input:hover::after{
   transform:translate(-50%,-50%) scale(1.12);
   box-shadow:0 0 0 1.5px var(--port-color,#8FA6B8),0 0 0 4px var(--port-tint,rgba(143,166,184,.12))
 }

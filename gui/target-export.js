@@ -438,6 +438,12 @@ function buildNode(item){
 
   const phaseInput=buildInput('phase','Phase');
   const magnitudeInput=buildInput('magnitude','Magnitude');
+  phaseInput.addEventListener('pointerdown',event=>{
+    api.startReverseWire?.(event,inputRegistryId(item.id,'phase'),phaseInput);
+  });
+  magnitudeInput.addEventListener('pointerdown',event=>{
+    api.startReverseWire?.(event,inputRegistryId(item.id,'magnitude'),magnitudeInput);
+  });
 
   const head=document.createElement('header');
   head.className='target-export-head';

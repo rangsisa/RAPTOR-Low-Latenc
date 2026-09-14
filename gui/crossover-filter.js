@@ -548,7 +548,7 @@ function sourceCanonical(filter){
   }
 }
 function canConnectInput(filter,source){
-  if(!filter||filter.input?.id||!source?.id) return false;
+  if(!filter||(!source?.reverseConnect&&filter.input?.id)||!source?.id) return false;
   if(api.wouldCreateFilterCycle?.(source,filter.id)) return false;
 
   const canonical=source.canonical||null;
@@ -777,6 +777,9 @@ function buildNode(filter,index){
   input.className='xo-filter-input';
   input.dataset.filterInput=filter.id;
   input.title='Input';
+  input.addEventListener('pointerdown',event=>{
+    api.startReverseWire?.(event,'xo:'+filter.id+':input',input);
+  });
   const inputCopy=document.createElement('div');
   inputCopy.className='xo-filter-input-copy';
   inputCopy.innerHTML='<span>INPUT</span><strong data-xo-input-name>Not connected</strong>';
@@ -838,6 +841,24 @@ function buildNode(filter,index){
       }
     }));
   });
+  api.registerOutput?.('xo:'+filter.id+':output',output,{
+    radius:50,
+    getSource:includeCanonical=>{
+      const canonical=includeCanonical?getOutput(filter.id):null;
+      const color=sourceColor(filter);
+      return {
+        kind:'filter',
+        id:filter.id,
+        filterId:filter.id,
+        name:filter.label,
+        color,
+        sampleRate:canonical?.sample_rate_hz||filter.sampleRateHz||null,
+        format:canonical?.format||canonicalApi.FORMAT,
+        canonical,
+        hasData:!!canonical
+      };
+    }
+  });
   outputPane.append(outputCopy,output);
 
   body.append(inputPane,controls,outputPane);
@@ -892,7 +913,10 @@ function removeRenderedNodes(){
   closeParameterPopover();
   canvas.querySelectorAll('.xo-filter-node').forEach(node=>{
     const filterId=node.dataset.filterId;
-    if(filterId) api.unregisterInput?.('xo:'+filterId+':input');
+    if(filterId){
+      api.unregisterInput?.('xo:'+filterId+':input');
+      api.unregisterOutput?.('xo:'+filterId+':output');
+    }
     node.remove();
   });
 }

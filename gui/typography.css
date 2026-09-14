@@ -46,7 +46,6 @@ body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 /* Measurement node and preview. */
 .workspace-shell .bank-file-title strong{font-size:12px}
 .workspace-shell .bank-file-title span{font-size:9px}
-.workspace-shell .bank-file-badge{font-size:8px}
 .workspace-shell .bank-file-name{font-size:10.5px;line-height:1.12}
 .workspace-shell .bank-file-meta{font-size:8.25px;line-height:1.15}
 .workspace-shell .bank-file-foot{font-size:8.5px}
@@ -129,7 +128,7 @@ body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 /* AutoEQ is injected dynamically; the workspace prefix keeps this readable
    even though its component stylesheet is appended later. */
-.workspace-shell .mpgd-autoeq-open{font-size:8.75px}
+.workspace-shell .mpgd-autoeq-open{font-size:9.5px}
 .workspace-shell .mpgd-autoeq-head strong{font-size:11.5px}
 .workspace-shell .mpgd-autoeq-field>span,
 .workspace-shell .mpgd-autoeq-count-main span{font-size:9.5px}
@@ -197,5 +196,5 @@ body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .workspace-shell .mpgd-band-rack-delete{width:36px;font-size:8.25px!important}
   .workspace-shell .mpgd-band-marker::after{font-size:6.3px!important}
   .workspace-shell .mpgd-phase-turn-panel{font-size:8.75px}
-  .workspace-shell .mpgd-autoeq-open{font-size:8.5px}
+  .workspace-shell .mpgd-autoeq-open{font-size:8.75px}
 }

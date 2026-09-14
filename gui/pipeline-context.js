@@ -52,7 +52,7 @@ function ensureTargetExportStyle(){
   if(document.querySelector('link[data-raptor-target-export-style]')) return;
   const link=document.createElement('link');
   link.rel='stylesheet';
-  link.href='./target-export.css?v=strong-lineage-20260912-1';
+  link.href='./target-export.css?v=independent-bank-reverse-wire-20260914-1';
   link.dataset.raptorTargetExportStyle='';
   document.head.appendChild(link);
 }
@@ -64,7 +64,7 @@ function ensureTargetExportModule(){
   ensureTargetExportStyle();
   targetExportLoader=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='./target-export.js?v=wire-drop-input-anchor-20260913-1';
+    script.src='./target-export.js?v=independent-bank-reverse-wire-20260914-1';
     script.async=true;
     script.dataset.raptorTargetExportModule='';
     script.addEventListener('load',()=>{

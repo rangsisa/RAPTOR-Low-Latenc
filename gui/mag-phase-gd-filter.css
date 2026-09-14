@@ -179,13 +179,16 @@
 .mpgd-filter-node.has-lineage .mpgd-filter-output::after{
   background:var(--port-color)
 }
-.mpgd-filter-input.is-wire-available::after{
+.mpgd-filter-input.is-wire-available::after,
+.mpgd-filter-input.is-wiring::after,
+.mpgd-filter-output.is-wire-available::after{
   transform:translate(-50%,-50%) scale(1.16);
   box-shadow:0 0 0 2px var(--raptor-active),0 0 0 6px rgba(232,111,23,.10)
 }
-.mpgd-filter-input.is-wire-magnet::after{
+.mpgd-filter-input.is-wire-magnet::after,
+.mpgd-filter-output.is-wire-magnet::after{
   transform:translate(-50%,-50%) scale(1.30);
-  background:var(--raptor-active);
+  background:var(--port-color);
   box-shadow:0 0 0 2px #fff,0 0 0 7px rgba(232,111,23,.22)
 }
 
@@ -1821,9 +1824,14 @@
 .mpgd-filter-toolbar .mpgd-filter-toolbar-bypass{margin-left:0}
 
 .mpgd-auto-phase-open{
-  flex:0 0 auto;
+  box-sizing:border-box;
+  width:76px;
+  flex:0 0 76px;
   height:22px;
   padding:0 7px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   border:1px solid #d6a474;
   border-radius:4px;
   background:#fff8f0;
@@ -1844,7 +1852,7 @@
   .mpgd-graph-range-field{height:25px;padding:0 4px;gap:3px}
   .mpgd-graph-range-field input{width:43px;height:19px}
   .mpgd-graph-range-field--frequency input{width:56px}
-  .mpgd-auto-phase-open{height:21px;padding:0 6px;font-size:8.5px}
+  .mpgd-auto-phase-open{width:72px;height:21px;flex-basis:72px;padding:0 6px;font-size:8.75px}
 }
 
 /* 2026-09-03 Band Point calm interaction final authority.

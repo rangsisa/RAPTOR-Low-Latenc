@@ -210,7 +210,10 @@ function closeAllWindows(){
 function removeRenderedNodes(){
   canvas.querySelectorAll('.mpgd-filter-node').forEach(node=>{
     const filterId=node.dataset.filterId;
-    if(filterId) api.unregisterInput?.('mpgd:'+filterId+':input');
+    if(filterId){
+      api.unregisterInput?.('mpgd:'+filterId+':input');
+      api.unregisterOutput?.('mpgd:'+filterId+':output');
+    }
     node.remove();
   });
 }
@@ -620,7 +623,7 @@ function applyNodeLineage(node,filter){
 }
 
 function canConnectInput(filter,source){
-  if(!filter||!source||filter.input?.id) return false;
+  if(!filter||!source||(!source.reverseConnect&&filter.input?.id)) return false;
   if(api.wouldCreateFilterCycle?.(source,filter.id)) return false;
   const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
   const canonical=source.canonical||null;
@@ -799,6 +802,9 @@ function buildNode(filter,index){
   input.dataset.filterInput=filter.id;
   input.title='1 input';
   input.setAttribute('aria-label','Input for '+filter.id);
+  input.addEventListener('pointerdown',event=>{
+    api.startReverseWire?.(event,'mpgd:'+filter.id+':input',input);
+  });
   const inputCopy=document.createElement('div');
   inputCopy.className='mpgd-filter-input-copy';
   inputCopy.innerHTML='<span>INPUT</span><strong data-filter-input-name>Not connected</strong>';
@@ -855,6 +861,26 @@ function buildNode(filter,index){
         hasData:!!canonical
       }
     }));
+  });
+  api.registerOutput?.('mpgd:'+filter.id+':output',handle,{
+    radius:50,
+    getSource:includeCanonical=>{
+      const canonical=includeCanonical?canonicalOutputForFilter(filter):null;
+      const canonicalApi=window.RaptorMeasurementCanonicalV1||null;
+      const color=sourceColor(filter);
+      return {
+        kind:'filter',
+        id:filter.id,
+        filterId:filter.id,
+        name:filter.label,
+        outputKind:'canonical',
+        color,
+        sampleRate:canonical?.sample_rate_hz||filter.sampleRateHz||null,
+        format:canonical?.format||canonicalApi?.FORMAT||'raptor.measurement.canonical.v1',
+        canonical,
+        hasData:!!canonical
+      };
+    }
   });
 
   row.append(copy,handle);

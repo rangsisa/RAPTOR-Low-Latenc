@@ -9,9 +9,9 @@
   // Matching FFT sizes keep the first usable bin identical at every rate.
   const MIN_FREQUENCY_HZ=96000/65536;
   const SPECS=Object.freeze([
-    Object.freeze({id:'bank-file-48k',label:'48K',sampleRateHz:48000,fftSize:32768,maxFrequencyHz:24000,color:'#FF2D95'}),
-    Object.freeze({id:'bank-file-96k',label:'96K',sampleRateHz:96000,fftSize:65536,maxFrequencyHz:48000,color:'#8BD600'}),
-    Object.freeze({id:'bank-file-192k',label:'192K',sampleRateHz:192000,fftSize:131072,maxFrequencyHz:96000,color:'#563CFF'})
+    Object.freeze({id:'bank-file-48k',label:'48K',sampleRateHz:48000,fftSize:32768,maxFrequencyHz:24000,color:'#FF8A00'}),
+    Object.freeze({id:'bank-file-96k',label:'96K',sampleRateHz:96000,fftSize:65536,maxFrequencyHz:48000,color:'#8EDB57'}),
+    Object.freeze({id:'bank-file-192k',label:'192K',sampleRateHz:192000,fftSize:131072,maxFrequencyHz:96000,color:'#EF3E4A'})
   ]);
 
   function buildCanonical(spec){

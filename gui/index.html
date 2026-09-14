@@ -6,13 +6,13 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css?v=hamburger-inline-align-20260906-1" />
   <link rel="stylesheet" href="./workspace.css?v=welcome-canvas-no-art-20260913-1" />
-  <link rel="stylesheet" href="./pipeline.css?v=bank-file-source-20260913-1" />
+  <link rel="stylesheet" href="./pipeline.css?v=independent-bank-reverse-wire-20260914-1" />
   <link rel="stylesheet" href="./pipeline-interactions.css?v=compact-measurement-rows-20260912-1" />
   <link rel="stylesheet" href="./pipeline-context.css?v=bank-file-source-20260913-1" />
   <link rel="stylesheet" href="./matching/matching.css" />
   <link rel="stylesheet" href="./editor-foundation.css" />
-  <link rel="stylesheet" href="./mag-phase-gd-filter.css?v=autophase-xo-safe-range-20260913-1" />
-  <link rel="stylesheet" href="./crossover-filter.css?v=strong-lineage-20260912-1" />
+  <link rel="stylesheet" href="./mag-phase-gd-filter.css?v=independent-bank-reverse-wire-20260914-1" />
+  <link rel="stylesheet" href="./crossover-filter.css?v=independent-bank-reverse-wire-20260914-1" />
   <style>
     /* 2026-09-05: retire the top Workspace bar and move primary navigation
        into a compact hamburger control beside the Pipeline toolbar. */
@@ -32,7 +32,7 @@
     .pipeline-toolbar{left:66px!important}
     @media(max-height:760px){.workspace-shell{grid-template-rows:minmax(0,1fr)!important}}
   </style>
-  <link rel="stylesheet" href="./typography.css?v=bank-file-source-20260913-1" />
+  <link rel="stylesheet" href="./typography.css?v=independent-bank-reverse-wire-20260914-1" />
 </head>
 <body>
   <main class="workspace-shell">
@@ -64,13 +64,12 @@
           <div class="pipeline-node-empty" id="pipelineNodeEmpty">Load a RAPTOR Line to open its preset nodes.</div>
           <svg class="pipeline-wire-layer" aria-hidden="true"><path class="pipeline-wire-preview" id="pipelineWirePreview"></path></svg>
 
-          <section class="bank-file-node" id="bankFileNode" data-source-node hidden aria-label="Bank File neutral sources">
+          <section class="bank-file-node" id="bankFileNode" data-source-node hidden aria-label="Bank File neutral reference files">
             <header class="bank-file-head">
               <div class="bank-file-title">
                 <strong>Bank File</strong>
-                <span>Neutral source</span>
+                <span>Neutral files</span>
               </div>
-              <span class="bank-file-badge">SOURCE</span>
             </header>
             <div class="bank-file-list" id="bankFileList"></div>
             <footer class="bank-file-foot"><span>Neutral reference</span><strong>0° / 0 dB</strong></footer>
@@ -269,23 +268,23 @@
   <script src="./workspace.js?v=line-name-load-20260903-1"></script>
   <script src="./pipeline-line-scroll.js?v=line-scroll-buttons-20260907-1"></script>
   <script src="./measurement-canonical-v1.js"></script>
-  <script src="./bank-file-source.js?v=neutral-bank-v1-20260913-1"></script>
+  <script src="./bank-file-source.js?v=independent-bank-reverse-wire-20260914-1"></script>
   <script src="./crossover-passband-metadata.js?v=xo-safe-range-20260913-1"></script>
   <script src="./crossover-response.js?v=compiled-lr-cache-20260913-1"></script>
   <script src="./pipeline-workspace-theme.js?v=zoom-theme-sync-20260830-1"></script>
-  <script src="./pipeline.js?v=bank-file-source-20260913-1"></script>
-  <script src="./bank-file.js?v=neutral-bank-v1-20260913-1"></script>
+  <script src="./pipeline.js?v=independent-bank-reverse-wire-20260914-1"></script>
+  <script src="./bank-file.js?v=independent-bank-reverse-wire-20260914-1"></script>
   <script src="./measurement-import.js?v=native-label-v6-20260908-1"></script>
   <script src="./pipeline-interactions.js"></script>
-  <script src="./pipeline-context.js?v=bank-file-source-20260913-1"></script>
+  <script src="./pipeline-context.js?v=independent-bank-reverse-wire-20260914-1"></script>
   <script src="./eq-geometry-rbj.js"></script>
   <script src="./response-host-v1.js?v=split-phase-mag-output-20260831-1"></script>
   <script src="./raptor-phase-turn-inspector.js?v=visible-phase-turn-20260912-1"></script>
   <script src="./mag-phase-gd-band-layout.js?v=progressive-log-spread-20260912-1"></script>
   <script src="./mag-phase-gd-graph-range.js?v=graph-range-controls-20260913-1"></script>
-  <script src="./mag-phase-gd-filter.js?v=bank-file-source-20260913-1"></script>
-  <script src="./mag-phase-gd-autoeq.js?v=autophase-xo-safe-range-20260913-1"></script>
-  <script src="./crossover-filter.js?v=bank-file-source-20260913-1"></script>
+  <script src="./mag-phase-gd-filter.js?v=independent-bank-reverse-wire-20260914-1"></script>
+  <script src="./mag-phase-gd-autoeq.js?v=independent-bank-reverse-wire-20260914-1"></script>
+  <script src="./crossover-filter.js?v=independent-bank-reverse-wire-20260914-1"></script>
   <script src="./pipeline-wire-inspect.js?v=bank-file-source-20260913-1"></script>
   <script src="./editor-foundation.js"></script>
   <script src="./matching/matching-dom.js"></script>

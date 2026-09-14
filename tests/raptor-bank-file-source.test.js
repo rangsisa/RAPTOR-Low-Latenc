@@ -5,12 +5,13 @@ const bank=require('../gui/bank-file-source.js');
 
 const measurementPalette=new Set([
   '#4DA3FF','#FF9F43','#55D187','#A78BFA',
-  '#FF6B6B','#36CFC9','#F6C85F','#8FA6B8'
+  '#FF6B6B','#36CFC9','#F6C85F','#8FA6B8',
+  '#FF2D95','#8BD600','#563CFF'
 ]);
 const expected=[
-  {id:'bank-file-48k',name:'48K',sampleRate:48000,fftSize:32768,fMax:24000,color:'#FF2D95'},
-  {id:'bank-file-96k',name:'96K',sampleRate:96000,fftSize:65536,fMax:48000,color:'#8BD600'},
-  {id:'bank-file-192k',name:'192K',sampleRate:192000,fftSize:131072,fMax:96000,color:'#563CFF'}
+  {id:'bank-file-48k',name:'48K',sampleRate:48000,fftSize:32768,fMax:24000,color:'#FF8A00'},
+  {id:'bank-file-96k',name:'96K',sampleRate:96000,fftSize:65536,fMax:48000,color:'#8EDB57'},
+  {id:'bank-file-192k',name:'192K',sampleRate:192000,fftSize:131072,fMax:96000,color:'#EF3E4A'}
 ];
 
 const entries=bank.buildEntries();

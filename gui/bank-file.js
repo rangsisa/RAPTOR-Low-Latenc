@@ -32,10 +32,6 @@ for(const entry of entries){
   row.style.setProperty('--file-color',entry.color);
   row.style.setProperty('--file-tint',tint(entry.color,.24));
 
-  const swatch=document.createElement('span');
-  swatch.className='bank-file-swatch';
-  swatch.setAttribute('aria-hidden','true');
-
   const info=document.createElement('div');
   info.className='bank-file-info';
   const name=document.createElement('strong');
@@ -65,8 +61,23 @@ for(const entry of entries){
       hasData:true
     },output);
   });
+  api.registerOutput?.('bank:'+entry.id,output,{
+    radius:48,
+    getSource:()=>({
+      kind:'measurement',
+      id:entry.id,
+      measurementId:entry.id,
+      name:entry.name,
+      color:entry.color,
+      sampleRate:entry.sampleRate,
+      fftSize:entry.fftSize,
+      format:entry.canonical.format,
+      canonical:entry.canonical,
+      hasData:true
+    })
+  });
 
-  row.append(swatch,info,output);
+  row.append(info,output);
   list.appendChild(row);
 }
 

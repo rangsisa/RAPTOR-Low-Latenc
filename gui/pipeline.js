@@ -1,5 +1,5 @@
 (()=>{
-const FILE_COLORS=['#4DA3FF','#FF9F43','#55D187','#A78BFA','#FF6B6B','#36CFC9','#F6C85F','#8FA6B8'];
+const FILE_COLORS=['#4DA3FF','#FF9F43','#55D187','#A78BFA','#FF6B6B','#36CFC9','#F6C85F','#8FA6B8','#FF2D95','#8BD600','#563CFF'];
 const canonicalV1=window.RaptorMeasurementCanonicalV1;
 if(!canonicalV1) throw new Error('measurement-canonical-v1.js must load before pipeline.js');
 const COMMON_SAMPLE_RATES=[44100,48000,88200,96000,176400,192000];
@@ -9,6 +9,7 @@ const workspaceView=window.RaptorPipelineWorkspaceView;
 if(!workspaceView) throw new Error('pipeline-workspace-theme.js must load before pipeline.js');
 const emptyState=document.getElementById('pipelineNodeEmpty');
 const bankFileNode=document.getElementById('bankFileNode');
+const bankFileHead=bankFileNode?.querySelector('.bank-file-head')||null;
 const measurementNode=document.getElementById('measurementNode');
 const measurementHead=measurementNode.querySelector('.measurement-node-head');
 const activeLineLabel=document.getElementById('measurementLineLabel');
@@ -21,6 +22,7 @@ const colorMenu=document.getElementById('fileColorMenu');
 const wirePath=document.getElementById('pipelineWirePreview');
 const wireLayer=wirePath.closest('svg');
 const inputRegistry=new Map();
+const outputRegistry=new Map();
 const registeredMeasurementSources=new Map();
 const preview=document.getElementById('measurementPreview');
 const previewCanvas=document.getElementById('measurementPreviewCanvas');
@@ -43,7 +45,7 @@ let activePreviewDrag=null;
 let fileIdSequence=0;
 
 function createState(){
-  return {version:1,nodes:{measurement:{files:[],position:null}}};
+  return {version:1,nodes:{bankFile:{position:null},measurement:{files:[],position:null}}};
 }
 
 function cloneState(state){
@@ -62,7 +64,8 @@ function cloneState(state){
     };
   });
   const position=measurement.position?{...measurement.position}:null;
-  return {version:source.version||1,nodes:{measurement:{files,position}}};
+  const bankPosition=source.nodes?.bankFile?.position?{...source.nodes.bankFile.position}:null;
+  return {version:source.version||1,nodes:{bankFile:{position:bankPosition},measurement:{files,position}}};
 }
 
 function ensureState(card){
@@ -76,9 +79,12 @@ function ensureState(card){
   }
 
   if(!card._raptorLineState.nodes.measurement) card._raptorLineState.nodes.measurement={files:[],position:null};
+  if(!card._raptorLineState.nodes.bankFile) card._raptorLineState.nodes.bankFile={position:null};
   const measurement=card._raptorLineState.nodes.measurement;
+  const bankFile=card._raptorLineState.nodes.bankFile;
   if(!Array.isArray(measurement.files)) measurement.files=[];
   if(measurement.position===undefined) measurement.position=null;
+  if(bankFile.position===undefined) bankFile.position=null;
   return card._raptorLineState;
 }
 
@@ -98,28 +104,42 @@ function bankFileStackHeight(){
   return (bankFileNode.offsetHeight||190)+8;
 }
 
-function positionMeasurementStack(x,y){
+function positionMeasurementNode(x,y){
   const safeX=Math.max(8,Number(x)||8);
-  const safeY=Math.max(8+bankFileStackHeight(),Number(y)||8);
+  const safeY=Math.max(8,Number(y)||8);
   measurementNode.style.transform='none';
   workspaceView.positionNode(measurementNode,safeX,safeY);
-  if(bankFileNode&&!bankFileNode.hidden){
-    workspaceView.positionNode(bankFileNode,safeX,safeY-bankFileStackHeight());
-  }
   return {x:safeX,y:safeY};
 }
 
-function applyMeasurementPosition(){
+function positionBankFileNode(x,y){
+  if(!bankFileNode) return {x:8,y:8};
+  const safeX=Math.max(8,Number(x)||8);
+  const safeY=Math.max(8,Number(y)||8);
+  bankFileNode.style.transform='none';
+  workspaceView.positionNode(bankFileNode,safeX,safeY);
+  return {x:safeX,y:safeY};
+}
+
+function applySourcePositions(){
   if(!activeCard||measurementNode.hidden) return;
-  const measurement=ensureState(activeCard).nodes.measurement;
+  const state=ensureState(activeCard);
+  const measurement=state.nodes.measurement;
+  const bankFile=state.nodes.bankFile;
   const zoom=workspaceView.getZoom();
   let x=24;
-  let y=Math.max(12,(nodeCanvas.clientHeight/zoom-measurementNode.offsetHeight)/2);
+  let y=Math.max(8+bankFileStackHeight(),(nodeCanvas.clientHeight/zoom-measurementNode.offsetHeight)/2);
   if(measurement.position&&Number.isFinite(measurement.position.x)&&Number.isFinite(measurement.position.y)){
     x=measurement.position.x;
     y=measurement.position.y;
   }
-  positionMeasurementStack(x,y);
+  positionMeasurementNode(x,y);
+  if(bankFileNode&&!bankFileNode.hidden){
+    const bankPosition=bankFile.position&&Number.isFinite(bankFile.position.x)&&Number.isFinite(bankFile.position.y)
+      ?bankFile.position
+      :{x,y:Math.max(8,y-bankFileStackHeight())};
+    bankFile.position=positionBankFileNode(bankPosition.x,bankPosition.y);
+  }
 }
 
 function load(card){
@@ -136,7 +156,7 @@ function load(card){
   measurementNode.hidden=false;
   activeLineLabel.textContent=card.dataset.lineName||'RAPTOR Line';
   renderFiles();
-  requestAnimationFrame(applyMeasurementPosition);
+  requestAnimationFrame(applySourcePositions);
 }
 
 function clearLoaded(){
@@ -147,7 +167,7 @@ function clearLoaded(){
   measurementNode.hidden=true;
   if(bankFileNode){
     bankFileNode.hidden=true;
-    bankFileNode.classList.remove('is-wiring');
+    bankFileNode.classList.remove('is-wiring','is-dragging');
   }
   measurementNode.classList.remove('is-wiring','is-dragging');
   emptyState.hidden=false;
@@ -177,6 +197,22 @@ function registerInput(id,element,options={}){
 
 function unregisterInput(id){
   inputRegistry.delete(id);
+}
+
+function registerOutput(id,element,options={}){
+  if(!id||!element) return;
+  outputRegistry.set(String(id),{id:String(id),element,...options});
+}
+
+function unregisterOutput(id){
+  outputRegistry.delete(String(id||''));
+}
+
+function unregisterOutputsByPrefix(prefix){
+  const match=String(prefix||'');
+  for(const id of outputRegistry.keys()){
+    if(id.startsWith(match)) outputRegistry.delete(id);
+  }
 }
 
 function registeredInputForFilter(filterId){
@@ -233,6 +269,63 @@ function clearRegisteredInputHighlights(){
   for(const input of inputRegistry.values()){
     input.element?.classList?.remove('is-wire-available','is-wire-magnet');
   }
+}
+
+function clearRegisteredOutputHighlights(){
+  for(const output of outputRegistry.values()){
+    output.element?.classList?.remove('is-wire-available','is-wire-magnet');
+  }
+}
+
+function registeredOutputSource(output,includeCanonical=false){
+  if(!output) return null;
+  let raw=null;
+  try{
+    raw=typeof output.getSource==='function'
+      ?output.getSource(includeCanonical)
+      :output.source||null;
+  }catch{
+    return null;
+  }
+  const sourceId=String(raw?.filterId??raw?.id??'');
+  if(!sourceId) return null;
+  return {
+    ...raw,
+    id:sourceId,
+    kind:raw?.kind==='filter'?'filter':'measurement',
+    reverseConnect:true
+  };
+}
+
+function eligibleRegisteredOutputs(input){
+  const eligible=[];
+  if(!input?.element?.isConnected) return eligible;
+  for(const output of outputRegistry.values()){
+    const element=output.element;
+    if(!element?.isConnected||element.disabled||element.closest?.('[hidden]')) continue;
+    const source=registeredOutputSource(output,false);
+    if(!source) continue;
+    if(wouldCreateFilterCycle(source,input.ownerFilterId)) continue;
+    if(typeof input.canAccept==='function'&&!input.canAccept(source)) continue;
+    eligible.push({output,source});
+  }
+  return eligible;
+}
+
+function nearestRegisteredOutput(clientX,clientY,input){
+  let best=null;
+  for(const candidate of eligibleRegisteredOutputs(input)){
+    const rect=candidate.output.element.getBoundingClientRect();
+    if(!(rect.width>0&&rect.height>0)) continue;
+    const x=rect.left+rect.width/2;
+    const y=rect.top+rect.height/2;
+    const distance=Math.hypot(clientX-x,clientY-y);
+    const radius=Number.isFinite(candidate.output.radius)?candidate.output.radius:48;
+    if(distance<=radius&&(!best||distance<best.distance)){
+      best={...candidate,distance,x,y};
+    }
+  }
+  return best;
 }
 
 function eligibleRegisteredInputs(entry){
@@ -500,6 +593,7 @@ async function importFiles(files){
 
 function renderFiles(){
   if(!activeCard) return;
+  unregisterOutputsByPrefix('measurement:');
   const files=activeFiles();
   measurementNode.classList.toggle('is-selecting',selectionMode);
   selectButton.setAttribute('aria-pressed',String(selectionMode));
@@ -513,7 +607,7 @@ function renderFiles(){
     empty.className='measurement-empty';
     empty.textContent='No measurement files imported';
     fileList.appendChild(empty);
-    requestAnimationFrame(applyMeasurementPosition);
+    requestAnimationFrame(applySourcePositions);
     return;
   }
   for(const entry of files){
@@ -569,11 +663,26 @@ function renderFiles(){
     output.setAttribute('aria-label',`Connect ${entry.name}`);
     output.disabled=selectionMode||entry.status!=='ready';
     output.addEventListener('pointerdown',event=>startWire(event,entry,output));
+    registerOutput('measurement:'+entry.id,output,{
+      radius:48,
+      getSource:()=>({
+        kind:'measurement',
+        id:entry.id,
+        measurementId:entry.id,
+        name:entry.name,
+        color:entry.color,
+        sampleRate:entry.sampleRate,
+        fftSize:entry.fftSize,
+        format:entry.canonical?.format||canonicalV1.FORMAT,
+        canonical:entry.canonical,
+        hasData:!!entry.canonical
+      })
+    });
 
     row.append(checkbox,color,info,previewButton,output);
     fileList.appendChild(row);
   }
-  requestAnimationFrame(applyMeasurementPosition);
+  requestAnimationFrame(applySourcePositions);
 }
 
 function openColorMenu(button,entry){
@@ -891,11 +1000,7 @@ function startWire(event,source,handle){
 
     const d=routeWire(
       {x:startX,y:startY},
-      {x:endX,y:endY},
-      {
-        sourceElement:handle,
-        targetElement:magnet?.input?.element||null
-      }
+      {x:endX,y:endY}
     );
     if(d) wirePath.setAttribute('d',d);
     else wirePath.removeAttribute('d');
@@ -957,6 +1062,94 @@ function startCanonicalWire(event,source,handle){
   return startWire(event,source,handle);
 }
 
+function startReverseWire(event,inputId,handle){
+  const input=inputRegistry.get(String(inputId||''));
+  if(!input||!handle||handle.disabled||!handle.isConnected) return false;
+  if(event.button!==undefined&&event.button!==0) return false;
+
+  event.preventDefault();
+  event.stopPropagation();
+  closePreview();
+  closeColorMenu();
+
+  const pointerId=event.pointerId;
+  const canvasRect=nodeCanvas.getBoundingClientRect();
+  const targetRect=handle.getBoundingClientRect();
+  const target={
+    x:targetRect.left+targetRect.width/2-canvasRect.left+nodeCanvas.scrollLeft,
+    y:targetRect.top+targetRect.height/2-canvasRect.top+nodeCanvas.scrollTop
+  };
+  const targetNode=handle.closest('[data-filter-id]');
+
+  wirePath.setAttribute('stroke','#8FA6B8');
+  targetNode?.classList.add('is-wiring');
+  handle.classList.add('is-wiring');
+
+  const markEligible=()=>{
+    clearRegisteredOutputHighlights();
+    for(const candidate of eligibleRegisteredOutputs(input)){
+      candidate.output.element.classList.add('is-wire-available');
+    }
+  };
+
+  markEligible();
+  try{handle.setPointerCapture(pointerId)}catch{}
+
+  const move=moveEvent=>{
+    if(moveEvent.pointerId!==pointerId) return;
+    markEligible();
+    const magnet=nearestRegisteredOutput(moveEvent.clientX,moveEvent.clientY,input);
+    let start={
+      x:moveEvent.clientX-canvasRect.left+nodeCanvas.scrollLeft,
+      y:moveEvent.clientY-canvasRect.top+nodeCanvas.scrollTop
+    };
+    let sourceElement=null;
+    if(magnet){
+      magnet.output.element.classList.add('is-wire-magnet');
+      const sourceRect=magnet.output.element.getBoundingClientRect();
+      start={
+        x:sourceRect.left+sourceRect.width/2-canvasRect.left+nodeCanvas.scrollLeft,
+        y:sourceRect.top+sourceRect.height/2-canvasRect.top+nodeCanvas.scrollTop
+      };
+      sourceElement=magnet.output.element;
+      wirePath.setAttribute('stroke',magnet.source.color||'#8FA6B8');
+    }else{
+      wirePath.setAttribute('stroke','#8FA6B8');
+    }
+    const d=routeWire(start,target);
+    if(d) wirePath.setAttribute('d',d);
+    else wirePath.removeAttribute('d');
+  };
+
+  const end=endEvent=>{
+    if(endEvent.pointerId!==pointerId) return;
+    const magnet=endEvent.type==='pointerup'
+      ?nearestRegisteredOutput(endEvent.clientX,endEvent.clientY,input)
+      :null;
+
+    wirePath.removeAttribute('d');
+    clearRegisteredOutputHighlights();
+    targetNode?.classList.remove('is-wiring');
+    handle.classList.remove('is-wiring');
+    window.removeEventListener('pointermove',move);
+    window.removeEventListener('pointerup',end);
+    window.removeEventListener('pointercancel',end);
+    try{if(handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId)}catch{}
+
+    if(!magnet||typeof input.onConnect!=='function') return;
+    const source=registeredOutputSource(magnet.output,true);
+    if(!source||wouldCreateFilterCycle(source,input.ownerFilterId)) return;
+    if(typeof input.canAccept==='function'&&!input.canAccept(source)) return;
+    input.onConnect(source,sourceConnectionMeta(source,input));
+  };
+
+  move(event);
+  window.addEventListener('pointermove',move,{passive:true});
+  window.addEventListener('pointerup',end);
+  window.addEventListener('pointercancel',end);
+  return true;
+}
+
 function startNodeDrag(event){
   if(!activeCard||measurementNode.hidden) return;
   if(event.button!==undefined&&event.button!==0) return;
@@ -973,7 +1166,7 @@ function startNodeDrag(event){
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
     const point=workspaceView.clientToLogical(moveEvent.clientX,moveEvent.clientY);
-    const position=positionMeasurementStack(point.x-grab.x,point.y-grab.y);
+    const position=positionMeasurementNode(point.x-grab.x,point.y-grab.y);
     ensureState(activeCard).nodes.measurement.position=position;
   };
   const end=endEvent=>{
@@ -983,6 +1176,34 @@ function startNodeDrag(event){
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
     try{if(measurementHead.hasPointerCapture(pointerId)) measurementHead.releasePointerCapture(pointerId)}catch{}
+  };
+  window.addEventListener('pointermove',move,{passive:true});
+  window.addEventListener('pointerup',end);
+  window.addEventListener('pointercancel',end);
+}
+
+function startBankFileDrag(event){
+  if(!activeCard||!bankFileNode||bankFileNode.hidden||!bankFileHead) return;
+  if(event.button!==undefined&&event.button!==0) return;
+  event.preventDefault();
+  const pointerId=event.pointerId;
+  const grab=workspaceView.grabOffsetLogical(event,bankFileNode);
+  bankFileNode.classList.add('is-dragging');
+  try{bankFileHead.setPointerCapture(pointerId)}catch{}
+
+  const move=moveEvent=>{
+    if(moveEvent.pointerId!==pointerId) return;
+    const point=workspaceView.clientToLogical(moveEvent.clientX,moveEvent.clientY);
+    const position=positionBankFileNode(point.x-grab.x,point.y-grab.y);
+    ensureState(activeCard).nodes.bankFile.position=position;
+  };
+  const end=endEvent=>{
+    if(endEvent.pointerId!==pointerId) return;
+    bankFileNode.classList.remove('is-dragging');
+    window.removeEventListener('pointermove',move);
+    window.removeEventListener('pointerup',end);
+    window.removeEventListener('pointercancel',end);
+    try{if(bankFileHead.hasPointerCapture(pointerId)) bankFileHead.releasePointerCapture(pointerId)}catch{}
   };
   window.addEventListener('pointermove',move,{passive:true});
   window.addEventListener('pointerup',end);
@@ -1008,6 +1229,7 @@ deleteButton.addEventListener('click',()=>{
 });
 
 measurementHead.addEventListener('pointerdown',startNodeDrag);
+bankFileHead?.addEventListener('pointerdown',startBankFileDrag);
 
 colorMenu.querySelectorAll('.file-color-choice').forEach(button=>{
   button.addEventListener('click',()=>chooseColor(button.dataset.color));
@@ -1023,10 +1245,10 @@ document.addEventListener('pointerdown',event=>{
 
 window.addEventListener('resize',()=>{
   if(!preview.hidden&&previewEntry) closePreview();
-  if(activeCard&&ensureState(activeCard).nodes.measurement.position===null) requestAnimationFrame(applyMeasurementPosition);
+  if(activeCard) requestAnimationFrame(applySourcePositions);
 });
 document.addEventListener('raptor:pipelinezoomchange',()=>{
-  if(activeCard) requestAnimationFrame(applyMeasurementPosition);
+  if(activeCard) requestAnimationFrame(applySourcePositions);
 });
 
 function registerMeasurementSource(entry){
@@ -1070,8 +1292,11 @@ window.RaptorPipeline={
   refresh:renderFiles,
   registerInput,
   unregisterInput,
+  registerOutput,
+  unregisterOutput,
   startDataWire:startWire,
   startCanonicalWire,
+  startReverseWire,
   routeWire,
   importMeasurementFiles:importFiles,
   registerMeasurementSource,
