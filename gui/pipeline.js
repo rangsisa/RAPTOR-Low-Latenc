@@ -43,6 +43,32 @@ let previewEntry=null;
 let previewAnchor=null;
 let activePreviewDrag=null;
 let fileIdSequence=0;
+let emptyStateHideTimer=0;
+
+function finishEmptyStateExit(){
+  if(emptyStateHideTimer){
+    clearTimeout(emptyStateHideTimer);
+    emptyStateHideTimer=0;
+  }
+  if(!activeCard) return;
+  emptyState.hidden=true;
+  emptyState.classList.remove('is-exiting');
+}
+
+function hideEmptyStateAnimated(){
+  if(emptyState.hidden||emptyState.classList.contains('is-exiting')) return;
+  emptyState.classList.add('is-exiting');
+  emptyStateHideTimer=window.setTimeout(finishEmptyStateExit,520);
+}
+
+function showEmptyState(){
+  if(emptyStateHideTimer){
+    clearTimeout(emptyStateHideTimer);
+    emptyStateHideTimer=0;
+  }
+  emptyState.classList.remove('is-exiting');
+  emptyState.hidden=false;
+}
 
 function createState(){
   return {version:1,nodes:{bankFile:{position:null},measurement:{files:[],position:null}}};
@@ -151,7 +177,7 @@ function load(card){
   selectedIds.clear();
   closeColorMenu();
   closePreview();
-  emptyState.hidden=true;
+  hideEmptyStateAnimated();
   if(bankFileNode) bankFileNode.hidden=false;
   measurementNode.hidden=false;
   activeLineLabel.textContent=card.dataset.lineName||'RAPTOR Line';
@@ -170,7 +196,7 @@ function clearLoaded(){
     bankFileNode.classList.remove('is-wiring','is-dragging');
   }
   measurementNode.classList.remove('is-wiring','is-dragging');
-  emptyState.hidden=false;
+  showEmptyState();
   wirePath.removeAttribute('d');
   closeColorMenu();
   closePreview();
@@ -1237,6 +1263,9 @@ colorMenu.querySelectorAll('.file-color-choice').forEach(button=>{
 
 previewClose.addEventListener('click',closePreview);
 previewHead.addEventListener('pointerdown',startPreviewDrag);
+emptyState.addEventListener('animationend',event=>{
+  if(event.animationName==='pipeline-empty-slide-left') finishEmptyStateExit();
+});
 
 document.addEventListener('pointerdown',event=>{
   if(!colorMenu.hidden&&!colorMenu.contains(event.target)&&!event.target.closest('.measurement-color')) closeColorMenu();
