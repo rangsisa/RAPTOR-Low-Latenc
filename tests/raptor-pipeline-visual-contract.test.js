@@ -25,7 +25,7 @@ assert.match(pipelineCss,/\.measurement-node\{[^}]*width:min\(248px,calc\(100vw 
 assert.match(pipelineCss,/\.bank-file-node\{[^}]*width:min\(248px,calc\(100vw - 48px\)\);height:194px;[^}]*grid-template-rows:35px 126px 31px/);
 assert.match(pipelineCss,/\.bank-file-list\{[^}]*grid-template-rows:repeat\(3,42px\)/);
 assert.match(pipelineCss,/\.bank-file-head\{[^}]*cursor:grab;user-select:none;touch-action:none/);
-assert.match(pipelineCss,/\.bank-file-row\{[^}]*height:42px;min-height:42px;grid-template-columns:minmax\(0,1fr\) 20px/);
+assert.match(pipelineCss,/\.measurement-file\.bank-file-row\{[^}]*height:42px;min-height:42px;grid-template-columns:minmax\(0,1fr\) 20px/);
 assert.doesNotMatch(pipelineCss,/\.bank-file-swatch\{/);
 assert.match(pipelineCss,/\.measurement-list\{width:100%;min-width:0;/);
 assert.match(pipelineCss,/\.measurement-file\{[^}]*width:100%;min-width:0;[^}]*grid-template-columns:13px minmax\(0,1fr\) 20px;/);
@@ -53,7 +53,7 @@ assert.match(pipelineJs,/function clampPreviewPosition\(left,top\)/);
 assert.match(pipelineJs,/function startPreviewDrag\(event\)/);
 assert.match(pipelineJs,/previewHead\.addEventListener\('pointerdown',startPreviewDrag\)/);
 assert.doesNotMatch(pipelineJs,/20000,50000/);
-assert.match(indexHtml,/pipeline\.css\?v=independent-bank-reverse-wire-20260914-1/);
+assert.match(indexHtml,/pipeline\.css\?v=bank-label-grid-fix-20260914-1/);
 assert.match(indexHtml,/workspace\.css\?v=welcome-canvas-no-art-20260913-1/);
 assert.match(indexHtml,/pipeline-interactions\.css\?v=compact-measurement-rows-20260912-1/);
 assert.match(indexHtml,/pipeline\.js\?v=independent-bank-reverse-wire-20260914-1/);
