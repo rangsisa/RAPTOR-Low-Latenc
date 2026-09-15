@@ -1,0 +1,462 @@
+/* RAPTOR Forest Aurora
+   A reversible visual layer inspired by cinematic glow, layered cards and
+   high-contrast product interfaces. DSP, graph data and node geometry stay
+   under the ownership of their existing component styles. */
+
+:root{
+  --fa-orange:#e76f24;
+  --fa-orange-hot:#f58a34;
+  --fa-green:#43a047;
+  --fa-gold:#d8a83e;
+  --fa-danger:#d95757;
+}
+
+body{
+  --fa-canvas:#edf3ef;
+  --fa-surface:#fbfdfb;
+  --fa-surface-raised:#ffffff;
+  --fa-surface-soft:#f1f6f2;
+  --fa-surface-muted:#e8efea;
+  --fa-line:#9dac9f;
+  --fa-line-soft:#d1dbd4;
+  --fa-text:#17221e;
+  --fa-muted:#66766d;
+  --fa-shadow:0 12px 30px rgba(20,43,31,.10);
+  --fa-shadow-small:0 4px 14px rgba(20,43,31,.08);
+}
+
+body.is-pipeline-dark-theme{
+  --fa-canvas:#0b1110;
+  --fa-surface:#17201f;
+  --fa-surface-raised:#202c29;
+  --fa-surface-soft:#121a18;
+  --fa-surface-muted:#26332f;
+  --fa-line:#4b5d54;
+  --fa-line-soft:#304039;
+  --fa-text:#f3f6f4;
+  --fa-muted:#9eaca6;
+  --fa-shadow:0 16px 38px rgba(0,0,0,.38);
+  --fa-shadow-small:0 6px 18px rgba(0,0,0,.26);
+  background:#080d0c;
+  color:var(--fa-text);
+}
+
+/* Canvas: static gradients keep the interface inexpensive while adding depth. */
+body .workspace-canvas,
+body .page-view--pipeline{
+  background:var(--fa-canvas);
+}
+body .pipeline-node-canvas{
+  background-color:var(--fa-canvas);
+  background-image:
+    radial-gradient(ellipse at 8% 2%,rgba(231,111,36,.14),transparent 28%),
+    radial-gradient(ellipse at 91% 18%,rgba(67,160,71,.13),transparent 30%),
+    radial-gradient(ellipse at 52% 108%,rgba(216,168,62,.10),transparent 36%),
+    radial-gradient(circle,rgba(65,89,76,.25) .8px,transparent .9px);
+  background-size:auto,auto,auto,24px 24px;
+}
+body.is-pipeline-dark-theme .pipeline-node-canvas,
+body.is-pipeline-dark-theme .pipeline-node-canvas.is-dark-canvas{
+  background-color:var(--fa-canvas);
+  background-image:
+    radial-gradient(ellipse at 7% 1%,rgba(231,111,36,.20),transparent 30%),
+    radial-gradient(ellipse at 94% 17%,rgba(67,160,71,.18),transparent 31%),
+    radial-gradient(ellipse at 52% 112%,rgba(216,168,62,.11),transparent 38%),
+    radial-gradient(circle,rgba(202,226,211,.18) .8px,transparent .9px);
+  background-size:auto,auto,auto,24px 24px;
+}
+
+/* Compact chrome. */
+body .workspace-menu>summary,
+body .pipeline-strip .pipeline-toolbar,
+body .pipeline-strip .pipeline-card,
+body .pipeline-canvas-filter-button,
+body .pipeline-zoom-controls,
+body .pipeline-canvas-theme-toggle{
+  border-color:var(--fa-line);
+  background:color-mix(in srgb,var(--fa-surface-raised) 94%,transparent);
+  color:var(--fa-text);
+  box-shadow:var(--fa-shadow-small);
+}
+body .pipeline-strip .pipeline-toolbar{
+  border-color:color-mix(in srgb,var(--fa-orange) 62%,var(--fa-line));
+  background:linear-gradient(120deg,color-mix(in srgb,var(--fa-orange) 11%,var(--fa-surface-raised)),var(--fa-surface-raised) 72%);
+}
+body .pipeline-strip .pipeline-toolbar-title{
+  border-color:var(--fa-orange);
+  background:linear-gradient(135deg,var(--fa-orange),#cf5f17);
+  color:#fff;
+  letter-spacing:.055em;
+}
+body .pipeline-strip .pipeline-add,
+body .pipeline-strip .pipeline-card-action{
+  border-color:var(--fa-line-soft);
+  background:var(--fa-surface-soft);
+  color:var(--fa-text);
+}
+body .pipeline-strip .pipeline-card-name{
+  border-color:var(--fa-line-soft);
+  background:var(--fa-surface-raised);
+  color:var(--fa-text);
+}
+body .pipeline-strip .pipeline-card.is-loaded{
+  border-color:var(--fa-orange);
+  box-shadow:0 0 0 1px rgba(231,111,36,.18),var(--fa-shadow-small);
+}
+body .pipeline-strip .pipeline-card.is-loaded .pipeline-card-name{
+  background:color-mix(in srgb,var(--fa-orange) 13%,var(--fa-surface-raised));
+  color:var(--fa-text);
+}
+body .workspace-menu-icon span{background:var(--fa-text)}
+body .pipeline-canvas-filter-button span,
+body .pipeline-add-symbol{color:var(--fa-orange-hot)}
+body .pipeline-zoom-button,
+body .pipeline-zoom-value{color:var(--fa-text)}
+body .workspace-menu>summary:hover,
+body .pipeline-canvas-filter-button:hover,
+body .pipeline-canvas-filter-button[aria-expanded="true"],
+body .pipeline-canvas-theme-toggle:hover{
+  border-color:var(--fa-orange);
+  background:color-mix(in srgb,var(--fa-orange) 11%,var(--fa-surface-raised));
+  color:var(--fa-text);
+}
+body .pipeline-zoom-button:hover,
+body .pipeline-strip .pipeline-add:hover,
+body .pipeline-strip .pipeline-card-action:hover{
+  background:var(--fa-surface-muted);
+  color:var(--fa-text);
+}
+body.is-pipeline-dark-theme .pipeline-canvas-controls.is-dark-mode .pipeline-zoom-controls,
+body.is-pipeline-dark-theme .pipeline-canvas-controls.is-dark-mode .pipeline-canvas-filter-button,
+body.is-pipeline-dark-theme .pipeline-canvas-theme-toggle[aria-pressed="true"]{
+  border-color:var(--fa-line);
+  background:color-mix(in srgb,var(--fa-surface-raised) 94%,transparent);
+  color:var(--fa-text);
+  box-shadow:var(--fa-shadow-small);
+}
+body.is-pipeline-dark-theme .pipeline-canvas-controls.is-dark-mode .pipeline-zoom-button,
+body.is-pipeline-dark-theme .pipeline-canvas-controls.is-dark-mode .pipeline-zoom-value{
+  color:var(--fa-text);
+}
+
+/* Shared node language. */
+body .bank-file-node,
+body .measurement-node,
+body .xo-filter-node,
+body .mpgd-filter-node,
+body .target-export-node{
+  border-color:var(--fa-line);
+  background:var(--fa-surface);
+  color:var(--fa-text);
+  box-shadow:var(--fa-shadow-small);
+}
+body .bank-file-head,
+body .measurement-node-head,
+body .xo-filter-node-head,
+body .mpgd-filter-node-head,
+body .target-export-head{
+  border-color:var(--fa-line-soft);
+  background:linear-gradient(118deg,var(--fa-surface-raised),color-mix(in srgb,var(--fa-green) 6%,var(--fa-surface-soft)));
+}
+body .bank-file-foot,
+body .measurement-node-foot,
+body .xo-filter-node-foot,
+body .mpgd-filter-node-foot,
+body .target-export-foot{
+  border-color:var(--fa-line-soft);
+  background:var(--fa-surface-soft);
+  color:var(--fa-muted);
+}
+body .bank-file-title strong,
+body .measurement-node-title strong,
+body .xo-filter-node-title strong,
+body .mpgd-filter-node-title strong,
+body .target-export-title strong,
+body .bank-file-name,
+body .measurement-file-name,
+body .xo-filter-input-copy strong,
+body .xo-filter-output-copy strong,
+body .mpgd-filter-input-copy strong,
+body .mpgd-filter-output-copy strong{
+  color:var(--fa-text);
+}
+body .bank-file-title span,
+body .measurement-node-title span,
+body .target-export-title span,
+body .bank-file-meta,
+body .measurement-file-meta,
+body .xo-filter-input-copy span,
+body .xo-filter-output-copy span,
+body .mpgd-filter-input-copy span,
+body .mpgd-filter-output-copy span,
+body .xo-filter-model,
+body .mpgd-filter-band-count{
+  color:var(--fa-muted);
+}
+body .bank-file-list,
+body .measurement-list,
+body .xo-filter-node-body,
+body .mpgd-filter-node-body,
+body .target-export-body{
+  background:var(--fa-surface);
+}
+body .measurement-summary{
+  border-color:var(--fa-line-soft);
+  background:var(--fa-surface-soft);
+  color:var(--fa-muted);
+}
+body .measurement-summary strong,
+body .bank-file-foot strong{color:var(--fa-text)}
+body .measurement-file{
+  border-color:var(--fa-line-soft);
+  background:linear-gradient(90deg,var(--file-tint) 0%,var(--file-tint) 21%,var(--fa-surface) 78%);
+}
+body .measurement-file.bank-file-row{
+  background:linear-gradient(90deg,var(--file-tint) 0%,var(--file-tint) 31%,var(--fa-surface) 90%);
+}
+body .measurement-file.is-selected,
+body .measurement-file.is-wiring,
+body .measurement-file.bank-file-row.is-wiring{
+  background:linear-gradient(90deg,var(--file-tint) 0%,var(--file-tint) 34%,color-mix(in srgb,var(--fa-orange) 8%,var(--fa-surface)) 94%);
+}
+body.is-pipeline-dark-theme .measurement-file{
+  background:linear-gradient(90deg,color-mix(in srgb,var(--file-color) 28%,var(--fa-surface-soft)),var(--fa-surface) 78%);
+}
+body.is-pipeline-dark-theme .measurement-file.bank-file-row{
+  background:linear-gradient(90deg,color-mix(in srgb,var(--file-color) 30%,var(--fa-surface-soft)),var(--fa-surface) 88%);
+}
+body.is-pipeline-dark-theme .measurement-file.is-selected,
+body.is-pipeline-dark-theme .measurement-file.is-wiring,
+body.is-pipeline-dark-theme .measurement-file.bank-file-row.is-wiring{
+  background:linear-gradient(90deg,color-mix(in srgb,var(--file-color) 34%,var(--fa-surface-soft)),color-mix(in srgb,var(--fa-orange) 10%,var(--fa-surface)) 92%);
+}
+body .measurement-import,
+body .measurement-preview-button,
+body .measurement-select,
+body .xo-filter-bypass,
+body .xo-filter-delete,
+body .mpgd-filter-bypass,
+body .mpgd-filter-delete,
+body .target-export-button,
+body .target-export-delete{
+  border-color:var(--fa-line);
+  background:var(--fa-surface-raised);
+  color:var(--fa-text);
+}
+body .xo-filter-node.has-lineage,
+body .mpgd-filter-node.has-lineage{
+  border-color:var(--lineage-color);
+  box-shadow:inset 3px 0 0 var(--lineage-color),var(--fa-shadow-small);
+}
+body .xo-filter-node.has-lineage .xo-filter-node-body,
+body .mpgd-filter-node.has-lineage .mpgd-filter-node-body{
+  background:linear-gradient(135deg,color-mix(in srgb,var(--lineage-color) 10%,var(--fa-surface)),color-mix(in srgb,var(--lineage-color) 20%,var(--fa-surface)));
+}
+body .xo-filter-input-pane,
+body .xo-filter-output-pane,
+body .mpgd-filter-input-pane,
+body .mpgd-filter-output-row{
+  border-color:var(--fa-line-soft);
+}
+body .xo-filter-slope-axis{stroke:var(--fa-line)}
+body .xo-filter-slope-summary{color:var(--fa-text)}
+body .xo-filter-slope-button{color:var(--fa-text)}
+body .target-export-source-row{
+  background:color-mix(in srgb,var(--source-color) 18%,var(--fa-surface-raised));
+}
+body .target-export-source-row strong{color:var(--fa-text)}
+body .target-export-source-row span{color:var(--fa-muted)}
+
+/* Menus, dialogs and previews. */
+body .workspace-menu-popover,
+body .pipeline-context-menu,
+body .file-color-menu,
+body .pipeline-modal,
+body .xo-filter-parameter-popover,
+body .measurement-preview{
+  border-color:var(--fa-line);
+  background:var(--fa-surface-raised);
+  color:var(--fa-text);
+  box-shadow:var(--fa-shadow);
+}
+body .workspace-menu-item,
+body .pipeline-context-action{color:var(--fa-text)}
+body .workspace-menu-item:hover,
+body .pipeline-context-action:hover,
+body .pipeline-context-action:focus-visible{
+  background:color-mix(in srgb,var(--fa-orange) 13%,var(--fa-surface-raised));
+  color:var(--fa-text);
+}
+body .pipeline-modal-head,
+body .pipeline-modal-foot,
+body .xo-filter-parameter-popover-head,
+body .measurement-preview-head{
+  border-color:var(--fa-line-soft);
+  background:var(--fa-surface-soft);
+  color:var(--fa-text);
+}
+body .pipeline-modal-head strong,
+body .xo-filter-parameter-popover-head strong{color:var(--fa-text)}
+body .pipeline-modal-body,
+body .xo-filter-parameter-popover-body,
+body .measurement-preview-body{background:var(--fa-surface-raised)}
+body .pipeline-name-input,
+body .xo-filter-parameter-field select,
+body .xo-filter-parameter-field input[type="number"]{
+  border-color:var(--fa-line);
+  background:var(--fa-surface);
+  color:var(--fa-text);
+}
+body .pipeline-node-empty{
+  border-color:var(--fa-line);
+  background:color-mix(in srgb,var(--fa-surface-raised) 88%,transparent);
+  color:var(--fa-muted);
+  box-shadow:var(--fa-shadow-small);
+}
+
+/* Mag-Phase-GD workspace and its floating children. */
+body .mpgd-filter-window,
+body .mpgd-band-editor,
+body .mpgd-autoeq-window{
+  border-color:var(--fa-line);
+  background:var(--fa-surface-raised);
+  color:var(--fa-text);
+  box-shadow:var(--fa-shadow);
+}
+body .mpgd-filter-window-head,
+body .mpgd-band-editor-head,
+body .mpgd-autoeq-head{
+  border-color:var(--fa-line-soft)!important;
+  background:linear-gradient(118deg,var(--fa-surface-raised),color-mix(in srgb,var(--fa-gold) 7%,var(--fa-surface-soft)))!important;
+  color:var(--fa-text);
+}
+body .mpgd-filter-window-title strong,
+body .mpgd-band-editor-head strong,
+body .mpgd-autoeq-head strong{color:var(--fa-text)}
+body .mpgd-filter-window-title span,
+body .mpgd-band-editor-head [data-band-id]{color:var(--fa-muted)}
+body .mpgd-filter-main,
+body .mpgd-autoeq-body{
+  background:var(--fa-surface-soft);
+}
+body .mpgd-filter-toolbar,
+body .mpgd-filter-card,
+body .mpgd-band-rack-section,
+body .mpgd-band-rack-row,
+body .mpgd-band-editor-fields,
+body .mpgd-autoeq-field,
+body .mpgd-autoeq-count-row,
+body .mpgd-autoeq-preview,
+body .mpgd-autoeq-preview-row,
+body .mpgd-autoeq-metric{
+  border-color:var(--fa-line-soft);
+  background:var(--fa-surface-raised);
+  color:var(--fa-text);
+}
+body .mpgd-filter-card-head,
+body .mpgd-band-rack-head,
+body .mpgd-autoeq-preview-head{
+  border-color:var(--fa-line-soft);
+  background:var(--fa-surface-soft);
+}
+body .mpgd-band-rack-list,
+body .mpgd-autoeq-preview-list{background:var(--fa-surface-soft)}
+body .mpgd-filter-check,
+body .mpgd-filter-readout,
+body .mpgd-filter-unit,
+body .mpgd-filter-value-pill,
+body .mpgd-filter-window-bypass,
+body .mpgd-band-rack-add,
+body .mpgd-band-rack-edit,
+body .mpgd-band-rack-delete,
+body .mpgd-auto-phase-open,
+body .mpgd-autoeq-open,
+body .mpgd-autoeq-button,
+body .mpgd-autoeq-auto,
+body .mpgd-autoeq-null,
+body .mpgd-graph-range-field{
+  border-color:var(--fa-line);
+  background:var(--fa-surface-raised);
+  color:var(--fa-text);
+}
+body .mpgd-filter-pointer-readout{
+  border-color:color-mix(in srgb,var(--fa-green) 65%,var(--fa-line));
+  background:color-mix(in srgb,var(--fa-green) 11%,var(--fa-surface-raised));
+  color:color-mix(in srgb,var(--fa-green) 72%,var(--fa-text));
+}
+body .mpgd-filter-card-head strong,
+body .mpgd-band-rack-head strong,
+body .mpgd-band-rack-info strong,
+body .mpgd-autoeq-field>span,
+body .mpgd-autoeq-count-main span,
+body .mpgd-autoeq-preview-head strong,
+body .mpgd-autoeq-metric span{color:var(--fa-text)}
+body .mpgd-filter-readout,
+body .mpgd-filter-unit,
+body .mpgd-band-rack-head span,
+body .mpgd-band-rack-info span,
+body .mpgd-autoeq-number b,
+body .mpgd-autoeq-status,
+body .mpgd-autoeq-preview-head span,
+body .mpgd-autoeq-preview-row span,
+body .mpgd-autoeq-metric b{color:var(--fa-muted)}
+body .mpgd-band-editor-fields input,
+body .mpgd-band-editor-fields select,
+body .mpgd-autoeq-number input,
+body .mpgd-autoeq-count-main input[type="number"],
+body .mpgd-graph-range-field input{
+  border-color:var(--fa-line);
+  background:var(--fa-surface);
+  color:var(--fa-text);
+}
+body.is-pipeline-dark-theme .mpgd-filter-plot[data-kind="magnitude"]{
+  background:#101716;
+}
+body.is-pipeline-dark-theme .mpgd-filter-plot[data-kind="magnitude"] .mpgd-filter-grid{
+  border-color:#66776e;
+}
+body.is-pipeline-dark-theme .mpgd-filter-plot[data-kind="magnitude"] .mpgd-filter-grid-line{
+  background:#d8e4dd;
+  opacity:.18;
+}
+body.is-pipeline-dark-theme .mpgd-filter-plot[data-kind="magnitude"] .mpgd-filter-zero-line{
+  background:#f3f6f4;
+  opacity:.7;
+}
+body.is-pipeline-dark-theme .mpgd-filter-plot[data-kind="magnitude"] .mpgd-filter-ylabels,
+body.is-pipeline-dark-theme .mpgd-filter-plot[data-kind="magnitude"] .mpgd-filter-xlabels span{
+  color:#f3f6f4;
+  text-shadow:0 1px 2px #000;
+}
+body.is-pipeline-dark-theme .mpgd-phase-turn-panel{
+  border-color:#8467a2;
+  background:rgba(26,22,31,.96);
+  color:#e4dbea;
+}
+
+/* Dark-mode form controls inherit readable native popups where supported. */
+body.is-pipeline-dark-theme input,
+body.is-pipeline-dark-theme select,
+body.is-pipeline-dark-theme textarea{color-scheme:dark}
+body.is-pipeline-dark-theme .measurement-color,
+body.is-pipeline-dark-theme .xo-filter-input::after,
+body.is-pipeline-dark-theme .xo-filter-output::after,
+body.is-pipeline-dark-theme .mpgd-filter-input::after,
+body.is-pipeline-dark-theme .mpgd-filter-output::after,
+body.is-pipeline-dark-theme .target-export-input::after{
+  border-color:#f3f6f4;
+}
+body .bank-file-node.is-wire-trace-node,
+body .measurement-node.is-wire-trace-node,
+body .xo-filter-node.is-wire-trace-node,
+body .mpgd-filter-node.is-wire-trace-node,
+body .target-export-node.is-wire-trace-node{
+  box-shadow:0 0 0 2px var(--wire-trace-color,var(--fa-orange)),0 0 26px color-mix(in srgb,var(--wire-trace-color,var(--fa-orange)) 28%,transparent);
+}
+
+@media(max-width:700px){
+  body .pipeline-node-canvas,
+  body.is-pipeline-dark-theme .pipeline-node-canvas{
+    background-size:auto,auto,auto,20px 20px;
+  }
+}

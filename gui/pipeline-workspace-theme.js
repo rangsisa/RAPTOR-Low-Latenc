@@ -9,6 +9,7 @@ const NODE_TOP_FALLBACK_PX=46;
 
 const canvas=document.getElementById('pipelineNodeCanvas');
 const controls=document.querySelector('.pipeline-canvas-controls');
+const workspace=canvas?.closest('.workspace-canvas')||null;
 const themeToggle=document.getElementById('pipelineCanvasThemeToggle');
 const zoomOut=document.getElementById('pipelineZoomOut');
 const zoomIn=document.getElementById('pipelineZoomIn');
@@ -38,6 +39,9 @@ function applyTheme(theme,persist=false){
   const dark=theme==='dark';
   canvas.classList.toggle('is-dark-canvas',dark);
   controls.classList.toggle('is-dark-mode',dark);
+  workspace?.classList.toggle('is-pipeline-dark-theme',dark);
+  document.body.classList.toggle('is-pipeline-dark-theme',dark);
+  document.documentElement.style.colorScheme=dark?'dark':'light';
   themeToggle.setAttribute('aria-pressed',dark?'true':'false');
   themeToggle.setAttribute('aria-label',dark?'Switch Pipeline workspace to light mode':'Switch Pipeline workspace to dark mode');
   themeToggle.textContent=dark?'☀ Light':'☾ Dark';
