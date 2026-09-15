@@ -76,10 +76,6 @@
 @keyframes raptor-wire-current{
   to{stroke-dashoffset:-26}
 }
-@media(prefers-reduced-motion:reduce){
-  .pipeline-wire-flow{animation:none;stroke-dasharray:2 11;opacity:.72}
-}
-
 @media(max-width:700px){
   .pipeline-context-menu{min-width:190px;padding:5px}
   .pipeline-context-action{min-height:32px;font-size:10px}
@@ -123,7 +119,4 @@
 .mpgd-filter-node.is-wire-trace-node .mpgd-filter-input::after,
 .mpgd-filter-node.is-wire-trace-node .mpgd-filter-output::after{
   filter:drop-shadow(0 0 3px var(--wire-trace-color,#e86f17))
-}
-@media(prefers-reduced-motion:reduce){
-  .pipeline-wire-inspect-flow{animation:none}
 }

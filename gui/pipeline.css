@@ -254,8 +254,6 @@
   .pipeline-zoom-controls{grid-template-columns:28px 42px 28px}
   .pipeline-zoom-value{min-width:42px}
 }
-@media(prefers-reduced-motion:reduce){.pipeline-node-empty.is-exiting{animation-duration:1ms}}
-
 /* Pipeline strip emphasis: orange identity, Add Pipeline stays light gray. */
 .pipeline-strip .pipeline-toolbar-title{
   height:26px;

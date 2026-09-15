@@ -1469,15 +1469,6 @@
     opacity:0
   }
 }
-@media(prefers-reduced-motion:reduce){
-  .mpgd-band-zone-ripple.is-active::before,
-  .mpgd-band-zone-ripple.is-active::after{
-    animation:none;
-    width:42px;
-    opacity:.10
-  }
-}
-
 /* Use the normal pointing hand rather than browser-specific grab/grabbing cursors. */
 .mpgd-filter-window-head,
 .mpgd-filter-window-head:active,

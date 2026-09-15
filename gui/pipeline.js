@@ -57,6 +57,10 @@ function finishEmptyStateExit(){
 
 function hideEmptyStateAnimated(){
   if(emptyState.hidden||emptyState.classList.contains('is-exiting')) return;
+  // Restart the transition explicitly so desktop Chromium cannot coalesce the
+  // initial style and exit style into the same paint when a line is loaded.
+  emptyState.classList.remove('is-exiting');
+  void emptyState.offsetWidth;
   emptyState.classList.add('is-exiting');
   emptyStateHideTimer=window.setTimeout(finishEmptyStateExit,520);
 }

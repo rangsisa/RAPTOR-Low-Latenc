@@ -4,8 +4,7 @@ const MOTION={
   amp:0,
   phase:0,
   raf:0,
-  last:0,
-  reduce:window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches||false
+  last:0
 };
 function displayWobble(f,isPhase){
   if(MOTION.amp<=0) return 0;
@@ -16,7 +15,6 @@ function displayWobble(f,isPhase){
   return MOTION.amp*(.105*Math.sin(t*10.8+MOTION.phase)+.04*Math.sin(t*21.6-MOTION.phase*.6));
 }
 function triggerDisplayMotion(strength=.7){
-  if(MOTION.reduce) return;
   MOTION.amp=Math.max(MOTION.amp,Math.max(0,Math.min(1,strength)));
   if(MOTION.raf) return;
   MOTION.last=performance.now();
