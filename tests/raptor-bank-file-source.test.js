@@ -9,10 +9,20 @@ const measurementPalette=new Set([
   '#FF2D95','#8BD600','#563CFF'
 ]);
 const expected=[
-  {id:'bank-file-48k',name:'48K',sampleRate:48000,fftSize:32768,fMax:24000,color:'#FF8A00'},
-  {id:'bank-file-96k',name:'96K',sampleRate:96000,fftSize:65536,fMax:48000,color:'#8EDB57'},
-  {id:'bank-file-192k',name:'192K',sampleRate:192000,fftSize:131072,fMax:96000,color:'#EF3E4A'}
+  {id:'bank-file-48k',name:'48K',sampleRate:48000,fftSize:32768,fMax:24000,color:'#E76F24'},
+  {id:'bank-file-96k',name:'96K',sampleRate:96000,fftSize:65536,fMax:48000,color:'#43A047'},
+  {id:'bank-file-192k',name:'192K',sampleRate:192000,fftSize:131072,fMax:96000,color:'#E24A4A'}
 ];
+
+function relativeLuminance(hex){
+  const channels=hex.slice(1).match(/../g).map(value=>parseInt(value,16)/255);
+  const linear=channels.map(value=>value<=.04045?value/12.92:Math.pow((value+.055)/1.055,2.4));
+  return .2126*linear[0]+.7152*linear[1]+.0722*linear[2];
+}
+
+function contrastAgainstWhite(hex){
+  return 1.05/(relativeLuminance(hex)+.05);
+}
 
 const entries=bank.buildEntries();
 assert.strictEqual(entries.length,3);
@@ -37,6 +47,7 @@ for(let entryIndex=0;entryIndex<entries.length;entryIndex++){
     {...spec,fMin:1.46484375,points:591}
   );
   assert.strictEqual(measurementPalette.has(entry.color),false);
+  assert.ok(contrastAgainstWhite(entry.color)>=3,'Bank color must remain visible against the light canvas');
   assert.strictEqual(canonical.format,'raptor.measurement.canonical.v1');
   assert.strictEqual(canonical.layout,'column-major');
   assert.deepStrictEqual(canonical.columns,['frequency_hz','magnitude_db','phase_deg','coherence']);

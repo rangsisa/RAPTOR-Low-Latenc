@@ -585,12 +585,7 @@ function renderConnections(){
     path.setAttribute('class','pipeline-persistent-wire');
     path.setAttribute('stroke',entry.color||'#8FA6B8');
     path.setAttribute('d',d);
-
-    const flow=document.createElementNS(SVG_NS,'path');
-    flow.setAttribute('class','pipeline-wire-flow');
-    flow.setAttribute('d',d);
-
-    group.append(hit,path,flow);
+    group.append(hit,path);
   }
 }
 

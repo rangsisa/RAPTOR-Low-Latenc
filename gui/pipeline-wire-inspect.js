@@ -30,12 +30,8 @@ function visualForHit(hit){
   const index=children.indexOf(hit);
   if(index<0) return null;
   const path=children[index+1];
-  const flow=children[index+2];
   if(!path?.classList?.contains('pipeline-persistent-wire')) return null;
-  return {
-    path,
-    flow:flow?.classList?.contains('pipeline-wire-flow')?flow:null
-  };
+  return {path};
 }
 
 function upstreamHits(startHit){
@@ -121,13 +117,6 @@ function appendVisual(hit,mode){
   path.removeAttribute('class');
   path.setAttribute('class','pipeline-wire-inspect-path'+(mode==='hover'?' is-hover':''));
   overlay.appendChild(path);
-
-  if(visual.flow){
-    const flow=visual.flow.cloneNode(false);
-    flow.removeAttribute('class');
-    flow.setAttribute('class','pipeline-wire-inspect-flow');
-    overlay.appendChild(flow);
-  }
 }
 
 function renderInspect(){
@@ -191,14 +180,14 @@ function wireHitFromEvent(event){
   return null;
 }
 
-canvas.addEventListener('click',event=>{
+canvas.addEventListener('pointerdown',event=>{
+  if(event.button!==undefined&&event.button!==0) return;
   const hit=wireHitFromEvent(event);
   if(hit){
-    event.stopPropagation();
     const wireId=hit.dataset.wireId||null;
     if(wireId){
-      // Wire clicks are selection/replace only.
-      // Focus is cleared exclusively by empty-canvas click or Escape.
+      // A direct wire press replaces the current focus immediately. The user
+      // never has to clear the previous lineage on blank canvas first.
       lockedWireId=wireId;
       hoveredWireId=null;
       scheduleRender();
@@ -206,13 +195,13 @@ canvas.addEventListener('click',event=>{
     return;
   }
 
-  if(event.target.closest?.('[data-source-node],.xo-filter-node,.mpgd-filter-node,.pipeline-context-menu')) return;
+  if(event.target.closest?.('[data-source-node],.xo-filter-node,.mpgd-filter-node,.target-export-node,.pipeline-context-menu')) return;
   if(lockedWireId){
     lockedWireId=null;
     hoveredWireId=null;
     scheduleRender();
   }
-});
+},{capture:true});
 
 document.addEventListener('keydown',event=>{
   if(event.key!=='Escape'||!lockedWireId) return;

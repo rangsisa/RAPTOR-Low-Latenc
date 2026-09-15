@@ -20,6 +20,9 @@ const typographyCss=read('gui/typography.css');
 const bankSourceJs=read('gui/bank-file-source.js');
 const bankFileJs=read('gui/bank-file.js');
 const workspaceThemeJs=read('gui/pipeline-workspace-theme.js');
+const wireInspectJs=read('gui/pipeline-wire-inspect.js');
+const pipelineContextCss=read('gui/pipeline-context.css');
+const targetExportJs=read('gui/target-export.js');
 
 assert.match(pipelineCss,/\.measurement-preview\{[^}]*width:min\(1196px,calc\(100vw - 28px\)\)/);
 assert.match(pipelineCss,/\.pipeline-strip \.pipeline-card\{[^}]*grid-template-columns:max-content 44px;/);
@@ -56,8 +59,8 @@ assert.match(pipelineJs,/function startPreviewDrag\(event\)/);
 assert.match(pipelineJs,/previewHead\.addEventListener\('pointerdown',startPreviewDrag\)/);
 assert.doesNotMatch(pipelineJs,/20000,50000/);
 assert.match(indexHtml,/theme\.css\?v=compact-top-boundary-20260914-1/);
-assert.match(indexHtml,/pipeline\.css\?v=chrome-pc-motion-20260915-1/);
-assert.match(indexHtml,/pipeline-context\.css\?v=chrome-pc-motion-20260915-1/);
+assert.match(indexHtml,/pipeline\.css\?v=static-wire-bank-palette-20260915-1/);
+assert.match(indexHtml,/pipeline-context\.css\?v=static-wire-bank-palette-20260915-1/);
 assert.match(indexHtml,/mag-phase-gd-filter\.css\?v=chrome-pc-motion-20260915-1/);
 assert.match(indexHtml,/matching\/matching\.js\?v=chrome-pc-motion-20260915-1/);
 assert.doesNotMatch(indexHtml,/pipeline-canvas-divider/);
@@ -71,7 +74,7 @@ assert.match(indexHtml,/<strong>Bank File<\/strong>/);
 assert.match(indexHtml,/<span>Neutral files<\/span>/);
 assert.doesNotMatch(indexHtml,/bank-file-badge|>SOURCE</);
 assert.match(indexHtml,/<strong>0° \/ 0 dB<\/strong>/);
-assert.match(indexHtml,/bank-file-source\.js\?v=independent-bank-reverse-wire-20260914-1/);
+assert.match(indexHtml,/bank-file-source\.js\?v=static-wire-bank-palette-20260915-1/);
 assert.match(indexHtml,/bank-file\.js\?v=independent-bank-reverse-wire-20260914-1/);
 assert.match(indexHtml,/<section class="page-view" data-view="welcome" hidden><\/section>/);
 assert.doesNotMatch(indexHtml,/welcome-raptor|raptor-welcome-v1\.png/);
@@ -94,9 +97,9 @@ assert.match(typographyCss,/\.workspace-shell \.bank-file-name\{font-size:10\.5p
 assert.match(typographyCss,/\.workspace-shell \.mpgd-phase-turn-panel\{font-size:9px/);
 assert.match(pipelineJs,/getComputedStyle\(preview\)\.fontFamily/);
 assert.doesNotMatch(typographyCss,/@import|@font-face|fonts\.googleapis/);
-assert.match(bankSourceJs,/sampleRateHz:48000,fftSize:32768,maxFrequencyHz:24000,color:'#FF8A00'/);
-assert.match(bankSourceJs,/sampleRateHz:96000,fftSize:65536,maxFrequencyHz:48000,color:'#8EDB57'/);
-assert.match(bankSourceJs,/sampleRateHz:192000,fftSize:131072,maxFrequencyHz:96000,color:'#EF3E4A'/);
+assert.match(bankSourceJs,/sampleRateHz:48000,fftSize:32768,maxFrequencyHz:24000,color:'#E76F24'/);
+assert.match(bankSourceJs,/sampleRateHz:96000,fftSize:65536,maxFrequencyHz:48000,color:'#43A047'/);
+assert.match(bankSourceJs,/sampleRateHz:192000,fftSize:131072,maxFrequencyHz:96000,color:'#E24A4A'/);
 assert.match(bankFileJs,/api\.registerMeasurementSource\?\.\(entry\)/);
 assert.doesNotMatch(bankFileJs,/bank-file-swatch/);
 assert.match(pipelineJs,/#FF2D95','#8BD600','#563CFF'/);
@@ -124,8 +127,19 @@ assert.match(workspaceThemeJs,/const visualLogicalY=Math\.max\(nodeTopBoundary\(
 assert.match(workspaceThemeJs,/nodeTopBoundary,\s*positionNode,/);
 assert.match(pipelineCss,/\.pipeline-node-empty\.is-exiting\{[^}]*animation:pipeline-empty-slide-left 420ms/);
 assert.doesNotMatch(pipelineCss,/prefers-reduced-motion/);
-assert.doesNotMatch(read('gui/pipeline-context.css'),/prefers-reduced-motion/);
+assert.doesNotMatch(pipelineContextCss,/prefers-reduced-motion/);
 assert.doesNotMatch(mpgdCss,/prefers-reduced-motion/);
 assert.doesNotMatch(read('gui/matching/matching.js'),/prefers-reduced-motion/);
+assert.match(pipelineContextCss,/\.pipeline-persistent-wire\{[^}]*stroke-width:2\.4;/);
+assert.match(pipelineCss,/\.pipeline-wire-preview\{[^}]*stroke-width:2\.4;/);
+assert.match(pipelineContextCss,/\.pipeline-wire-inspect-path\{[^}]*stroke-width:3\.84;/);
+assert.match(pipelineContextCss,/\.pipeline-wire-inspect-path\.is-hover\{stroke-width:3\.36;/);
+assert.doesNotMatch(pipelineContextCss,/raptor-wire-current|\.pipeline-wire-flow|\.pipeline-wire-inspect-flow/);
+for(const source of [crossoverJs,mpgdJs,targetExportJs]){
+  assert.doesNotMatch(source,/pipeline-wire-flow/);
+}
+assert.match(wireInspectJs,/canvas\.addEventListener\('pointerdown'/);
+assert.match(wireInspectJs,/lockedWireId=wireId;[\s\S]*?scheduleRender\(\);/);
+assert.doesNotMatch(wireInspectJs,/canvas\.addEventListener\('click'/);
 
 console.log('RESULT RAPTOR pipeline visual contract PASS');

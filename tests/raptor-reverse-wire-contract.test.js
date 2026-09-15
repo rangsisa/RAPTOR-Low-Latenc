@@ -42,6 +42,6 @@ for(const css of [pipelineCss,crossoverCss,mpgdCss]){
 }
 assert.match(targetCss,/\.target-export-input\.is-wiring::after/);
 assert.match(context,/target-export\.css\?v=independent-bank-reverse-wire-20260914-1/);
-assert.match(context,/target-export\.js\?v=independent-bank-reverse-wire-20260914-1/);
+assert.match(context,/target-export\.js\?v=static-wire-bank-palette-20260915-1/);
 
 console.log('RAPTOR reverse wire contract PASS');
