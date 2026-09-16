@@ -266,7 +266,7 @@ function startPanelDrag(event,panel){
   window.addEventListener('pointercancel',end);
 }
 
-function estimateQ(frequency,residual,index){
+function estimateQ(frequency,residual,index,indexMap){
   const center=Math.abs(Number(residual[index]));
   if(!(center>0)) return 1.41421356;
   const threshold=center*.5;
@@ -274,11 +274,13 @@ function estimateQ(frequency,residual,index){
   let left=index;
   let right=index;
   while(left>0){
+    if(indexMap[left]-indexMap[left-1]!==1||frequency[left]/frequency[left-1]>Math.SQRT2) break;
     const value=Number(residual[left-1]);
     if(!Number.isFinite(value)||Math.sign(value)!==sign||Math.abs(value)<threshold) break;
     left-=1;
   }
   while(right<residual.length-1){
+    if(indexMap[right+1]-indexMap[right]!==1||frequency[right+1]/frequency[right]>Math.SQRT2) break;
     const value=Number(residual[right+1]);
     if(!Number.isFinite(value)||Math.sign(value)!==sign||Math.abs(value)<threshold) break;
     right+=1;
@@ -287,7 +289,7 @@ function estimateQ(frequency,residual,index){
   const fLo=Number(frequency[left]);
   const fHi=Number(frequency[right]);
   const bandwidth=fHi-fLo;
-  if(!(Number.isFinite(f0)&&f0>0&&Number.isFinite(bandwidth)&&bandwidth>0)) return 1.41421356;
+  if(!(Number.isFinite(f0)&&f0>0&&Number.isFinite(bandwidth)&&bandwidth>0)) return MAX_Q;
   return clamp(f0/bandwidth,MIN_Q,MAX_Q);
 }
 function candidateCorrectionDb(residualValue,maxBoost,maxCut){
@@ -295,23 +297,20 @@ function candidateCorrectionDb(residualValue,maxBoost,maxCut){
   if(!Number.isFinite(wanted)) return 0;
   return Math.max(-maxCut,Math.min(maxBoost,wanted));
 }
-function localMedianMagnitude(frequency,magnitude,index){
-  const f0=Number(frequency[index]);
-  if(!(f0>0)) return NaN;
-  const bucket=[];
+function nullProtectionMask(frequency,magnitude){
+  // Sliding exact median: each sample enters/leaves once, instead of sorting
+  // its entire neighborhood again for every candidate and every iteration.
+  const mask=new Uint8Array(frequency.length),sorted=[],ratio=Math.pow(2,NULL_WINDOW_OCT);
+  const position=value=>{let lo=0,hi=sorted.length;while(lo<hi){const mid=(lo+hi)>>1;if(sorted[mid]<value) lo=mid+1;else hi=mid;}return lo;};
+  let left=0,right=0;
   for(let i=0;i<frequency.length;i++){
-    const f=Number(frequency[i]);
-    const m=Number(magnitude[i]);
-    if(!(f>0&&Number.isFinite(m))) continue;
-    if(Math.abs(Math.log2(f/f0))<=NULL_WINDOW_OCT) bucket.push(m);
+    while(right<frequency.length&&frequency[right]<=frequency[i]*ratio){const value=magnitude[right++];sorted.splice(position(value),0,value);}
+    while(left<right&&frequency[left]<frequency[i]/ratio){const value=magnitude[left++];sorted.splice(position(value),1);}
+    const mid=Math.floor(sorted.length/2);
+    const local=sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+    mask[i]=local-magnitude[i]>=NULL_PROTECT_DEPTH_DB?1:0;
   }
-  return median(bucket);
-}
-function shouldProtectNull(frequency,baselineMagnitude,index,gainDb){
-  if(!(gainDb>0)) return false;
-  const current=Number(baselineMagnitude[index]);
-  const local=localMedianMagnitude(frequency,baselineMagnitude,index);
-  return Number.isFinite(current)&&Number.isFinite(local)&&(local-current)>=NULL_PROTECT_DEPTH_DB;
+  return mask;
 }
 function removeAutoContribution(frequency,magnitude,autoBands,fs){
   const baseline=new Float64Array(magnitude.length);
@@ -330,6 +329,7 @@ function prepareProblem(filterId,options){
   const filter=filterApi.get(filterId);
   const canonical=filterApi.getOutput(filterId);
   if(!filter||!canonical) throw new Error('Connect an input before AutoEQ.');
+  if(filter.bypass) throw new Error('Turn off Bypass before AutoEQ.');
   canonicalApi.validate(canonical);
   const views=canonicalApi.views(canonical);
   const frequency=views.frequency_hz;
@@ -346,7 +346,9 @@ function prepareProblem(filterId,options){
   if(!(fMax>fMin)) throw new Error('Frequency To must be higher than From.');
 
   const targetDb=clamp(options.targetDb,-40,40);
-  const minCoherence=clamp(options.minCoherence,0,1);
+  // Public API uses 0..1; UI explicitly converts percent to this unit.
+  const minCoherence=Number(options.minCoherence??.5);
+  if(!Number.isFinite(minCoherence)||minCoherence<0||minCoherence>1) throw new Error('Min Coherence must be 0..1 in the API (0–100% in the UI).');
   const maxBoost=clamp(options.maxBoost,0,24);
   const maxCut=clamp(options.maxCut,0,24);
   const manualCount=Math.round(clamp(options.bandCount,1,24));
@@ -361,7 +363,7 @@ function prepareProblem(filterId,options){
     const m=Number(baselineMagnitude[i]);
     const c=coherence?Number(coherence[i]):1;
     if(!(Number.isFinite(f)&&f>=fMin&&f<=fMax&&Number.isFinite(m))) continue;
-    if(Number.isFinite(c)&&c<minCoherence) continue;
+    if(!Number.isFinite(c)||c<=0||c>1||c<minCoherence) continue;
     indexMap.push(i);
   }
   if(indexMap.length<3) throw new Error('Not enough trusted points inside the AutoEQ range.');
@@ -375,7 +377,7 @@ function prepareProblem(filterId,options){
     fitFrequency[n]=Number(frequency[i]);
     fitBaseline[n]=Number(baselineMagnitude[i]);
     const c=coherence?Number(coherence[i]):1;
-    fitCoherence[n]=Number.isFinite(c)?clamp(c,0,1):1;
+    fitCoherence[n]=c;
     residual[n]=fitBaseline[n]-targetDb;
   }
 
@@ -383,23 +385,57 @@ function prepareProblem(filterId,options){
     filter,canonical,fs,fMin,fMax,targetDb,minCoherence,maxBoost,maxCut,limit,
     autoCount:options.autoCount===true,
     nullProtect:options.nullProtect!==false,
-    fitFrequency,fitBaseline,fitCoherence,residual
+    fitFrequency,fitBaseline,fitCoherence,residual,indexMap
   };
+}
+
+function weightedError(residual,coherence){
+  let sum=0,weight=0;
+  for(let i=0;i<residual.length;i++){
+    sum+=coherence[i]*residual[i]*residual[i];weight+=coherence[i];
+  }
+  return sum/weight;
+}
+
+function responseGrid(frequency,fs){
+  const cos=new Float64Array(frequency.length),sin=new Float64Array(frequency.length);
+  const cos2=new Float64Array(frequency.length),sin2=new Float64Array(frequency.length);
+  for(let i=0;i<frequency.length;i++){
+    const w=2*Math.PI*frequency[i]/fs;
+    cos[i]=Math.cos(w);sin[i]=Math.sin(w);cos2[i]=Math.cos(2*w);sin2[i]=Math.sin(2*w);
+  }
+  return {cos,sin,cos2,sin2};
+}
+function trialResidual(residual,band,fs,grid){
+  // Same RBJ coefficients as the editor; compile once per candidate, not bin.
+  const c=rbj.coefficients(band,fs),out=new Float64Array(residual.length);
+  for(let i=0;i<out.length;i++){
+    const nr=c.b0+c.b1*grid.cos[i]+c.b2*grid.cos2[i];
+    const ni=-(c.b1*grid.sin[i]+c.b2*grid.sin2[i]);
+    const dr=1+c.a1*grid.cos[i]+c.a2*grid.cos2[i];
+    const di=-(c.a1*grid.sin[i]+c.a2*grid.sin2[i]);
+    const magnitude=Math.sqrt((nr*nr+ni*ni)/(dr*dr+di*di));
+    out[i]=residual[i]+20*Math.log10(Math.max(1e-300,magnitude));
+  }
+  return out;
 }
 
 function proposeBands(filterId,options){
   const problem=prepareProblem(filterId,options);
   const {
     fs,maxBoost,maxCut,limit,autoCount,nullProtect,
-    fitFrequency,fitBaseline,fitCoherence,residual
+    fitFrequency,fitBaseline,fitCoherence,residual,indexMap
   }=problem;
 
   const beforeResidual=Float64Array.from(residual);
   const proposed=[];
   const usedCenters=[];
+  const protectedNull=nullProtect?nullProtectionMask(fitFrequency,fitBaseline):null;
   const stamp=Date.now().toString(36);
+  const grid=responseGrid(fitFrequency,fs);
 
-  for(let bandIndex=0;bandIndex<limit;bandIndex++){
+  // Bounded retries allow rejecting a harmful candidate without applying it.
+  for(let attempt=0;attempt<limit*4&&proposed.length<limit;attempt++){
     let bestIndex=-1;
     let bestGain=0;
     let bestScore=-1;
@@ -408,8 +444,8 @@ function proposeBands(filterId,options){
       const f=fitFrequency[i];
       if(usedCenters.some(center=>Math.abs(Math.log2(f/center))<.08)) continue;
       const gain=candidateCorrectionDb(residual[i],maxBoost,maxCut);
-      if(nullProtect&&shouldProtectNull(fitFrequency,fitBaseline,i,gain)) continue;
-      const score=Math.abs(gain)*(.50+.50*fitCoherence[i]);
+      if(gain>0&&protectedNull?.[i]) continue;
+      const score=gain*gain*fitCoherence[i];
       if(score>bestScore){
         bestScore=score;
         bestGain=gain;
@@ -417,25 +453,32 @@ function proposeBands(filterId,options){
       }
     }
 
-    if(bestIndex<0||Math.abs(bestGain)<MIN_GAIN_DB) break;
-    if(autoCount&&Math.abs(bestGain)<AUTO_STOP_DB) break;
+    if(bestIndex<0) break;
+    if(Math.abs(bestGain)<MIN_GAIN_DB){usedCenters.push(fitFrequency[bestIndex]);continue;}
+    if(autoCount&&Math.abs(bestGain)<AUTO_STOP_DB){usedCenters.push(fitFrequency[bestIndex]);continue;}
 
     const band={
       id:AUTO_BAND_PREFIX+stamp+'-'+(sequence++),
       type:'peaking',
       frequencyHz:fitFrequency[bestIndex],
       gainDb:bestGain,
-      q:estimateQ(fitFrequency,residual,bestIndex),
+      q:estimateQ(fitFrequency,residual,bestIndex,indexMap),
       graphKind:'magnitude'
     };
     rbj.normalizeOperation(band,fs);
-    proposed.push(band);
     usedCenters.push(band.frequencyHz);
-
-    for(let i=0;i<fitFrequency.length;i++){
-      const response=rbj.responseAt(fitFrequency[i],band,fs);
-      residual[i]+=response.magnitudeDb;
+    const beforeError=weightedError(residual,fitCoherence);
+    let accepted=null,bestError=beforeError,acceptedGain=0;
+    // Evaluate the actual summed RBJ response, not merely a weighted peak.
+    for(const scale of [1,.5,.25]){
+      band.gainDb=bestGain*scale;
+      if(Math.abs(band.gainDb)<(autoCount?AUTO_STOP_DB:MIN_GAIN_DB)) continue;
+      const trial=trialResidual(residual,band,fs,grid);
+      const error=weightedError(trial,fitCoherence);
+      if(error<bestError-1e-10){accepted=trial;bestError=error;acceptedGain=band.gainDb;}
     }
+    if(!accepted) continue;
+    band.gainDb=acceptedGain;proposed.push(band);residual.set(accepted);
   }
 
   if(!proposed.length) throw new Error(autoCount
@@ -448,6 +491,9 @@ function proposeBands(filterId,options){
     bands:proposed,
     stats:{
       pointCount:fitFrequency.length,
+      beforeWeightedRmsDb:Math.sqrt(weightedError(beforeResidual,fitCoherence)),
+      afterWeightedRmsDb:Math.sqrt(weightedError(residual,fitCoherence)),
+      coherenceWeight:'raw-coherence',
       beforeP95Db:percentileAbs(beforeResidual,.95),
       afterP95Db:percentileAbs(residual,.95),
       beforeMaxDb:maxAbs(beforeResidual),
@@ -512,10 +558,10 @@ function renderPreview(panel,proposal=null){
     list.appendChild(row);
   });
   if(summary) summary.textContent=proposal.bands.length+' band'+(proposal.bands.length===1?'':'s');
-  if(before) before.textContent=Number.isFinite(proposal.stats.beforeP95Db)
-    ?proposal.stats.beforeP95Db.toFixed(2)+' dB P95':'—';
-  if(after) after.textContent=Number.isFinite(proposal.stats.afterP95Db)
-    ?proposal.stats.afterP95Db.toFixed(2)+' dB P95':'—';
+  if(before) before.textContent=Number.isFinite(proposal.stats.beforeWeightedRmsDb)
+    ?proposal.stats.beforeWeightedRmsDb.toFixed(2)+' dB weighted RMS':'—';
+  if(after) after.textContent=Number.isFinite(proposal.stats.afterWeightedRmsDb)
+    ?proposal.stats.afterWeightedRmsDb.toFixed(2)+' dB weighted RMS':'—';
 }
 
 function readOptions(panel){
@@ -527,7 +573,7 @@ function readOptions(panel){
     fMin:panel.querySelector('[data-autoeq-fmin]').value,
     fMax:panel.querySelector('[data-autoeq-fmax]').value,
     targetDb:panel.querySelector('[data-autoeq-target]').value,
-    minCoherence:panel.querySelector('[data-autoeq-coherence]').value,
+    minCoherence:Number(panel.querySelector('[data-autoeq-coherence]').value)/100,
     nullProtect:panel.querySelector('[data-autoeq-null]').checked
   };
 }
@@ -536,6 +582,8 @@ function setBusy(panel,busy){
     .forEach(button=>{button.disabled=!!busy;});
 }
 function calculatePreview(filterId,panel){
+  const coherenceInput=panel.querySelector('[data-autoeq-coherence]');
+  if(coherenceInput.value.trim()===''||!coherenceInput.reportValidity()) throw new Error('Enter Min Coherence from 0 to 100%.');
   const proposal=proposeBands(filterId,readOptions(panel));
   previews.set(String(filterId),proposal);
   renderPreview(panel,proposal);
@@ -569,9 +617,10 @@ function buildPanel(filterId,anchor){
         '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>Max Cut</span><span class="mpgd-autoeq-number"><input type="number" min="0" max="24" step="0.1" value="12" data-autoeq-cut><b>dB</b></span></label>'+
       '</div>'+
       '<div class="mpgd-autoeq-grid">'+
-        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>Min Coherence</span><span class="mpgd-autoeq-number"><input type="number" min="0" max="1" step="0.05" value="0.5" data-autoeq-coherence><b></b></span></label>'+
+        '<label class="mpgd-autoeq-field mpgd-autoeq-field--compact"><span>Min Coherence</span><span class="mpgd-autoeq-number"><input type="number" min="0" max="100" step="any" value="50" required data-autoeq-coherence><b>%</b></span></label>'+
         '<label class="mpgd-autoeq-null"><input type="checkbox" checked data-autoeq-null><span>Protect nulls &gt;6 dB</span></label>'+
       '</div>'+
+      '<div class="mpgd-coherence-legend">Coherence weight = measured % / 100. Below threshold or 0%: excluded. Candles: wick min–max, body middle 50%, mark median. EQ tails may extend into excluded regions.</div>'+
       '<div class="mpgd-autoeq-count-row">'+
         '<label class="mpgd-autoeq-count-main"><span>Bands</span><input type="number" min="1" max="24" step="1" value="8" data-autoeq-count></label>'+
         '<label class="mpgd-autoeq-auto"><input type="checkbox" data-autoeq-auto><span>Auto</span></label>'+

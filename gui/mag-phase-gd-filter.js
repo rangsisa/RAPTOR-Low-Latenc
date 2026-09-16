@@ -18,10 +18,6 @@ const SVG_NS='http://www.w3.org/2000/svg';
 const GRAPH_WIDTH=1000;
 const GRAPH_HEIGHT=220;
 const MAX_DISPLAY_POINTS=1800;
-const UNCERTAINTY_NEEDLE_MAX_HEIGHT=GRAPH_HEIGHT*.46;
-const UNCERTAINTY_NEEDLE_MIN_SPACING=7;
-const UNCERTAINTY_MAG_RELIEF_DB=6;
-const UNCERTAINTY_CONFIDENCE_FLOOR=.55;
 const PHASE_LIFT_GAIN_MIN_DEG=-180;
 const PHASE_LIFT_GAIN_MAX_DEG=180;
 const FILTER_TYPE='mag-phase-gd';
@@ -1297,45 +1293,11 @@ function wrapMarkerPath(views,indices,filter){
   return path.trim();
 }
 
-function uncertaintyMagnitudeRelief(magnitudeDb){
-  if(!Number.isFinite(magnitudeDb)) return 1;
-  const t=Math.max(0,Math.min(1,Math.abs(magnitudeDb)/UNCERTAINTY_MAG_RELIEF_DB));
-  const smooth=t*t*(3-2*t);
-  return UNCERTAINTY_CONFIDENCE_FLOOR+(1-UNCERTAINTY_CONFIDENCE_FLOOR)*smooth;
-}
-
-function uncertaintyNeedlePath(views,indices,filter){
-  const frequency=views.frequency_hz;
-  const coherence=views.coherence;
-  const magnitude=views.magnitude_db;
-  if(!coherence) return '';
-
-  // Display-only density guard:
-  // dense measurement bins can overlap into a solid red block. Bucket only
-  // the uncertainty needles in graph-X space and keep the worst uncertainty
-  // in each bucket. Canonical/coherence/DSP arrays remain untouched.
-  const buckets=new Map();
-  for(const i of indices){
-    const f=frequency[i],c0=coherence[i],mag=magnitude[i];
-    if(!Number.isFinite(f)||!Number.isFinite(c0)) continue;
-    const loss=1-Math.max(0,Math.min(1,c0));
-    if(loss<=0) continue;
-    const relief=uncertaintyMagnitudeRelief(mag);
-    const height=loss*relief*UNCERTAINTY_NEEDLE_MAX_HEIGHT;
-    if(!(height>0)) continue;
-    const x=xOf(f,filter);
-    const bucket=Math.floor(x/UNCERTAINTY_NEEDLE_MIN_SPACING);
-    const current=buckets.get(bucket);
-    if(!current||height>current.height) buckets.set(bucket,{x,height});
-  }
-
-  let path='';
-  const needles=[...buckets.values()].sort((a,b)=>a.x-b.x);
-  for(const needle of needles){
-    const yTop=GRAPH_HEIGHT-needle.height;
-    path+='M'+needle.x.toFixed(2)+' '+GRAPH_HEIGHT+' L'+needle.x.toFixed(2)+' '+yTop.toFixed(2)+' ';
-  }
-  return path.trim();
+function renderCoherenceCandles(win,views,filter){
+  const range=graphRangeForFilter(filter);
+  window.RaptorCoherenceCandles.render(win.querySelector('.mpgd-filter-svg--mag'),views,{
+    minHz:range.minFrequencyHz,maxHz:range.maxFrequencyHz,xOf:f=>xOf(f,filter),width:GRAPH_WIDTH,height:GRAPH_HEIGHT
+  });
 }
 
 function nearestIndex(array,target){
@@ -1419,6 +1381,10 @@ function buildGraph(kind,filter){
     head.appendChild(autoPhase);
   }
   head.append(readout,pointer,unit);
+  if(kind==='magnitude'){
+    const coh=document.createElement('span');coh.className='mpgd-coherence-readout';coh.textContent='Coh —';head.appendChild(coh);
+    head.title='Coherence candles: higher = more coherent. Wick min–max; body 25–75 percentiles; middle mark median. Fixed 0–100% scale.';
+  }
 
   const plot=document.createElement('div');
   plot.className='mpgd-filter-plot';
@@ -1864,6 +1830,9 @@ function restoreIdleGraphReadout(win,filter,kind){
   const pointer=win.querySelector('.mpgd-filter-pointer-readout[data-kind="'+kind+'"]');
   if(readout) readout.textContent='—';
   if(pointer) pointer.textContent='—';
+  if(kind==='magnitude'){
+    const coh=win.querySelector('.mpgd-coherence-readout');if(coh) coh.textContent='Coh —';
+  }
 }
 
 function setTraceReadout(win,kind,frequencyHz,phaseDeg,magnitudeDb){
@@ -1896,6 +1865,10 @@ function bindPlot(win,filter,plot){
     const readoutKinds=ui.sync===false?[kind]:['phase','magnitude'];
     for(const targetKind of readoutKinds){
       setTraceReadout(win,targetKind,f,phase,mag);
+    }
+    if(readoutKinds.includes('magnitude')){
+      const coh=win.querySelector('.mpgd-coherence-readout');
+      if(coh) coh.textContent=Number.isFinite(views.coherence?.[i])?'Coh '+(views.coherence[i]*100).toFixed(1)+'%':'Coh —';
     }
 
     const yRatio=Math.max(0,Math.min(1,(event.clientY-rect.top)/Math.max(1,rect.height)));
@@ -2397,11 +2370,12 @@ function renderWindow(filter,win){
     phaseMarkers?.setAttribute('d',filter.ui.wrap?wrapMarkerPath(views,indices,filter):'');
     magTrace?.setAttribute('d',magPath);
     magFill?.setAttribute('d',magnitudeFillPath(magPath,views,indices,filter));
-    uncertainty?.setAttribute('d',uncertaintyNeedlePath(views,indices,filter));
 
     restoreIdleGraphReadout(win,filter,'phase');
     restoreIdleGraphReadout(win,filter,'magnitude');
   }
+
+  renderCoherenceCandles(win,views,filter);
 
   const phaseCard=win.querySelector('.mpgd-filter-card[data-filter-card="phase"]');
   const magCard=win.querySelector('.mpgd-filter-card[data-filter-card="magnitude"]');

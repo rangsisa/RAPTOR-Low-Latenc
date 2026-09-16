@@ -1,0 +1,5 @@
+/* Shared linear 0–100% display; magnitude and theme never rescale the data. */
+.raptor-coherence-candles path{fill:rgba(15,137,132,.18);stroke:#128c86;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:visiblePainted}
+.raptor-coherence-candles text{fill:#177e79;font:9px sans-serif;paint-order:stroke;stroke:var(--fa-surface,#fff);stroke-width:2px;pointer-events:none}
+.mpgd-coherence-legend{padding:3px 9px;color:var(--fa-muted,#607580);font-size:10px;line-height:1.4}
+.mpgd-coherence-readout{color:var(--fa-muted,#607580);font-size:10px;white-space:nowrap}
