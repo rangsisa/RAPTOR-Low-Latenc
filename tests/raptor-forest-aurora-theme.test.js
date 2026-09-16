@@ -10,7 +10,7 @@ const css=read('gui/forest-aurora.css');
 const js=read('gui/pipeline-workspace-theme.js');
 
 const typographyIndex=html.indexOf('typography.css?v=independent-bank-reverse-wire-20260914-1');
-const forestIndex=html.indexOf('forest-aurora.css?v=forest-aurora-20260915-1');
+const forestIndex=html.indexOf('forest-aurora.css?v=source-stack-dock-20260916-1');
 assert.ok(typographyIndex>=0&&forestIndex>typographyIndex,'Forest Aurora must be the final stylesheet layer');
 assert.match(html,/pipeline-workspace-theme\.js\?v=forest-aurora-20260915-1/);
 

@@ -8,6 +8,8 @@ const nodeCanvas=document.getElementById('pipelineNodeCanvas');
 const workspaceView=window.RaptorPipelineWorkspaceView;
 if(!workspaceView) throw new Error('pipeline-workspace-theme.js must load before pipeline.js');
 const emptyState=document.getElementById('pipelineNodeEmpty');
+const sourceStack=document.getElementById('pipelineSourceStack');
+const sourceStackToggle=document.getElementById('sourceStackToggle');
 const bankFileNode=document.getElementById('bankFileNode');
 const bankFileHead=bankFileNode?.querySelector('.bank-file-head')||null;
 const measurementNode=document.getElementById('measurementNode');
@@ -44,6 +46,8 @@ let previewAnchor=null;
 let activePreviewDrag=null;
 let fileIdSequence=0;
 let emptyStateHideTimer=0;
+let sourceStackGeometryFrame=0;
+const SOURCE_STACK_VISIBLE_WIDTH=84;
 
 function finishEmptyStateExit(){
   if(emptyStateHideTimer){
@@ -75,7 +79,7 @@ function showEmptyState(){
 }
 
 function createState(){
-  return {version:1,nodes:{bankFile:{position:null},measurement:{files:[],position:null}}};
+  return {version:1,nodes:{bankFile:{position:null,collapsed:false},measurement:{files:[],position:null}}};
 }
 
 function cloneState(state){
@@ -94,8 +98,9 @@ function cloneState(state){
     };
   });
   const position=measurement.position?{...measurement.position}:null;
-  const bankPosition=source.nodes?.bankFile?.position?{...source.nodes.bankFile.position}:null;
-  return {version:source.version||1,nodes:{bankFile:{position:bankPosition},measurement:{files,position}}};
+  const bankSource=source.nodes?.bankFile||{};
+  const bankPosition=bankSource.position?{...bankSource.position}:null;
+  return {version:source.version||1,nodes:{bankFile:{position:bankPosition,collapsed:bankSource.collapsed===true},measurement:{files,position}}};
 }
 
 function ensureState(card){
@@ -109,12 +114,13 @@ function ensureState(card){
   }
 
   if(!card._raptorLineState.nodes.measurement) card._raptorLineState.nodes.measurement={files:[],position:null};
-  if(!card._raptorLineState.nodes.bankFile) card._raptorLineState.nodes.bankFile={position:null};
+  if(!card._raptorLineState.nodes.bankFile) card._raptorLineState.nodes.bankFile={position:null,collapsed:false};
   const measurement=card._raptorLineState.nodes.measurement;
   const bankFile=card._raptorLineState.nodes.bankFile;
   if(!Array.isArray(measurement.files)) measurement.files=[];
   if(measurement.position===undefined) measurement.position=null;
   if(bankFile.position===undefined) bankFile.position=null;
+  if(bankFile.collapsed===undefined) bankFile.collapsed=false;
   return card._raptorLineState;
 }
 
@@ -131,52 +137,83 @@ function setLoadState(card,active){
 
 function bankFileStackHeight(){
   if(!bankFileNode||bankFileNode.hidden) return 0;
-  return (bankFileNode.offsetHeight||190)+8;
+  return bankFileNode.offsetHeight||194;
 }
 
-function positionMeasurementNode(x,y){
+function sourceStackCollapsedX(){
+  const zoom=workspaceView.getZoom();
+  const width=sourceStack?.offsetWidth||248;
+  return nodeCanvas.scrollLeft/zoom-width+SOURCE_STACK_VISIBLE_WIDTH;
+}
+
+function positionSourceStack(x,y){
+  if(!sourceStack) return {x:8,y:8};
   const safeX=Math.max(8,Number(x)||8);
   const safeY=Math.max(8,Number(y)||8);
-  measurementNode.style.transform='none';
-  workspaceView.positionNode(measurementNode,safeX,safeY);
+  const collapsed=sourceStack.classList.contains('is-collapsed');
+  workspaceView.positionNode(sourceStack,collapsed?sourceStackCollapsedX():safeX,safeY);
   return {x:safeX,y:safeY};
 }
 
-function positionBankFileNode(x,y){
-  if(!bankFileNode) return {x:8,y:8};
-  const safeX=Math.max(8,Number(x)||8);
-  const safeY=Math.max(8,Number(y)||8);
-  bankFileNode.style.transform='none';
-  workspaceView.positionNode(bankFileNode,safeX,safeY);
-  return {x:safeX,y:safeY};
+function synchronizeSourceStackState(position){
+  if(!activeCard||!position) return;
+  const state=ensureState(activeCard);
+  const bankHeight=bankFileStackHeight();
+  state.nodes.bankFile.position={x:position.x,y:position.y};
+  state.nodes.measurement.position={x:position.x,y:position.y+bankHeight};
+}
+
+function notifySourceStackGeometry(duration=0){
+  if(sourceStackGeometryFrame) cancelAnimationFrame(sourceStackGeometryFrame);
+  const stop=performance.now()+Math.max(0,duration);
+  const tick=()=>{
+    document.dispatchEvent(new CustomEvent('raptor:pipelineobstacleschange'));
+    if(performance.now()<stop){
+      sourceStackGeometryFrame=requestAnimationFrame(tick);
+    }else{
+      sourceStackGeometryFrame=0;
+    }
+  };
+  sourceStackGeometryFrame=requestAnimationFrame(tick);
+}
+
+function applySourceStackCollapsed(collapsed,{animate=false}={}){
+  if(!sourceStack||!sourceStackToggle) return;
+  const next=collapsed===true;
+  sourceStack.classList.toggle('is-collapsed',next);
+  sourceStackToggle.setAttribute('aria-expanded',String(!next));
+  sourceStackToggle.setAttribute('aria-label',next?'Expand source nodes from the left edge':'Collapse source nodes to the left edge');
+  sourceStackToggle.title=next?'Expand sources':'Collapse sources';
+  if(activeCard) ensureState(activeCard).nodes.bankFile.collapsed=next;
+  applySourcePositions();
+  notifySourceStackGeometry(animate?240:0);
 }
 
 function applySourcePositions(){
-  if(!activeCard||measurementNode.hidden) return;
+  if(!activeCard||measurementNode.hidden||!sourceStack) return;
   const state=ensureState(activeCard);
   const measurement=state.nodes.measurement;
   const bankFile=state.nodes.bankFile;
   const zoom=workspaceView.getZoom();
+  const bankHeight=bankFileStackHeight();
   let x=24;
-  let y=Math.max(8+bankFileStackHeight(),(nodeCanvas.clientHeight/zoom-measurementNode.offsetHeight)/2);
-  if(measurement.position&&Number.isFinite(measurement.position.x)&&Number.isFinite(measurement.position.y)){
+  let y=Math.max(8,(nodeCanvas.clientHeight/zoom-measurementNode.offsetHeight)/2-bankHeight);
+  if(bankFile.position&&Number.isFinite(bankFile.position.x)&&Number.isFinite(bankFile.position.y)){
+    x=bankFile.position.x;
+    y=bankFile.position.y;
+  }else if(measurement.position&&Number.isFinite(measurement.position.x)&&Number.isFinite(measurement.position.y)){
     x=measurement.position.x;
-    y=measurement.position.y;
+    y=Math.max(8,measurement.position.y-bankHeight);
   }
-  positionMeasurementNode(x,y);
-  if(bankFileNode&&!bankFileNode.hidden){
-    const bankPosition=bankFile.position&&Number.isFinite(bankFile.position.x)&&Number.isFinite(bankFile.position.y)
-      ?bankFile.position
-      :{x,y:Math.max(8,y-bankFileStackHeight())};
-    bankFile.position=positionBankFileNode(bankPosition.x,bankPosition.y);
-  }
+  const position=positionSourceStack(x,y);
+  synchronizeSourceStackState(position);
 }
 
 function load(card){
   if(activeCard&&activeCard!==card) setLoadState(activeCard,false);
   activeCard=card;
   setLoadState(activeCard,true);
-  ensureState(card);
+  const state=ensureState(card);
   selectionMode=false;
   selectedIds.clear();
   closeColorMenu();
@@ -184,6 +221,7 @@ function load(card){
   hideEmptyStateAnimated();
   if(bankFileNode) bankFileNode.hidden=false;
   measurementNode.hidden=false;
+  applySourceStackCollapsed(state.nodes.bankFile.collapsed===true);
   activeLineLabel.textContent=card.dataset.lineName||'RAPTOR Line';
   renderFiles();
   requestAnimationFrame(applySourcePositions);
@@ -1180,64 +1218,50 @@ function startReverseWire(event,inputId,handle){
   return true;
 }
 
-function startNodeDrag(event){
-  if(!activeCard||measurementNode.hidden) return;
+function startSourceStackDrag(event,captureTarget){
+  if(!activeCard||!sourceStack||measurementNode.hidden||sourceStack.classList.contains('is-collapsed')) return;
   if(event.button!==undefined&&event.button!==0) return;
-  if(event.target.closest('.measurement-import,.measurement-file-input')) return;
+  if(event.target.closest('.measurement-import,.measurement-file-input,.source-stack-toggle')) return;
   event.preventDefault();
   closePreview();
   closeColorMenu();
   const pointerId=event.pointerId;
-  const grab=workspaceView.grabOffsetLogical(event,measurementNode);
-  measurementNode.style.transform='none';
+  const grab=workspaceView.grabOffsetLogical(event,sourceStack);
+  sourceStack.classList.add('is-dragging');
+  bankFileNode.classList.add('is-dragging');
   measurementNode.classList.add('is-dragging');
-  try{measurementHead.setPointerCapture(pointerId)}catch{}
+  try{captureTarget.setPointerCapture(pointerId)}catch{}
 
   const move=moveEvent=>{
     if(moveEvent.pointerId!==pointerId) return;
     const point=workspaceView.clientToLogical(moveEvent.clientX,moveEvent.clientY);
-    const position=positionMeasurementNode(point.x-grab.x,point.y-grab.y);
-    ensureState(activeCard).nodes.measurement.position=position;
+    const position=positionSourceStack(point.x-grab.x,point.y-grab.y);
+    synchronizeSourceStackState(position);
+    notifySourceStackGeometry();
   };
   const end=endEvent=>{
     if(endEvent.pointerId!==pointerId) return;
+    sourceStack.classList.remove('is-dragging');
+    bankFileNode.classList.remove('is-dragging');
     measurementNode.classList.remove('is-dragging');
     window.removeEventListener('pointermove',move);
     window.removeEventListener('pointerup',end);
     window.removeEventListener('pointercancel',end);
-    try{if(measurementHead.hasPointerCapture(pointerId)) measurementHead.releasePointerCapture(pointerId)}catch{}
+    try{if(captureTarget.hasPointerCapture(pointerId)) captureTarget.releasePointerCapture(pointerId)}catch{}
+    notifySourceStackGeometry();
   };
   window.addEventListener('pointermove',move,{passive:true});
   window.addEventListener('pointerup',end);
   window.addEventListener('pointercancel',end);
 }
 
-function startBankFileDrag(event){
-  if(!activeCard||!bankFileNode||bankFileNode.hidden||!bankFileHead) return;
-  if(event.button!==undefined&&event.button!==0) return;
-  event.preventDefault();
-  const pointerId=event.pointerId;
-  const grab=workspaceView.grabOffsetLogical(event,bankFileNode);
-  bankFileNode.classList.add('is-dragging');
-  try{bankFileHead.setPointerCapture(pointerId)}catch{}
+function startNodeDrag(event){
+  startSourceStackDrag(event,measurementHead);
+}
 
-  const move=moveEvent=>{
-    if(moveEvent.pointerId!==pointerId) return;
-    const point=workspaceView.clientToLogical(moveEvent.clientX,moveEvent.clientY);
-    const position=positionBankFileNode(point.x-grab.x,point.y-grab.y);
-    ensureState(activeCard).nodes.bankFile.position=position;
-  };
-  const end=endEvent=>{
-    if(endEvent.pointerId!==pointerId) return;
-    bankFileNode.classList.remove('is-dragging');
-    window.removeEventListener('pointermove',move);
-    window.removeEventListener('pointerup',end);
-    window.removeEventListener('pointercancel',end);
-    try{if(bankFileHead.hasPointerCapture(pointerId)) bankFileHead.releasePointerCapture(pointerId)}catch{}
-  };
-  window.addEventListener('pointermove',move,{passive:true});
-  window.addEventListener('pointerup',end);
-  window.addEventListener('pointercancel',end);
+function startBankFileDrag(event){
+  if(!bankFileHead||bankFileNode?.hidden) return;
+  startSourceStackDrag(event,bankFileHead);
 }
 
 selectButton.addEventListener('click',()=>{
@@ -1260,6 +1284,14 @@ deleteButton.addEventListener('click',()=>{
 
 measurementHead.addEventListener('pointerdown',startNodeDrag);
 bankFileHead?.addEventListener('pointerdown',startBankFileDrag);
+sourceStackToggle?.addEventListener('pointerdown',event=>event.stopPropagation());
+sourceStackToggle?.addEventListener('click',event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  if(!activeCard) return;
+  const collapsed=!sourceStack.classList.contains('is-collapsed');
+  applySourceStackCollapsed(collapsed,{animate:true});
+});
 
 colorMenu.querySelectorAll('.file-color-choice').forEach(button=>{
   button.addEventListener('click',()=>chooseColor(button.dataset.color));
@@ -1283,6 +1315,9 @@ window.addEventListener('resize',()=>{
 document.addEventListener('raptor:pipelinezoomchange',()=>{
   if(activeCard) requestAnimationFrame(applySourcePositions);
 });
+nodeCanvas.addEventListener('scroll',()=>{
+  if(activeCard&&sourceStack?.classList.contains('is-collapsed')) requestAnimationFrame(applySourcePositions);
+},{passive:true});
 
 function registerMeasurementSource(entry){
   const id=String(entry?.id||'');
@@ -1336,6 +1371,7 @@ window.RaptorPipeline={
   unregisterMeasurementSource,
   getMeasurement,
   getMeasurementCanonical,
+  openMeasurementPreview:openPreview,
   getActiveLine,
   wouldCreateFilterCycle,
   connectSourceToFilter

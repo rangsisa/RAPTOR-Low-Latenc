@@ -42,6 +42,15 @@ for(const entry of entries){
   meta.textContent='FFT '+entry.fftSize+' · to '+compactFrequency(entry.fMax)+' Hz · '+entry.points+' pts';
   info.append(name,meta);
 
+  const preview=document.createElement('button');
+  preview.type='button';
+  preview.className='measurement-preview-button bank-file-preview';
+  preview.textContent='📈';
+  preview.title='Preview '+entry.name;
+  preview.setAttribute('aria-label','Preview Bank File '+entry.name);
+  preview.setAttribute('aria-pressed','false');
+  preview.addEventListener('click',()=>api.openMeasurementPreview?.(preview,entry));
+
   const output=document.createElement('button');
   output.type='button';
   output.className='measurement-output bank-file-output';
@@ -77,7 +86,7 @@ for(const entry of entries){
     })
   });
 
-  row.append(info,output);
+  row.append(info,preview,output);
   list.appendChild(row);
 }
 

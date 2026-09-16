@@ -150,6 +150,16 @@ body .target-export-node{
   color:var(--fa-text);
   box-shadow:var(--fa-shadow-small);
 }
+body .pipeline-source-stack{
+  filter:drop-shadow(0 7px 18px rgba(20,43,31,.11));
+}
+body .pipeline-source-stack .bank-file-node,
+body .pipeline-source-stack .measurement-node{
+  box-shadow:none;
+}
+body.is-pipeline-dark-theme .pipeline-source-stack{
+  filter:drop-shadow(0 9px 23px rgba(0,0,0,.32));
+}
 body .bank-file-head,
 body .measurement-node-head,
 body .xo-filter-node-head,
@@ -231,6 +241,7 @@ body.is-pipeline-dark-theme .measurement-file.bank-file-row.is-wiring{
   background:linear-gradient(90deg,color-mix(in srgb,var(--file-color) 34%,var(--fa-surface-soft)),color-mix(in srgb,var(--fa-orange) 10%,var(--fa-surface)) 92%);
 }
 body .measurement-import,
+body .source-stack-toggle,
 body .measurement-preview-button,
 body .measurement-select,
 body .xo-filter-bypass,

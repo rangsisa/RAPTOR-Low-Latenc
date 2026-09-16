@@ -6,8 +6,8 @@
   <title>RAPTOR FIR</title>
   <link rel="stylesheet" href="./theme.css?v=compact-top-boundary-20260914-1" />
   <link rel="stylesheet" href="./workspace.css?v=welcome-canvas-no-art-20260913-1" />
-  <link rel="stylesheet" href="./pipeline.css?v=static-wire-bank-palette-20260915-1" />
-  <link rel="stylesheet" href="./pipeline-interactions.css?v=compact-measurement-rows-20260912-1" />
+  <link rel="stylesheet" href="./pipeline.css?v=source-stack-dock-20260916-1" />
+  <link rel="stylesheet" href="./pipeline-interactions.css?v=source-stack-dock-20260916-1" />
   <link rel="stylesheet" href="./pipeline-context.css?v=static-wire-bank-palette-20260915-1" />
   <link rel="stylesheet" href="./matching/matching.css?v=chrome-pc-motion-20260915-1" />
   <link rel="stylesheet" href="./editor-foundation.css" />
@@ -33,7 +33,7 @@
     @media(max-height:760px){.workspace-shell{grid-template-rows:minmax(0,1fr)!important}}
   </style>
   <link rel="stylesheet" href="./typography.css?v=independent-bank-reverse-wire-20260914-1" />
-  <link rel="stylesheet" href="./forest-aurora.css?v=forest-aurora-20260915-1" />
+  <link rel="stylesheet" href="./forest-aurora.css?v=source-stack-dock-20260916-1" />
 </head>
 <body>
   <main class="workspace-shell">
@@ -65,40 +65,43 @@
           <div class="pipeline-node-empty" id="pipelineNodeEmpty">Load a RAPTOR Line to open its preset nodes.</div>
           <svg class="pipeline-wire-layer" aria-hidden="true"><path class="pipeline-wire-preview" id="pipelineWirePreview"></path></svg>
 
-          <section class="bank-file-node" id="bankFileNode" data-source-node hidden aria-label="Bank File neutral reference files">
-            <header class="bank-file-head">
-              <div class="bank-file-title">
-                <strong>Bank File</strong>
-                <span>Neutral files</span>
+          <div class="pipeline-source-stack" id="pipelineSourceStack" aria-label="Bank File and Measurement sources">
+            <section class="bank-file-node" id="bankFileNode" data-source-node hidden aria-label="Bank File neutral reference files">
+              <header class="bank-file-head">
+                <div class="bank-file-title">
+                  <strong>Bank File</strong>
+                  <span>Neutral files</span>
+                </div>
+                <button class="source-stack-toggle" id="sourceStackToggle" type="button" aria-expanded="true" aria-label="Collapse source nodes to the left edge" title="Collapse sources">‹</button>
+              </header>
+              <div class="bank-file-list" id="bankFileList"></div>
+              <footer class="bank-file-foot"><span>Neutral reference</span><strong>0° / 0 dB</strong></footer>
+            </section>
+
+            <section class="measurement-node" id="measurementNode" data-source-node hidden>
+              <header class="measurement-node-head">
+                <div class="measurement-node-title">
+                  <strong>Measurement</strong>
+                  <span id="measurementLineLabel">RAPTOR Line</span>
+                </div>
+                <label class="measurement-import" for="measurementFileInput">
+                  <input class="measurement-file-input" id="measurementFileInput" type="file" multiple hidden aria-label="Import measurement files" />
+                  <span class="measurement-import-label" aria-hidden="true">+ Import</span>
+                </label>
+              </header>
+
+              <div class="measurement-summary" id="measurementSummary"><strong>0</strong> measurements</div>
+              <div class="measurement-list" id="measurementList">
+                <div class="measurement-empty">No measurement files imported</div>
               </div>
-            </header>
-            <div class="bank-file-list" id="bankFileList"></div>
-            <footer class="bank-file-foot"><span>Neutral reference</span><strong>0° / 0 dB</strong></footer>
-          </section>
 
-          <section class="measurement-node" id="measurementNode" data-source-node hidden>
-            <header class="measurement-node-head">
-              <div class="measurement-node-title">
-                <strong>Measurement</strong>
-                <span id="measurementLineLabel">RAPTOR Line</span>
-              </div>
-              <label class="measurement-import" for="measurementFileInput">
-                <input class="measurement-file-input" id="measurementFileInput" type="file" multiple hidden aria-label="Import measurement files" />
-                <span class="measurement-import-label" aria-hidden="true">+ Import</span>
-              </label>
-            </header>
-
-            <div class="measurement-summary" id="measurementSummary"><strong>0</strong> measurements</div>
-            <div class="measurement-list" id="measurementList">
-              <div class="measurement-empty">No measurement files imported</div>
-            </div>
-
-            <footer class="measurement-node-foot">
-              <button class="measurement-select" id="measurementSelect" type="button" aria-pressed="false">Select</button>
-              <span class="measurement-count" id="measurementCount">0 files</span>
-              <button class="measurement-delete" id="measurementDelete" type="button" hidden>Delete</button>
-            </footer>
-          </section>
+              <footer class="measurement-node-foot">
+                <button class="measurement-select" id="measurementSelect" type="button" aria-pressed="false">Select</button>
+                <span class="measurement-count" id="measurementCount">0 files</span>
+                <button class="measurement-delete" id="measurementDelete" type="button" hidden>Delete</button>
+              </footer>
+            </section>
+          </div>
         </div>
         <div class="pipeline-canvas-controls" role="group" aria-label="Pipeline workspace view controls">
           <button class="pipeline-canvas-filter-button" id="pipelineCanvasFilterButton" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Add filter at the center of the visible canvas"><span aria-hidden="true">＋</span> Filter</button>
@@ -269,12 +272,12 @@
   <script src="./workspace.js?v=line-name-load-20260903-1"></script>
   <script src="./pipeline-line-scroll.js?v=line-scroll-buttons-20260907-1"></script>
   <script src="./measurement-canonical-v1.js"></script>
-  <script src="./bank-file-source.js?v=static-wire-bank-palette-20260915-1"></script>
+  <script src="./bank-file-source.js?v=source-stack-dock-20260916-1"></script>
   <script src="./crossover-passband-metadata.js?v=xo-safe-range-20260913-1"></script>
   <script src="./crossover-response.js?v=compiled-lr-cache-20260913-1"></script>
   <script src="./pipeline-workspace-theme.js?v=forest-aurora-20260915-1"></script>
-  <script src="./pipeline.js?v=chrome-pc-motion-20260915-1"></script>
-  <script src="./bank-file.js?v=independent-bank-reverse-wire-20260914-1"></script>
+  <script src="./pipeline.js?v=source-stack-dock-20260916-1"></script>
+  <script src="./bank-file.js?v=source-stack-dock-20260916-1"></script>
   <script src="./measurement-import.js?v=native-label-v6-20260908-1"></script>
   <script src="./pipeline-interactions.js"></script>
   <script src="./pipeline-context.js?v=static-wire-bank-palette-20260915-1"></script>
